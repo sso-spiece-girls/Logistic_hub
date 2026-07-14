@@ -153,19 +153,28 @@ document.addEventListener('DOMContentLoaded', function() {
     var loading = document.getElementById('giacenze-loading');
     var empty = document.getElementById('giacenze-empty');
     var searchTimeout = null;
+    var currentPage = 1;
+
+    window.goToPage = function(page) {
+        currentPage = page;
+        doSearch();
+    };
 
 function doSearch() {
         var q = searchInput.value.trim();
         var magazzino = magazzinoSelect.value;
         var gruppi = document.getElementById('giacenze-gruppi').checked;
+        var page = currentPage;
         loading.style.display = 'block';
         content.style.display = 'none';
 
-        fetch('/api/v1/giacenze?q=' + encodeURIComponent(q) + '&magazzino=' + encodeURIComponent(magazzino))
+        var url = '/api/v1/giacenze?q=' + encodeURIComponent(q) + '&magazzino=' + encodeURIComponent(magazzino) + '&page=' + page + '&per_page=100';
+        fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 loading.style.display = 'none';
                 content.style.display = 'block';
+                currentPage = data.page || 1;
                 renderResults(data, q, magazzino, gruppi);
             })
             .catch(function() {
@@ -176,8 +185,11 @@ function doSearch() {
 
     function renderResults(data, q, magazzino, gruppi) {
         if (!tbody) return;
+        var items = data.items || data;
+        var total = data.total || items.length;
+        var pages = data.pages || 1;
         tbody.innerHTML = '';
-        if (data.length === 0) {
+        if (items.length === 0) {
             if (!empty) {
                 var parent = document.getElementById('giacenze-table-container');
                 var newEmpty = document.createElement('div');
@@ -196,7 +208,7 @@ function doSearch() {
         if (gruppi) {
             // Group by prefix before first underscore
             var groups = {};
-            data.forEach(function(g) {
+            items.forEach(function(g) {
                 var pref = (g.codice_articolo || '').split('_')[0] || 'ALTRO';
                 if (!groups[pref]) groups[pref] = {items: [], totColli: 0, totPallet: 0};
                 groups[pref].items.push(g);
@@ -232,8 +244,8 @@ function doSearch() {
                     tbody.appendChild(tr);
                 });
             }
-        } else {
-            data.forEach(function(g) {
+} else {
+            items.forEach(function(g) {
                 var tr = document.createElement('tr');
                 tr.innerHTML =
                     '<td><strong>' + esc(g.codice_articolo) + '</strong></td>' +
@@ -251,6 +263,17 @@ function doSearch() {
                     '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
                 tbody.appendChild(tr);
             });
+        }
+        // Pagination controls
+        if (pages > 1) {
+            var pagRow = document.createElement('tr');
+            pagRow.innerHTML = '<td colspan="10" style="padding:8px 12px;text-align:center">' +
+                '<div style="display:inline-flex;gap:6px;align-items:center">' +
+                (currentPage > 1 ? '<button class="btn btn-sm btn-ghost" onclick="goToPage(' + (currentPage - 1) + ')">Precedente</button>' : '') +
+                '<span style="font-size:.85rem;color:var(--text-muted)">Pagina ' + currentPage + ' di ' + pages + ' (' + total + ' risultati)</span>' +
+                (currentPage < pages ? '<button class="btn btn-sm btn-ghost" onclick="goToPage(' + (currentPage + 1) + ')">Successiva</button>' : '') +
+                '</div></td>';
+            tbody.appendChild(pagRow);
         }
 // Update URL without reload
         var params = new URLSearchParams();

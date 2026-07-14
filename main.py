@@ -78,6 +78,10 @@ def create_app():
             "css_mtime": int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1,
         }
 
+    @app.route("/ping")
+    def ping():
+        return "pong", 200, {"Content-Type": "text/plain"}
+
     @app.after_request
     def add_cache_headers(response):
         if response.content_type and "text/" in response.content_type:

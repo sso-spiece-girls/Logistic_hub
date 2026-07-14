@@ -19,7 +19,7 @@ entrate = Blueprint("entrate", __name__, url_prefix="/entrate")
 @login_required
 def lista():
     stato = request.args.get("stato", "")
-    query = Bolla.query.order_by(Bolla.created_at.desc())
+    query = Bolla.query.options(db.joinedload(Bolla.operatore)).order_by(Bolla.created_at.desc())
     if stato:
         query = query.filter_by(stato=stato)
     bolle = query.all()

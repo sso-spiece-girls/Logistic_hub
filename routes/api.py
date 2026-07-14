@@ -68,9 +68,12 @@ def stats():
 @api.route("/giacenze")
 @login_required
 def giacenze_list():
-    """Lista giacenze con filtro opzionale per codice, descrizione, ubicazione e magazzino (AJAX search)."""
+    """Lista giacenze con filtro opzionale, paginata."""
     q = request.args.get("q", "").strip()
     magazzino = request.args.get("magazzino", "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 100, type=int)
+    per_page = min(per_page, 500)
     query = Giacenza.query
     if q:
         like = f"%{q}%"
@@ -81,19 +84,25 @@ def giacenze_list():
         ))
     if magazzino:
         query = query.filter(Giacenza.magazzino == magazzino)
-    items = query.order_by(Giacenza.codice_articolo).limit(500).all()
-    return jsonify([{
-        "id": g.id,
-        "codice_articolo": g.codice_articolo,
-        "descrizione": g.descrizione,
-        "quantita": g.quantita,
-        "colli": g.colli,
-        "pallet": getattr(g, "pallet", 0),
-        "ubicazione": g.ubicazione,
-        "id_bobina": getattr(g, "id_bobina", None),
-        "peso_kg": getattr(g, "peso_kg", 0),
-        "magazzino": getattr(g, "magazzino", None),
-    } for g in items])
+    pag = query.order_by(Giacenza.codice_articolo).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        "items": [{
+            "id": g.id,
+            "codice_articolo": g.codice_articolo,
+            "descrizione": g.descrizione,
+            "quantita": g.quantita,
+            "colli": g.colli,
+            "pallet": getattr(g, "pallet", 0),
+            "ubicazione": g.ubicazione,
+            "id_bobina": getattr(g, "id_bobina", None),
+            "peso_kg": getattr(g, "peso_kg", 0),
+            "magazzino": getattr(g, "magazzino", None),
+        } for g in pag.items],
+        "page": pag.page,
+        "per_page": pag.per_page,
+        "total": pag.total,
+        "pages": pag.pages,
+    })
 
 
 @api.route("/bolle/recenti")
