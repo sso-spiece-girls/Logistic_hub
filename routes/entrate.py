@@ -114,8 +114,28 @@ def upload_ocr():
     tmp.close()
     try:
         from core.pdf_extractor import leggi_pdf as pdf_leggi_pdf
-        from ocr import estrai_fornitore, estrai_numero_bolla, estrai_data, estrai_righe, estrai_dati
         testo = pdf_leggi_pdf(tmp.name)
+
+        from fornitori import riconosci_fornitore
+        plugin = riconosci_fornitore(testo)
+        if plugin:
+            dati = plugin.parse_bolla(testo)
+            fornitore = plugin.estrai_fornitore(testo)
+            return jsonify({
+                "testo": testo[:2000],
+                "dati": [{
+                    "picking": r.get("descrizione", ""),
+                    "pallet": r.get("pallet", 0),
+                    "colli": r.get("quantita", 0),
+                    "peso_kg": r.get("peso_kg", 0),
+                } for r in dati.get("righe", [])],
+                "fornitore": fornitore,
+                "numero_bolla": dati.get("numero_bolla", ""),
+                "data_arrivo": dati.get("data_arrivo", ""),
+                "righe": dati.get("righe", []),
+            })
+
+        from ocr import estrai_fornitore, estrai_numero_bolla, estrai_data, estrai_righe, estrai_dati
         fornitore = estrai_fornitore(testo)
         return jsonify({
             "testo": testo[:2000],
