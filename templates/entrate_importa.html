@@ -75,10 +75,10 @@
                         <th style="width:5%">#</th>
                         <th style="width:22%">Fornitore</th>
                         <th style="width:15%">N. Bolla</th>
-                        <th style="width:13%">Data</th>
+                        <th style="width:12%">Data</th>
                         <th style="width:10%">Articoli</th>
-                        <th style="width:20%">File</th>
-                        <th style="width:15%">Note</th>
+                        <th style="width:18%">File</th>
+                        <th style="width:18%">Stato</th>
                     </tr>
                 </thead>
                 <tbody id="risultati-body"></tbody>
@@ -100,6 +100,9 @@
 .badge-ok { display:inline-block;background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
 .badge-err { display:inline-block;background:var(--error-bg);color:var(--error);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
 .badge-0 { display:inline-block;background:var(--warning-bg);color:var(--warning);padding:2px 8px;border-radius:10px;font-size:.75rem }
+.badge-doppione { display:inline-block;background:var(--error-bg);color:var(--error);padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;margin-right:4px }
+.btn-danger { background:var(--error);color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:600 }
+.btn-danger:hover { opacity:.85 }
 input.row-edit { border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:.8rem;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text) }
 input.row-edit:focus { border-color:var(--primary-light);outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.15) }
 </style>
@@ -151,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var idx = parseInt(rows[i].dataset.idx);
             var bd = bolleResults[idx];
             if (!bd) continue;
+            if (bd._skippato) continue;
             data.push({
                 fornitore: fornitore,
                 numero_bolla: nBolla,
@@ -168,6 +172,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         document.getElementById('hidden-bolle-json').value = JSON.stringify(data);
     });
+
+    window.rimuoviRiga = function(idx) {
+        var bd = bolleResults[idx];
+        if (!bd) return;
+        bd._skippato = true;
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            if (parseInt(rows[i].dataset.idx) === idx) {
+                rows[i].style.display = 'none';
+                var detail = document.getElementById('detail-' + idx);
+                if (detail) detail.style.display = 'none';
+                break;
+            }
+        }
+        aggiornaConteggio();
+    };
+
+    function aggiornaConteggio() {
+        var visibili = 0;
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].style.display !== 'none' && rows[i].querySelectorAll('input.row-edit').length > 0) {
+                visibili++;
+            }
+        }
+        document.getElementById('review-title').textContent = visibili + ' documenti elaborati — rivedi e conferma';
+    }
 
     function stopOcrProgress() {
         if (ocrTimer) { clearInterval(ocrTimer); ocrTimer = null; }
@@ -256,14 +287,19 @@ document.addEventListener('DOMContentLoaded', function() {
             var badgeClass = nRighe > 0 ? 'badge-ok' : 'badge-0';
             var badgeText = nRighe > 0 ? nRighe + ' righe' : '0';
             var dataVal = r.data_arrivo || '';
+            var duplicatoHtml = '';
+            if (r.duplicato) {
+                duplicatoHtml = '<span class="badge-doppione" title="Bolla gi\u00e0 presente">\u26A0\uFE0F DOPPIONE</span> ' +
+                    '<button type="button" class="btn btn-sm btn-danger" onclick="rimuoviRiga(' + i + ')" title="Elimina questa bolla">\u2716</button>';
+            }
             tr.innerHTML =
                 '<td style="text-align:center;font-weight:600;color:var(--text-muted)">' + (i + 1) + '</td>' +
                 '<td><input type="text" class="row-edit" value="' + (r.fornitore || '').replace(/"/g,'&quot;') + '" placeholder="Fornitore"></td>' +
                 '<td><input type="text" class="row-edit" value="' + (r.numero_bolla || '').replace(/"/g,'&quot;') + '" placeholder="N. bolla"></td>' +
                 '<td><input type="date" class="row-edit" value="' + dataVal + '"></td>' +
                 '<td style="text-align:center"><span class="' + badgeClass + '">' + badgeText + '</span></td>' +
-                '<td style="font-size:.75rem;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
-                '<td><button type="button" class="btn btn-sm btn-outline" onclick="toggleRighe(' + i + ')">Dettaglio</button></td>';
+                '<td style="font-size:.75rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
+                '<td style="text-align:center;white-space:nowrap">' + duplicatoHtml + ' <button type="button" class="btn btn-sm btn-outline" onclick="toggleRighe(' + i + ')">Dettaglio</button></td>';
             risultatiBody.appendChild(tr);
 
             // Hidden details row

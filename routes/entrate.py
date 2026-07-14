@@ -174,6 +174,7 @@ def upload_ocr():
     import uuid
     import os as _os
     from time import sleep
+    from models import Bolla
     files = request.files.getlist("file_pdf") or [request.files.get("file_pdf")]
     files = [f for f in files if f and f.filename]
     if not files:
@@ -191,6 +192,19 @@ def upload_ocr():
             res = _processa_un_pdf(dest)
             res["filename"] = file.filename
             res["_temp_id"] = saved_id
+            # Controllo duplicato per numero_bolla + fornitore
+            n_bolla = (res.get("numero_bolla") or "").strip()
+            fornitore = (res.get("fornitore") or "").strip()
+            if n_bolla and fornitore:
+                esistente = Bolla.query.filter_by(numero_bolla=n_bolla, fornitore=fornitore).first()
+                if esistente:
+                    res["duplicato"] = True
+                    res["bolla_esistente"] = {
+                        "id": esistente.id,
+                        "numero_bolla": esistente.numero_bolla,
+                        "data_arrivo": str(esistente.data_arrivo or ""),
+                        "fornitore": esistente.fornitore
+                    }
             risultati.append(res)
         except Exception as e:
             risultati.append({"filename": file.filename, "error": str(e)})
