@@ -57,6 +57,7 @@
         </div>
 
         <input type="hidden" name="righe_json" id="righe-json">
+        {% if righe_json %}<script id="righe-json-initial" type="application/json">{{ righe_json|safe }}</script>{% endif %}
 
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -131,6 +132,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-add-riga').addEventListener('click', function() {
         addRiga({descrizione: '', pallet: 0, quantita: 1, unita_misura: 'colli', peso_kg: 0});
     });
+
+    // Pre-carica righe esistenti in modifica
+    var righeJsonEl = document.getElementById('righe-json-initial');
+    if (righeJsonEl) {
+        try {
+            var righe = JSON.parse(righeJsonEl.textContent);
+            righe.forEach(function(r) { addRiga(r); });
+        } catch(e) {}
+    }
 
     var fileInput = document.getElementById('campo-pdf');
     if (!fileInput) return;

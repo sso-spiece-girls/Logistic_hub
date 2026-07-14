@@ -167,13 +167,95 @@ def modifica(id):
         bolla.data_arrivo = form.data_arrivo.data
         bolla.stato = form.stato.data
         bolla.note = form.note.data
+
+        import json
+        from datetime import datetime, timezone
+
+        # Carica righe dal form
+        try:
+            righe_json = request.form.get("righe_json", "[]")
+            righe_data = json.loads(righe_json)
+        except (json.JSONDecodeError, TypeError):
+            righe_data = []
+
+        # Rileva righe rimosse: annulla le relative giacenze e movimenti
+        vecchie_righe = {r.id for r in bolla.righe}
+        nuovi_codici = {r.get("descrizione", "").strip() for r in righe_data if r.get("descrizione", "").strip()}
+
+        for vecchia in list(bolla.righe):
+            if vecchia.articolo_codice not in nuovi_codici:
+                giac = Giacenza.query.filter_by(codice_articolo=vecchia.articolo_codice).first()
+                if giac:
+                    giac.colli = max(0, (giac.colli or 0) - (vecchia.quantita_colli or 0))
+                    giac.peso_kg = max(0, (giac.peso_kg or 0) - (vecchia.peso_kg or 0))
+                    giac.updated_by = current_user.id
+                Movimento.query.filter_by(riferimento_id=bolla.id, riferimento_tipo="bolla",
+                    articolo_codice=vecchia.articolo_codice).delete()
+                db.session.delete(vecchia)
+
+        # Salva nuove righe
+        for r in righe_data:
+            art_codice = r.get("descrizione", "").strip()
+            if not art_codice:
+                continue
+            riga = DettaglioBolla(
+                bolla_id=bolla.id,
+                articolo_codice=art_codice,
+                descrizione=art_codice,
+                quantita_colli=int(r.get("quantita", 1)),
+                quantita_pallet=int(r.get("pallet", 0)),
+                peso_kg=float(r.get("peso_kg", 0)),
+            )
+            db.session.add(riga)
+
+            giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
+            if giac:
+                giac.colli = (giac.colli or 0) + int(r.get("quantita", 1))
+                giac.peso_kg = (giac.peso_kg or 0) + float(r.get("peso_kg", 0))
+                giac.updated_by = current_user.id
+            else:
+                giac = Giacenza(
+                    codice_articolo=art_codice,
+                    descrizione=art_codice,
+                    colli=int(r.get("quantita", 1)),
+                    pallet=int(r.get("pallet", 0)),
+                    peso_kg=float(r.get("peso_kg", 0)),
+                    updated_by=current_user.id,
+                )
+                db.session.add(giac)
+
+            mov = Movimento(
+                tipo="ingresso",
+                articolo_codice=art_codice,
+                descrizione=art_codice,
+                colli=int(r.get("quantita", 1)),
+                pallet=int(r.get("pallet", 0)),
+                peso_kg=float(r.get("peso_kg", 0)),
+                riferimento_id=bolla.id,
+                riferimento_tipo="bolla",
+                user_id=current_user.id,
+                note=f"Bolla {form.numero_bolla.data} - {form.fornitore.data}",
+            )
+            db.session.add(mov)
+
         db.session.commit()
         log_activity(current_user.id, "modifica_bolla",
             f"{current_user.username} ha modificato la bolla {bolla.numero_bolla}",
             "bolla", bolla.id)
         flash("Bolla aggiornata con successo.", "success")
         return redirect(url_for("entrate.dettaglio", id=bolla.id))
-    return render_template("entrate_form.html", form=form, titolo="Modifica Bolla", bolla=bolla)
+
+    # Passa righe esistenti come JSON al template
+    righe_json = json.dumps([{
+        "descrizione": r.articolo_codice or r.descrizione or "",
+        "pallet": r.quantita_pallet or 0,
+        "quantita": r.quantita_colli or 1,
+        "unita_misura": "colli",
+        "peso_kg": r.peso_kg or 0,
+    } for r in bolla.righe])
+
+    return render_template("entrate_form.html", form=form, titolo="Modifica Bolla", bolla=bolla,
+        righe_json=righe_json)
 
 
 @entrate.route("/bolla/<int:id>/elimina", methods=["POST"])
