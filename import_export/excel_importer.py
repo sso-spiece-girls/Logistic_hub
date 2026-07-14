@@ -17,7 +17,13 @@ def importa_excel_cliente(id_cliente, excel_path):
     fn = importers.get(id_cliente)
     if not fn:
         raise ValueError(f"Nessun import registrato per il cliente '{id_cliente}'")
-    return fn(excel_path)
+    stats = fn(excel_path)
+    # Fallback: se nessuna giacenza importata, prova formato riepilogo
+    if id_cliente == "soffas" and stats.get("giacenze_inserite", 0) == 0 and stats.get("giacenze_aggiornate", 0) == 0:
+        stats2 = _import_soffas_riepilogo(excel_path)
+        stats["giacenze_inserite"] += stats2.get("giacenze_inserite", 0)
+        stats["giacenze_aggiornate"] += stats2.get("giacenze_aggiornate", 0)
+    return stats
 
 
 def _upsert(codice, descrizione, quantita=0, colli=0, pallet=0, stats=None):
@@ -194,6 +200,24 @@ def _import_das(excel_path):
             db.session.commit()
             wb.close()
             return stats
+
+
+def _import_soffas_riepilogo(excel_path):
+    """Formato riepilogo: foglio 'Giacenze' con colonne
+    [Codice Articolo, Descrizione, Colli Totali, Peso Totale, Pallet Totali, ...]"""
+    wb = load_workbook(excel_path, data_only=True)
+    stats = {"giacenze_inserite": 0, "giacenze_aggiornate": 0}
+    ws = wb.active
+    for r in range(2, ws.max_row + 1):
+        codice = ws.cell(row=r, column=1).value
+        desc = ws.cell(row=r, column=2).value
+        pallet = _n(ws.cell(row=r, column=5).value)
+        if codice and desc:
+            _upsert(f"SOFFAS_{codice}", f"SOFFAS {desc}",
+                    quantita=pallet, pallet=int(pallet), stats=stats)
+    db.session.commit()
+    wb.close()
+    return stats
 
     # FILE DEPOSITO → fogli mensili
     for sname in snames:
