@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask
+from flask_compress import Compress
 from extensions import db, login_manager
 from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
@@ -28,6 +29,7 @@ from config import Config
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    Compress(app)
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(app.config["BACKUP_FOLDER"], exist_ok=True)
@@ -75,6 +77,12 @@ def create_app():
             "unread_count": unread_count,
             "css_mtime": int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1,
         }
+
+    @app.after_request
+    def add_cache_headers(response):
+        if response.content_type and "text/" in response.content_type:
+            response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     return app
 

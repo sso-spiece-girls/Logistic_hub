@@ -2,6 +2,9 @@
 {% block title %}Entrate{% endblock %}
 {% block breadcrumb_title %}Bolle{% endblock %}
 {% block content %}
+<style>
+.badge-doppione { display:inline-block;background:var(--error-bg);color:var(--error);padding:1px 6px;border-radius:8px;font-size:.65rem;font-weight:700;vertical-align:middle;margin-left:4px }
+</style>
 <div class="page-header">
     <div>
         <h1 class="page-title">Entrate</h1>
@@ -42,7 +45,7 @@
         <tbody>
             {% for b in bolle %}
             <tr>
-                <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a></td>
+                <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a>{% if (b.numero_bolla, b.fornitore) in duplicati %} <span class="badge-doppione">DOPPIONE</span>{% endif %}</td>
                 <td>{{ b.fornitore }}</td>
                 <td>{{ b.data_arrivo.strftime('%d/%m/%Y') if b.data_arrivo else '-' }}</td>
                 <td><span class="status-badge status-{{ b.stato }} status-inline" data-entity="bolle" data-id="{{ b.id }}" data-stato="{{ b.stato }}" role="button" tabindex="0">{{ b.stato_label }}</span></td>
