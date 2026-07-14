@@ -206,13 +206,96 @@ def modifica(id):
     form = DDTForm(obj=ddt)
     if form.validate_on_submit():
         form.populate_obj(ddt)
+        ddt.provenienza = request.form.get("provenienza", "")
+        ddt.vettore = request.form.get("vettore", "")
+        ddt.causale_trasporto = request.form.get("causale_trasporto", "Vendita")
+
+        # Carica righe dal form
+        try:
+            righe_json = request.form.get("righe_json", "[]")
+            righe_data = json.loads(righe_json)
+        except (json.JSONDecodeError, TypeError):
+            righe_data = []
+
+        # Annulla giacenze e movimenti delle vecchie righe
+        for vecchia in list(ddt.righe):
+            giac = Giacenza.query.filter_by(codice_articolo=vecchia.articolo_codice).first()
+            if giac:
+                giac.colli = (giac.colli or 0) + (vecchia.quantita_colli or 0)
+                giac.peso_kg = (giac.peso_kg or 0) + (vecchia.peso_kg or 0)
+                giac.updated_by = current_user.id
+            Movimento.query.filter_by(riferimento_id=ddt.id, riferimento_tipo="ddt",
+                articolo_codice=vecchia.articolo_codice).delete()
+            db.session.delete(vecchia)
+
+        # Salva nuove righe
+        for r in righe_data:
+            art_codice = r.get("articolo_codice", "").strip()
+            if not art_codice:
+                continue
+            riga = RigheDDT(
+                ddt_id=ddt.id,
+                articolo_codice=art_codice,
+                descrizione=r.get("descrizione", ""),
+                quantita_colli=int(r.get("quantita_colli", 0)),
+                quantita_pallet=int(r.get("quantita_pallet", 0)),
+                peso_kg=float(r.get("peso_kg", 0)),
+                ubicazione=r.get("ubicazione", ""),
+            )
+            db.session.add(riga)
+
+            giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
+            if giac:
+                colli = int(r.get("quantita_colli", 0))
+                if colli > 0 and giac.colli >= colli:
+                    giac.colli -= colli
+                peso = float(r.get("peso_kg", 0))
+                if peso > 0 and (giac.peso_kg or 0) >= peso:
+                    giac.peso_kg = (giac.peso_kg or 0) - peso
+                giac.updated_by = current_user.id
+
         db.session.commit()
+
+        # Rigenera PDF
+        try:
+            pdf_bytes = genera_ddt_pdf({
+                "numero_ddt": ddt.numero_ddt,
+                "data": ddt.data_creazione.strftime("%d/%m/%Y"),
+                "cliente": ddt.cliente,
+                "destinatario": ddt.destinatario or ddt.cliente,
+                "vettore": request.form.get("vettore", ""),
+                "causale_trasporto": request.form.get("causale_trasporto", "Vendita"),
+                "provenienza": request.form.get("provenienza", ""),
+            }, righe_data)
+            pdf_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "docs")
+            os.makedirs(pdf_dir, exist_ok=True)
+            pdf_filename = f"DDT_{ddt.numero_ddt.replace('/', '_')}.pdf"
+            pdf_path = os.path.join(pdf_dir, pdf_filename)
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_bytes)
+            ddt.filename_pdf = pdf_path
+            db.session.commit()
+        except Exception:
+            pass
+
         log_activity(current_user.id, "modifica_ddt",
             f"{current_user.username} ha modificato il DDT {ddt.numero_ddt}",
             "ddt", ddt.id)
         flash("DDT aggiornato con successo.", "success")
         return redirect(url_for("uscite.dettaglio", id=ddt.id))
-    return render_template("uscite_form.html", form=form, titolo="Modifica DDT", ddt=ddt)
+
+    # Passa righe esistenti come JSON al template
+    righe_json = json.dumps([{
+        "articolo_codice": r.articolo_codice or "",
+        "descrizione": r.descrizione or "",
+        "quantita_colli": r.quantita_colli or 1,
+        "quantita_pallet": r.quantita_pallet or 0,
+        "peso_kg": r.peso_kg or 0,
+        "ubicazione": r.ubicazione or "",
+    } for r in ddt.righe])
+
+    return render_template("uscite_form.html", form=form, titolo="Modifica DDT", ddt=ddt,
+        righe_json=righe_json)
 
 
 @uscite.route("/ddt/<int:id>/elimina", methods=["POST"])

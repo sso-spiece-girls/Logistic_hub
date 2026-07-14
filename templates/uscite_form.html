@@ -64,6 +64,7 @@
         </div>
 
         <input type="hidden" name="righe_json" id="righe-json">
+        {% if righe_json %}<script id="righe-json-initial" type="application/json">{{ righe_json|safe }}</script>{% endif %}
         <input type="hidden" name="provenienza" id="hidden-provenienza" value="{{ form.provenienza.data or '' }}">
         <input type="hidden" name="vettore" id="hidden-vettore" value="">
         <input type="hidden" name="causale_trasporto" id="hidden-causale" value="{{ form.causale_trasporto.data or 'Vendita' }}">
@@ -176,6 +177,17 @@ window.aggiungiArticolo = function(codice, descrizione, colli, pallet, peso, ubi
 };
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Pre-carica righe esistenti in modifica
+    var righeJsonEl = document.getElementById('righe-json-initial');
+    if (righeJsonEl) {
+        try {
+            var righe = JSON.parse(righeJsonEl.textContent);
+            righe.forEach(function(r) {
+                aggiungiArticolo(r.articolo_codice, r.descrizione, r.quantita_colli, r.quantita_pallet, r.peso_kg, r.ubicazione);
+            });
+        } catch(e) {}
+    }
+
     var searchInput = document.getElementById('articolo-search');
     var resultsDiv = document.getElementById('articolo-results');
 
