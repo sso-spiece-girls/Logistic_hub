@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Importa Excel Clienti{% endblock %}
+{% block breadcrumb_title %}Importa Excel{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Importa Excel Clienti</h1>
+    <p class="page-subtitle">Carica un file Excel esistente per aggiornare le giacenze nel database</p>
+</div>
+
+<div class="clienti-grid">
+{% for p in plugins %}
+    <div class="card cliente-card">
+        <div class="card-body">
+            <div class="cliente-header">
+                <div class="cliente-avatar">{{ p.nome[:2] }}</div>
+                <div>
+                    <h3 class="cliente-nome">{{ p.nome }}</h3>
+                    <span class="cliente-id">ID: {{ p.id }}</span>
+                </div>
+            </div>
+            <div class="cliente-actions">
+                <form method="POST" action="{{ url_for('clienti.esegui_import_excel', id_cliente=p.id) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.5rem;width:100%">
+                    <input type="file" name="excel_file" accept=".xlsx" required class="form-input" style="font-size:0.8rem;padding:0.4rem">
+                    <button type="submit" class="btn btn-primary cliente-btn">Importa Excel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

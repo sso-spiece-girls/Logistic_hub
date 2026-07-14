@@ -250,6 +250,48 @@ def elimina_riga(id_cliente):
         return jsonify({"error": str(e)}), 500
 
 
+@clienti.route("/importa-excel")
+@login_required
+def import_excel():
+    """Pagina per selezionare cliente e importare Excel."""
+    plugins = client_loader.get_all_plugins()
+    return render_template("clienti/importa_excel.html", plugins=plugins)
+
+
+@clienti.route("/<id_cliente>/importa-excel", methods=["POST"])
+@login_required
+def esegui_import_excel(id_cliente):
+    """Importa un file Excel per il cliente, aggiornando le giacenze."""
+    plugin = client_loader.get_plugin(id=id_cliente)
+    if not plugin:
+        flash("Cliente non trovato.", "error")
+        return redirect(url_for("clienti.elenco"))
+
+    f = request.files.get("excel_file")
+    if not f or not f.filename:
+        flash("Nessun file selezionato.", "error")
+        return redirect(url_for("clienti.import_excel"))
+
+    if not f.filename.lower().endswith(".xlsx"):
+        flash("Il file deve essere in formato .xlsx", "error")
+        return redirect(url_for("clienti.import_excel"))
+
+    upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "excel_import", id_cliente)
+    os.makedirs(upload_dir, exist_ok=True)
+    path_excel = os.path.join(upload_dir, secure_filename(f.filename))
+    f.save(path_excel)
+
+    try:
+        from import_export.excel_importer import importa_excel_cliente
+        stats = importa_excel_cliente(id_cliente, path_excel)
+        flash(f"Importato: {stats.get('giacenze_inserite', 0)} giacenze inserite, {stats.get('giacenze_aggiornate', 0)} aggiornate.", "success")
+    except Exception as e:
+        flash(f"Errore importazione: {str(e)}", "error")
+        current_app.logger.exception(f"Import Excel fallito per {id_cliente}")
+
+    return redirect(url_for("clienti.dettaglio", id_cliente=id_cliente))
+
+
 @clienti.route("/<id_cliente>/aggiungi-riga", methods=["POST"])
 @login_required
 def aggiungi_riga(id_cliente):
