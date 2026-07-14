@@ -83,7 +83,15 @@ def create_app():
 
 def seed_admin(app):
     with app.app_context():
-        if not User.query.filter_by(username="admin").first():
+        # Rinomina vecchio utente "admin" in "Francesco" se esiste ancora
+        vecchio = User.query.filter_by(username="admin").first()
+        if vecchio:
+            vecchio.username = "Francesco"
+            vecchio.email = os.environ.get("ADMIN_EMAIL", "francesco@logistichub.local")
+            db.session.commit()
+            print("Utente admin rinominato in Francesco.")
+
+        if not User.query.filter_by(username="Francesco").first():
             pwd = os.environ.get("ADMIN_PASSWORD", "")
             if not pwd:
                 import secrets
@@ -91,14 +99,14 @@ def seed_admin(app):
                 print(f"[ATTENZIONE] ADMIN_PASSWORD non impostata. Password generata: {pwd}")
                 print("[ATTENZIONE] Imposta la variabile d'ambiente ADMIN_PASSWORD per fissarla.")
             admin = User(
-                username="admin",
-                email=os.environ.get("ADMIN_EMAIL", "admin@logistichub.local"),
+                username="Francesco",
+                email=os.environ.get("ADMIN_EMAIL", "francesco@logistichub.local"),
                 role="admin",
             )
             admin.set_password(pwd)
             db.session.add(admin)
             db.session.commit()
-            print("Utente admin creato.")
+            print("Utente Francesco creato.")
 
 
 app = create_app()

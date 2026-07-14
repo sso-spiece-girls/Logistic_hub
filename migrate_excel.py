@@ -80,7 +80,7 @@ def migrate(excel_path, db_path=None, sheet_name="GIACENZA", force=False):
             print(f"[ERRORE] Colonna 'COD. ARTICOLO' non trovata. Header: {header}")
             return
 
-        user = User.query.filter_by(username="admin").first()
+        user = User.query.filter_by(username="Francesco").first()
         user_id = user.id if user else None
 
         importate = 0

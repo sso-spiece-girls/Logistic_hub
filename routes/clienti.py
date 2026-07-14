@@ -33,10 +33,12 @@ def dettaglio(id_cliente):
     excel_dir = _get_excel_dir()
     excel_path = os.path.join(excel_dir, f"{id_cliente}.xlsx")
     ddt_importati = []
+    header_row = []
     if os.path.exists(excel_path):
         from openpyxl import load_workbook
         wb = load_workbook(excel_path)
         ws = wb.active
+        header_row = [c.value for c in ws[1]] if ws.max_row > 0 else []
         for row in ws.iter_rows(min_row=2, values_only=True):
             ddt_importati.append(row)
         wb.close()
@@ -45,6 +47,7 @@ def dettaglio(id_cliente):
         "clienti/dettaglio.html",
         plugin=plugin,
         ddt_importati=ddt_importati,
+        header_row=header_row,
         excel_path=excel_path,
     )
 
@@ -159,3 +162,112 @@ def scarica_excel(id_cliente):
     download_path = os.path.join(excel_dir, f"DDT_{plugin.nome.replace(' ', '_')}_{datetime.now().strftime('%Y%m')}.xlsx")
     shutil.copy2(excel_path, download_path)
     return send_file(download_path, as_attachment=True, download_name=os.path.basename(download_path))
+
+
+def _modifica_excel(excel_path, row_index, nuovi_valori):
+    """Modifica una riga nell'Excel (row_index 0-based, riga 2+ del foglio)."""
+    from openpyxl import load_workbook
+    wb = load_workbook(excel_path)
+    ws = wb.active
+    excel_row = row_index + 2
+    for col_idx, val in enumerate(nuovi_valori, start=1):
+        ws.cell(row=excel_row, column=col_idx, value=val)
+    wb.save(excel_path)
+    wb.close()
+
+
+def _elimina_excel(excel_path, row_index):
+    """Elimina una riga dall'Excel (row_index 0-based, riga 2+ del foglio)."""
+    from openpyxl import load_workbook
+    wb = load_workbook(excel_path)
+    ws = wb.active
+    excel_row = row_index + 2
+    ws.delete_rows(excel_row)
+    wb.save(excel_path)
+    wb.close()
+
+
+def _aggiungi_excel(excel_path, nuovi_valori):
+    """Aggiunge una riga in coda all'Excel."""
+    from openpyxl import load_workbook
+    wb = load_workbook(excel_path)
+    ws = wb.active
+    ws.append(nuovi_valori)
+    wb.save(excel_path)
+    wb.close()
+
+
+@clienti.route("/<id_cliente>/modifica-riga", methods=["POST"])
+@login_required
+def modifica_riga(id_cliente):
+    plugin = client_loader.get_plugin(id=id_cliente)
+    if not plugin:
+        return jsonify({"error": "Cliente non trovato"}), 404
+
+    data = request.get_json(silent=True) or {}
+    row_index = data.get("row_index")
+    nuovi_valori = data.get("valori")
+
+    if row_index is None or not isinstance(nuovi_valori, list):
+        return jsonify({"error": "Parametri mancanti"}), 400
+
+    excel_dir = _get_excel_dir()
+    excel_path = os.path.join(excel_dir, f"{id_cliente}.xlsx")
+    if not os.path.exists(excel_path):
+        return jsonify({"error": "Nessun dato da modificare"}), 404
+
+    try:
+        _modifica_excel(excel_path, row_index, nuovi_valori)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@clienti.route("/<id_cliente>/elimina-riga", methods=["POST"])
+@login_required
+def elimina_riga(id_cliente):
+    plugin = client_loader.get_plugin(id=id_cliente)
+    if not plugin:
+        return jsonify({"error": "Cliente non trovato"}), 404
+
+    data = request.get_json(silent=True) or {}
+    row_index = data.get("row_index")
+
+    if row_index is None:
+        return jsonify({"error": "Parametri mancanti"}), 400
+
+    excel_dir = _get_excel_dir()
+    excel_path = os.path.join(excel_dir, f"{id_cliente}.xlsx")
+    if not os.path.exists(excel_path):
+        return jsonify({"error": "Nessun dato da eliminare"}), 404
+
+    try:
+        _elimina_excel(excel_path, row_index)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@clienti.route("/<id_cliente>/aggiungi-riga", methods=["POST"])
+@login_required
+def aggiungi_riga(id_cliente):
+    plugin = client_loader.get_plugin(id=id_cliente)
+    if not plugin:
+        return jsonify({"error": "Cliente non trovato"}), 404
+
+    data = request.get_json(silent=True) or {}
+    nuovi_valori = data.get("valori")
+
+    if not isinstance(nuovi_valori, list):
+        return jsonify({"error": "Parametri mancanti"}), 400
+
+    excel_dir = _get_excel_dir()
+    excel_path = os.path.join(excel_dir, f"{id_cliente}.xlsx")
+    if not os.path.exists(excel_path):
+        return jsonify({"error": "Nessun file Excel"}), 404
+
+    try:
+        _aggiungi_excel(excel_path, nuovi_valori)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
