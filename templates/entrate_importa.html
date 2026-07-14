@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Importa Bolla{% endblock %}
-{% block breadcrumb_title %}Importa Bolla{% endblock %}
+{% block title %}Importa Bolle{% endblock %}
+{% block breadcrumb_title %}Importa Bolle{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Importa Bolla</h1>
-        <p class="page-subtitle">Carica un PDF e i dati verranno estratti automaticamente</p>
+        <h1 class="page-title">Importa Bolle</h1>
+        <p class="page-subtitle">Carica uno o più PDF — i dati verranno estratti automaticamente</p>
     </div>
 </div>
 
@@ -19,12 +19,11 @@
                 <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
         </div>
-        <div class="upload-zone-title">Trascina il PDF qui oppure clicca per selezionare</div>
-        <div class="upload-zone-hint">Solo file PDF — massimo 10MB</div>
-        <input type="file" id="file-input" accept=".pdf,application/pdf" style="display:none">
+        <div class="upload-zone-title">Trascina i PDF qui oppure clicca per selezionare</div>
+        <div class="upload-zone-hint">Seleziona più file tenendo premuto Ctrl — Solo PDF — max 10MB ciascuno</div>
+        <input type="file" id="file-input" accept=".pdf,application/pdf" style="display:none" multiple>
     </div>
 
-    <!-- Unified loading card: replaces old file-info + ocr-loading -->
     <div id="ocr-loading" class="loading-card" style="display:none">
         <div class="loading-card-header">
             <div class="loading-card-icon">
@@ -42,7 +41,7 @@
         </div>
         <div class="progress-indeterminate"></div>
         <div class="loading-card-footer">
-            <span class="loading-status" id="ocr-status-text">Lettura del documento in corso...</span>
+            <span class="loading-status" id="ocr-status-text">Elaborazione documenti in corso...</span>
             <span class="loading-timer" id="ocr-timer"></span>
         </div>
     </div>
@@ -58,79 +57,52 @@
     </div>
 </div>
 
-<!-- STEP 2: Review -->
+<!-- STEP 2: Review results table -->
 <div class="form-card" id="step-review" style="display:none">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span style="font-weight:600;color:#16a34a">Dati estratti dal PDF — rivedi e conferma</span>
+        <span style="font-weight:600;color:#16a34a" id="review-title">Dati estratti — rivedi e conferma</span>
     </div>
 
-    <form id="form-conferma" method="POST" action="/entrate/conferma-importa">
+    <form id="form-conferma-multi" method="POST" action="/entrate/conferma-importa-multi">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="file_pdf_base64" id="hidden-file-data">
+        <input type="hidden" name="bolle_json" id="hidden-bolle-json">
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="rev-fornitore">Fornitore</label>
-                <input type="text" name="fornitore" id="rev-fornitore" class="form-input" required>
-            </div>
-            <div class="form-group">
-                <label for="rev-numero-bolla">Numero Bolla</label>
-                <input type="text" name="numero_bolla" id="rev-numero-bolla" class="form-input" required>
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="rev-data">Data Arrivo</label>
-                <input type="date" name="data_arrivo" id="rev-data" class="form-input">
-            </div>
-            <div class="form-group">
-                <label for="rev-stato">Stato</label>
-                <select name="stato" id="rev-stato" class="form-input">
-                    <option value="da_elaborare">Da elaborare</option>
-                    <option value="in_lavorazione">In lavorazione</option>
-                    <option value="completata">Completata</option>
-                </select>
-            </div>
-        </div>
-        <div class="form-group">
-            <label for="rev-note">Note</label>
-            <textarea name="note" id="rev-note" class="form-input form-textarea" rows="2" placeholder="Note opzionali..."></textarea>
+        <div class="table-responsive">
+            <table id="table-risultati">
+                <thead>
+                    <tr>
+                        <th style="width:5%">#</th>
+                        <th style="width:22%">Fornitore</th>
+                        <th style="width:15%">N. Bolla</th>
+                        <th style="width:13%">Data</th>
+                        <th style="width:10%">Articoli</th>
+                        <th style="width:20%">File</th>
+                        <th style="width:15%">Note</th>
+                    </tr>
+                </thead>
+                <tbody id="risultati-body"></tbody>
+            </table>
         </div>
 
-        <!-- Righe estratte -->
-        <div style="margin-top:16px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <label style="font-weight:600;margin:0">Articoli estratti</label>
-                <button type="button" class="btn btn-sm btn-outline" id="btn-add-riga">+ Aggiungi riga</button>
-            </div>
-            <div class="table-responsive">
-                <table id="table-righe">
-                    <thead>
-                        <tr>
-                            <th style="width:30%">Descrizione</th>
-                            <th style="width:12%">Pallet</th>
-                            <th style="width:12%">Quantità</th>
-                            <th style="width:12%">U.M.</th>
-                            <th style="width:14%">Peso (kg)</th>
-                            <th style="width:10%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="righe-body">
-                    </tbody>
-                </table>
-            </div>
-            <div id="no-righe" style="text-align:center;color:#64748b;padding:16px;font-size:.85rem">
-                Nessuna riga estratta dal PDF
-            </div>
+        <div id="no-risultati" style="text-align:center;color:#64748b;padding:24px;font-size:.9rem;display:none">
+            Nessun dato estratto dai PDF caricati
         </div>
 
         <div class="form-actions" style="margin-top:20px">
             <button type="button" class="btn btn-ghost" id="btn-back-upload">Indietro</button>
-            <button type="submit" class="btn btn-primary">Salva Bolla</button>
+            <button type="submit" class="btn btn-primary" id="btn-importa-tutto">Importa Tutte</button>
         </div>
     </form>
 </div>
+
+<style>
+.badge-ok { display:inline-block;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-err { display:inline-block;background:#fef2f2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-0 { display:inline-block;background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:10px;font-size:.75rem }
+input.row-edit { border:1px solid #e2e8f0;border-radius:4px;padding:4px 6px;font-size:.8rem;width:100%;box-sizing:border-box }
+input.row-edit:focus { border-color:#3b82f6;outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.15) }
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -140,22 +112,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var ocrError = document.getElementById('ocr-error');
     var stepUpload = document.getElementById('step-upload');
     var stepReview = document.getElementById('step-review');
-    var righeBody = document.getElementById('righe-body');
-    var noRighe = document.getElementById('no-righe');
-    var selectedFile = null;
+    var risultatiBody = document.getElementById('risultati-body');
+    var noRisultati = document.getElementById('no-risultati');
     var ocrTimer = null;
-    var ocrStatusCycle = null;
     var ocrStartTime = null;
-    var statusMessages = [
-        'Lettura del documento in corso...',
-        'Analisi del contenuto...',
-        'Riconoscimento testo in corso...',
-        'Estrazione dati strutturati...',
-        'Preparazione risultati...'
-    ];
-    var statusIndex = 0;
+    var bolleResults = [];
 
-    // Click to upload
     uploadZone.addEventListener('click', function() { fileInput.click(); });
     uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('drag-over'); });
     uploadZone.addEventListener('dragleave', function(e) { e.preventDefault(); this.classList.remove('drag-over'); });
@@ -163,13 +125,11 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         this.classList.remove('drag-over');
         var files = e.dataTransfer.files;
-        if (files.length && files[0].type === 'application/pdf') {
-            handleFile(files[0]);
-        }
+        if (files.length) handleFiles(files);
     });
 
     fileInput.addEventListener('change', function() {
-        if (this.files.length) handleFile(this.files[0]);
+        if (this.files.length) handleFiles(this.files);
     });
 
     document.getElementById('btn-back-upload').addEventListener('click', function() {
@@ -179,47 +139,60 @@ document.addEventListener('DOMContentLoaded', function() {
         resetUpload();
     });
 
-    // Add riga
-    document.getElementById('btn-add-riga').addEventListener('click', function() {
-        addRiga({descrizione: '', quantita: 1, pallet: 0, unita_misura: 'colli', peso_kg: 0});
+    document.getElementById('form-conferma-multi').addEventListener('submit', function(e) {
+        var data = [];
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            var inputs = rows[i].querySelectorAll('input.row-edit');
+            var fornitore = inputs[0].value.trim();
+            var nBolla = inputs[1].value.trim();
+            if (!fornitore || !nBolla) continue;
+            var idx = parseInt(rows[i].dataset.idx);
+            var bd = bolleResults[idx];
+            if (!bd) continue;
+            data.push({
+                fornitore: fornitore,
+                numero_bolla: nBolla,
+                data_arrivo: inputs[2].value || '',
+                stato: 'da_elaborare',
+                note: '',
+                file_pdf_base64: bd._fileBase64 || '',
+                righe: bd.righe || []
+            });
+        }
+        if (!data.length) {
+            e.preventDefault();
+            alert('Nessuna bolla con fornitore e numero validi.');
+            return;
+        }
+        document.getElementById('hidden-bolle-json').value = JSON.stringify(data);
     });
 
     function stopOcrProgress() {
         if (ocrTimer) { clearInterval(ocrTimer); ocrTimer = null; }
-        if (ocrStatusCycle) { clearInterval(ocrStatusCycle); ocrStatusCycle = null; }
     }
 
     function resetUpload() {
         stopOcrProgress();
-        selectedFile = null;
         fileInput.value = '';
         ocrLoading.style.display = 'none';
         ocrError.style.display = 'none';
         uploadZone.style.display = '';
     }
 
-    function showOcrLoading(file) {
+    function showOcrLoading(count) {
         uploadZone.style.display = 'none';
         ocrError.style.display = 'none';
-        document.getElementById('ocr-filename').textContent = file.name;
-        document.getElementById('ocr-filesize').textContent = (file.size / 1024).toFixed(1) + ' KB';
-        document.getElementById('ocr-status-text').textContent = statusMessages[0];
+        document.getElementById('ocr-filename').textContent = count + ' file selezionati';
+        document.getElementById('ocr-filesize').textContent = '';
+        document.getElementById('ocr-status-text').textContent = 'Elaborazione in corso...';
         document.getElementById('ocr-timer').textContent = '';
-        statusIndex = 0;
         ocrLoading.style.display = 'block';
-
-        // Start elapsed timer
         ocrStartTime = Date.now();
         ocrTimer = setInterval(function() {
             var elapsed = ((Date.now() - ocrStartTime) / 1000).toFixed(1);
             document.getElementById('ocr-timer').textContent = '\u23F1 ' + elapsed + 's';
         }, 100);
-
-        // Cycle status messages every 3s
-        ocrStatusCycle = setInterval(function() {
-            statusIndex = (statusIndex + 1) % statusMessages.length;
-            document.getElementById('ocr-status-text').textContent = statusMessages[statusIndex];
-        }, 3000);
     }
 
     function hideOcrLoading() {
@@ -233,77 +206,138 @@ document.addEventListener('DOMContentLoaded', function() {
         ocrError.style.display = 'flex';
     }
 
-    function handleFile(file) {
-        if (file.type !== 'application/pdf') {
-            showOcrError('Solo file PDF accettati. Il file selezionato non \u00E8 un PDF valido.');
+    function handleFiles(files) {
+        var pdfs = [];
+        for (var i = 0; i < files.length; i++) {
+            if (files[i].type === 'application/pdf') pdfs.push(files[i]);
+        }
+        if (!pdfs.length) {
+            showOcrError('Nessun file PDF valido tra quelli selezionati.');
             return;
         }
-        selectedFile = file;
-        showOcrLoading(file);
+        showOcrLoading(pdfs.length);
 
         var fd = new FormData();
-        fd.append('file_pdf', file);
+        for (var j = 0; j < pdfs.length; j++) {
+            fd.append('file_pdf', pdfs[j]);
+        }
         fetch('/entrate/upload-ocr', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                hideOcrLoading();
                 if (data.error) {
                     showOcrError(data.error);
                     return;
                 }
-                hideOcrLoading();
-                showReview(data, fd);
+                var risultati = data.risultati || [];
+                if (risultati.length === 0) {
+                    showOcrError('Nessun risultato ricevuto dal server.');
+                    return;
+                }
+                // Store base64 for each file
+                bolleResults = risultati;
+                for (var k = 0; k < risultati.length && k < pdfs.length; k++) {
+                    risultati[k]._fileBase64 = '';
+                }
+                // Read base64 for each file asynchronously
+                var pending = pdfs.length;
+                for (var m = 0; m < pdfs.length && m < risultati.length; m++) {
+                    (function(idx) {
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            if (risultati[idx]) risultati[idx]._fileBase64 = e.target.result;
+                            pending--;
+                            if (pending === 0) showReviewTable(risultati);
+                        };
+                        reader.readAsDataURL(pdfs[idx]);
+                    })(m);
+                }
+                if (pending === 0) showReviewTable(risultati);
             })
             .catch(function() {
-                showOcrError('Errore di connessione durante l\'elaborazione OCR. Verifica la connessione e riprova.');
+                showOcrError('Errore di connessione durante l\'elaborazione.');
             });
     }
 
-    function showReview(data, fd) {
-        // Fill review fields
-        document.getElementById('rev-fornitore').value = data.fornitore || '';
-        document.getElementById('rev-numero-bolla').value = data.numero_bolla || '';
-        document.getElementById('rev-data').value = data.data_arrivo || '';
+    function showReviewTable(risultati) {
+        risultatiBody.innerHTML = '';
+        var count = 0;
+        for (var i = 0; i < risultati.length; i++) {
+            var r = risultati[i];
+            if (r.error) continue;
+            count++;
+            var tr = document.createElement('tr');
+            tr.dataset.idx = i;
+            var nRighe = (r.righe && r.righe.length) || 0;
+            var badgeClass = nRighe > 0 ? 'badge-ok' : 'badge-0';
+            var badgeText = nRighe > 0 ? nRighe + ' righe' : '0';
+            var dataVal = r.data_arrivo || '';
+            tr.innerHTML =
+                '<td style="text-align:center;font-weight:600;color:#64748b">' + (i + 1) + '</td>' +
+                '<td><input type="text" class="row-edit" value="' + (r.fornitore || '').replace(/"/g,'&quot;') + '" placeholder="Fornitore"></td>' +
+                '<td><input type="text" class="row-edit" value="' + (r.numero_bolla || '').replace(/"/g,'&quot;') + '" placeholder="N. bolla"></td>' +
+                '<td><input type="date" class="row-edit" value="' + dataVal + '"></td>' +
+                '<td style="text-align:center"><span class="' + badgeClass + '">' + badgeText + '</span></td>' +
+                '<td style="font-size:.75rem;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline" onclick="toggleRighe(' + i + ')">Dettaglio</button></td>';
+            risultatiBody.appendChild(tr);
 
-        // Need to read file as base64 for hidden field
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('hidden-file-data').value = e.target.result;
-        };
-        if (selectedFile) reader.readAsDataURL(selectedFile);
-
-        // Fill righe
-        righeBody.innerHTML = '';
-        var righe = data.righe || [];
-        if (righe.length === 0) {
-            noRighe.style.display = '';
-        } else {
-            noRighe.style.display = 'none';
-            righe.forEach(function(r) { addRiga(r); });
+            // Hidden details row
+            var detailTr = document.createElement('tr');
+            detailTr.id = 'detail-' + i;
+            detailTr.style.display = 'none';
+            var detailTd = document.createElement('td');
+            detailTd.colSpan = 7;
+            detailTd.style.padding = '8px 12px';
+            detailTd.style.background = '#f8fafc';
+            if (nRighe > 0) {
+                var html = '<table style="width:100%;font-size:.75rem"><thead><tr style="color:#64748b">' +
+                    '<th style="text-align:left;padding:2px 6px">Descrizione</th>' +
+                    '<th style="text-align:center;padding:2px 6px">Q.tà</th>' +
+                    '<th style="text-align:center;padding:2px 6px">Pallet</th>' +
+                    '<th style="text-align:center;padding:2px 6px">UM</th>' +
+                    '<th style="text-align:right;padding:2px 6px">Peso</th></tr></thead><tbody>';
+                for (var j = 0; j < r.righe.length; j++) {
+                    var art = r.righe[j];
+                    html += '<tr><td style="padding:1px 6px">' + (art.descrizione || '') + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.quantita || 0) + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.pallet || 0) + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.unita_misura || 'colli') + '</td>' +
+                        '<td style="text-align:right;padding:1px 6px">' + (art.peso_kg || 0) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+                detailTd.innerHTML = html;
+            } else {
+                detailTd.innerHTML = '<span style="color:#94a3b8;font-size:.8rem">Nessun articolo estratto</span>';
+            }
+            detailTr.appendChild(detailTd);
+            risultatiBody.appendChild(detailTr);
         }
 
+        if (count === 0) {
+            noRisultati.style.display = '';
+            document.getElementById('btn-importa-tutto').disabled = true;
+        } else {
+            noRisultati.style.display = 'none';
+            document.getElementById('btn-importa-tutto').disabled = false;
+        }
+
+        document.getElementById('review-title').textContent = count + ' documenti elaborati — rivedi e conferma';
         stepUpload.style.display = 'none';
         stepReview.style.display = '';
     }
 
-    function addRiga(riga) {
-        noRighe.style.display = 'none';
-        var tr = document.createElement('tr');
-        tr.innerHTML =
-            '<td><input type="text" name="righe_desc[]" class="form-input" value="' + (riga.descrizione || '').replace(/"/g, '&quot;') + '" placeholder="Descrizione articolo" tabindex="1"></td>' +
-            '<td><input type="number" name="righe_pallet[]" class="form-input" value="' + (riga.pallet || 0) + '" min="0" tabindex="2"></td>' +
-            '<td><input type="number" name="righe_qta[]" class="form-input" value="' + (riga.quantita || 1) + '" min="1" tabindex="3"></td>' +
-            '<td><select name="righe_um[]" class="form-input" tabindex="4"><option value="colli"' + (riga.unita_misura === 'colli' ? ' selected' : '') + '>Colli</option><option value="pezzi"' + (riga.unita_misura === 'pezzi' ? ' selected' : '') + '>Pezzi</option><option value="kg"' + (riga.unita_misura === 'kg' ? ' selected' : '') + '>Kg</option></select></td>' +
-            '<td><input type="number" name="righe_peso[]" class="form-input" value="' + (riga.peso_kg || 0) + '" step="0.01" min="0" tabindex="5"></td>' +
-            '<td><button type="button" class="btn btn-sm btn-danger" tabindex="6" onclick="this.closest(\'tr\').remove()">\u2715</button></td>';
-        righeBody.appendChild(tr);
-    }
+    window.toggleRighe = function(idx) {
+        var tr = document.getElementById('detail-' + idx);
+        if (tr) tr.style.display = tr.style.display === 'none' ? '' : 'none';
+    };
 
-    // Ctrl+Enter to submit review form
+    // Ctrl+Enter to submit
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            var form = document.getElementById('form-conferma');
+            var form = document.getElementById('form-conferma-multi');
             if (form && form.style.display !== 'none') {
-                form.submit();
+                form.querySelector('button[type="submit"]').click();
             }
         }
     });
