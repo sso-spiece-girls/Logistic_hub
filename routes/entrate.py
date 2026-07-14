@@ -99,9 +99,19 @@ def modifica(id):
 @login_required
 @staff_required
 def elimina(id):
+    from models import DettaglioBolla, Movimento
     bolla = Bolla.query.get_or_404(id)
-    db.session.delete(bolla)
-    db.session.commit()
+    try:
+        # Elimina righe bolla
+        DettaglioBolla.query.filter_by(bolla_id=bolla.id).delete()
+        # Elimina movimenti collegati
+        Movimento.query.filter_by(riferimento_id=bolla.id, riferimento_tipo="bolla").delete()
+        db.session.delete(bolla)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("Errore durante l'eliminazione della bolla.", "error")
+        return redirect(url_for("entrate.lista"))
     log_activity(current_user.id, "elimina_bolla",
         f"{current_user.username} ha eliminato la bolla {bolla.numero_bolla}", "bolla", id)
     flash("Bolla eliminata.", "success")
