@@ -38,8 +38,13 @@ def lista():
 def nuovo():
     form = GiacenzaForm()
     if form.validate_on_submit():
+        codice = normalizza_codice_articolo(form.codice_articolo.data)
+        esistente = Giacenza.query.filter_by(codice_articolo=codice).first()
+        if esistente:
+            flash(f"Codice articolo '{codice}' già esistente (ID {esistente.id}).", "warning")
+            return redirect(url_for("giacenze.dettaglio", id=esistente.id))
         giacenza = Giacenza(
-            codice_articolo=normalizza_codice_articolo(form.codice_articolo.data),
+            codice_articolo=codice,
             descrizione=form.descrizione.data,
             quantita=form.quantita.data or 0,
             colli=form.colli.data or 0,
@@ -59,7 +64,7 @@ def nuovo():
             "giacenza", giacenza.id)
         flash("Giacenza creata con successo.", "success")
         return redirect(url_for("giacenze.lista"))
-    return render_template("giacenze_form.html", form=form, titolo="Nuova Giacenza")
+    return render_template("giacenze_form.html", form=form, titolo="Nuova Giacenza", giacenza=None)
 
 
 @giacenze.route("/<int:id>")
@@ -124,3 +129,24 @@ def elimina(id):
         "giacenza", id)
     flash("Giacenza eliminata.", "success")
     return redirect(url_for("giacenze.lista"))
+
+
+@giacenze.route("/api/check-duplicato")
+@login_required
+def check_duplicato():
+    """API AJAX: verifica se un codice articolo esiste gia'."""
+    codice = request.args.get("codice", "").strip()
+    if not codice:
+        return jsonify({"esiste": False})
+    esistente = Giacenza.query.filter_by(codice_articolo=codice).first()
+    if esistente:
+        return jsonify({
+            "esiste": True,
+            "id": esistente.id,
+            "codice_articolo": esistente.codice_articolo,
+            "descrizione": esistente.descrizione,
+            "quantita": esistente.quantita,
+            "colli": esistente.colli,
+            "pallet": esistente.pallet,
+        })
+    return jsonify({"esiste": False})
