@@ -135,6 +135,26 @@ def upload_ocr():
                 "righe": dati.get("righe", []),
             })
 
+        from clients import riconosci_cliente
+        plugin_cliente = riconosci_cliente(testo)
+        if plugin_cliente:
+            dati = plugin_cliente.parse_ddt(testo)
+            righe = [{
+                "descrizione": a.get("codice", "") + " " + a.get("descrizione", ""),
+                "quantita": a.get("qta", 0),
+                "pallet": 0,
+                "unita_misura": a.get("unita", "PZ"),
+                "peso_kg": 0,
+            } for a in dati.get("articoli", [])]
+            return jsonify({
+                "testo": testo[:2000],
+                "dati": [],
+                "fornitore": dati.get("cliente", ""),
+                "numero_bolla": dati.get("ddt", ""),
+                "data_arrivo": dati.get("data", "").replace("/", "-") if "/" in dati.get("data", "") else dati.get("data", ""),
+                "righe": righe,
+            })
+
         from ocr import estrai_fornitore, estrai_numero_bolla, estrai_data, estrai_righe, estrai_dati
         fornitore = estrai_fornitore(testo)
         return jsonify({
