@@ -239,7 +239,7 @@ class DettaglioBolla(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     bolla_id = db.Column(db.Integer, db.ForeignKey("bolle.id"), nullable=False)
-    articolo_codice = db.Column(db.String(100), nullable=False)
+    articolo_codice = db.Column(db.String(500), nullable=False)
     descrizione = db.Column(db.String(300), nullable=True)
     quantita_colli = db.Column(db.Integer, default=0)
     quantita_pallet = db.Column(db.Integer, default=0)
@@ -257,7 +257,7 @@ class RigheDDT(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     ddt_id = db.Column(db.Integer, db.ForeignKey("ddt.id"), nullable=False)
-    articolo_codice = db.Column(db.String(100), nullable=False)
+    articolo_codice = db.Column(db.String(500), nullable=False)
     descrizione = db.Column(db.String(300), nullable=True)
     quantita_colli = db.Column(db.Integer, default=0)
     quantita_pallet = db.Column(db.Integer, default=0)
@@ -301,7 +301,7 @@ class PickingRiga(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     picking_id = db.Column(db.Integer, db.ForeignKey("picking.id"), nullable=False)
-    articolo_codice = db.Column(db.String(100), nullable=False)
+    articolo_codice = db.Column(db.String(500), nullable=False)
     descrizione = db.Column(db.String(300), nullable=True)
     quantita_colli = db.Column(db.Integer, default=0)
     peso_kg = db.Column(db.Float, default=0.0)
