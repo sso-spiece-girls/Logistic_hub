@@ -1,10 +1,16 @@
 document.addEventListener('DOMContentLoaded', function () {
 
-  /* SIDEBAR TOGGLE */
+  /* SIDEBAR TOGGLE — overlay mode, content non si sposta */
   const sidebarToggle = document.getElementById('sidebarToggle');
   if (sidebarToggle) {
     sidebarToggle.addEventListener('click', function () {
       document.body.classList.toggle('sidebar-collapsed');
+    });
+  }
+  const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', function () {
+      document.body.classList.add('sidebar-collapsed');
     });
   }
 
