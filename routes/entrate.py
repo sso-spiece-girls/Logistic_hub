@@ -293,7 +293,7 @@ def conferma_importa_multi():
             ("numero_bolla", numero_bolla),
             ("fornitore", fornitore),
             ("data_arrivo", (bd.get("data_arrivo") or "").strip()),
-            ("stato", bd.get("stato", "da_elaborare")),
+            ("stato", bd.get("stato", "completata")),
             ("note", (bd.get("note") or "").strip()),
         ]
 
