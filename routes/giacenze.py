@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models import Giacenza, db
+from models import Giacenza, Movimento, db
 from forms import GiacenzaForm
 from routes.auth import log_activity, create_notification
+from core.auth_decorators import staff_required
+from core.normalize import normalizza_codice_articolo
 
 giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
 
@@ -37,7 +39,7 @@ def nuovo():
     form = GiacenzaForm()
     if form.validate_on_submit():
         giacenza = Giacenza(
-            codice_articolo=form.codice_articolo.data,
+            codice_articolo=normalizza_codice_articolo(form.codice_articolo.data),
             descrizione=form.descrizione.data,
             quantita=form.quantita.data or 0,
             colli=form.colli.data or 0,
@@ -73,9 +75,35 @@ def modifica(id):
     giacenza = Giacenza.query.get_or_404(id)
     form = GiacenzaForm(obj=giacenza)
     if form.validate_on_submit():
+        vecchi_colli = giacenza.colli or 0
+        vecchio_peso = giacenza.peso_kg or 0.0
+        vecchio_codice = giacenza.codice_articolo
+
         form.populate_obj(giacenza)
+        giacenza.codice_articolo = normalizza_codice_articolo(form.codice_articolo.data)
         giacenza.updated_by = current_user.id
         db.session.commit()
+
+        # Registra movimento per la rettifica
+        nuovi_colli = giacenza.colli or 0
+        nuovo_peso = giacenza.peso_kg or 0.0
+        if vecchi_colli != nuovi_colli or vecchio_peso != nuovo_peso:
+            mov = Movimento(
+                tipo="rettifica",
+                articolo_codice=giacenza.codice_articolo,
+                descrizione=giacenza.descrizione,
+                colli=nuovi_colli - vecchi_colli,
+                peso_kg=nuovo_peso - vecchio_peso,
+                ubicazione=giacenza.ubicazione,
+                magazzino=giacenza.magazzino,
+                riferimento_tipo="giacenza",
+                riferimento_id=giacenza.id,
+                user_id=current_user.id,
+                note=f"Rettifica manuale giacenza {giacenza.codice_articolo}",
+            )
+            db.session.add(mov)
+            db.session.commit()
+
         log_activity(current_user.id, "modifica_giacenza",
             f"{current_user.username} ha modificato la giacenza {giacenza.codice_articolo}",
             "giacenza", giacenza.id)
@@ -86,6 +114,7 @@ def modifica(id):
 
 @giacenze.route("/<int:id>/elimina", methods=["POST"])
 @login_required
+@staff_required
 def elimina(id):
     giacenza = Giacenza.query.get_or_404(id)
     db.session.delete(giacenza)

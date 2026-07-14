@@ -1,26 +1,16 @@
 import os
 import shutil
-import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, send_file, request
 from flask_login import login_required, current_user
 from models import BackupLog, db
 from routes.auth import log_activity, create_notification
+from core.auth_decorators import admin_required
 
 backup = Blueprint("backup", __name__, url_prefix="/backup")
 
 BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "backup")
-
-
-def admin_required(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != "admin":
-            flash("Accesso negato.", "error")
-            return redirect(url_for("dashboard.index"))
-        return f(*args, **kwargs)
-    return decorated
 
 
 @backup.route("/")
@@ -38,32 +28,81 @@ def crea():
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"logistic_hub_backup_{timestamp}.db"
-    backup_path = os.path.join(BACKUP_DIR, backup_filename)
+    drivername = db.engine.url.drivername
 
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "logistic_hub.db")
+    if drivername.startswith("sqlite"):
+        backup_filename = f"logistic_hub_backup_{timestamp}.db"
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
 
-    if os.path.exists(db_path):
-        shutil.copy2(db_path, backup_path)
-        size = os.path.getsize(backup_path)
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "logistic_hub.db")
 
-        log = BackupLog(
-            file_path=backup_path,
-            size=size,
-            tipo="manuale",
-            eseguito_da=current_user.id,
-        )
-        db.session.add(log)
-        db.session.commit()
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, backup_path)
+            size = os.path.getsize(backup_path)
 
-        log_activity(current_user.id, "backup",
-            f"{current_user.username} ha creato un backup ({timestamp})",
-            "backup", log.id)
-        create_notification(None, "Backup completato",
-            f"Backup creato con successo ({size // 1024} KB)", "success")
-        flash(f"Backup creato con successo ({size // 1024} KB).", "success")
-    else:
-        flash("Database non trovato.", "error")
+            log = BackupLog(
+                file_path=backup_path,
+                size=size,
+                tipo="manuale",
+                eseguito_da=current_user.id,
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            log_activity(current_user.id, "backup",
+                f"{current_user.username} ha creato un backup ({timestamp})",
+                "backup", log.id)
+            create_notification(None, "Backup completato",
+                f"Backup creato con successo ({size // 1024} KB)", "success")
+            flash(f"Backup creato con successo ({size // 1024} KB).", "success")
+        else:
+            flash("Database non trovato.", "error")
+    elif drivername.startswith("postgresql"):
+        backup_filename = f"logistic_hub_backup_{timestamp}.dump"
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
+
+        url = db.engine.url
+        pg_dump_path = shutil.which("pg_dump")
+        if not pg_dump_path:
+            flash("pg_dump non trovato sul server. Impossibile creare backup del database PostgreSQL.", "error")
+            return redirect(url_for("backup.lista"))
+
+        env = os.environ.copy()
+        env["PGPASSWORD"] = url.password or ""
+
+        cmd = [
+            pg_dump_path,
+            "-h", url.host or "localhost",
+            "-p", str(url.port or 5432),
+            "-U", url.username or "postgres",
+            "-F", "c",
+            "-f", backup_path,
+            url.database or "logistic_hub",
+        ]
+
+        try:
+            subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
+            size = os.path.getsize(backup_path)
+
+            log = BackupLog(
+                file_path=backup_path,
+                size=size,
+                tipo="manuale",
+                eseguito_da=current_user.id,
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            log_activity(current_user.id, "backup",
+                f"{current_user.username} ha creato un backup PostgreSQL ({timestamp})",
+                "backup", log.id)
+            create_notification(None, "Backup completato",
+                f"Backup PostgreSQL creato con successo ({size // 1024} KB)", "success")
+            flash(f"Backup PostgreSQL creato con successo ({size // 1024} KB).", "success")
+        except subprocess.CalledProcessError as e:
+            flash(f"Errore pg_dump: {e.stderr or e.stdout}", "error")
+        except FileNotFoundError:
+            flash("pg_dump non trovato sul server.", "error")
 
     return redirect(url_for("backup.lista"))
 
@@ -77,16 +116,49 @@ def ripristina(id):
         flash("File di backup non trovato.", "error")
         return redirect(url_for("backup.lista"))
 
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "logistic_hub.db")
+    drivername = db.engine.url.drivername
 
-    try:
-        shutil.copy2(backup_log.file_path, db_path)
-        log_activity(current_user.id, "ripristino_backup",
-            f"{current_user.username} ha ripristinato il backup {backup_log.created_at}",
-            "backup", backup_log.id)
-        flash("Database ripristinato con successo. Riavvia l'applicazione.", "success")
-    except Exception as e:
-        flash(f"Errore durante il ripristino: {str(e)}", "error")
+    if drivername.startswith("sqlite"):
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "logistic_hub.db")
+        try:
+            shutil.copy2(backup_log.file_path, db_path)
+            log_activity(current_user.id, "ripristino_backup",
+                f"{current_user.username} ha ripristinato il backup {backup_log.created_at}",
+                "backup", backup_log.id)
+            flash("Database ripristinato con successo. Riavvia l'applicazione.", "success")
+        except Exception as e:
+            flash(f"Errore durante il ripristino: {str(e)}", "error")
+    elif drivername.startswith("postgresql"):
+        url = db.engine.url
+        pg_restore_path = shutil.which("pg_restore")
+        if not pg_restore_path:
+            flash("pg_restore non trovato sul server. Impossibile ripristinare.", "error")
+            return redirect(url_for("backup.lista"))
+
+        env = os.environ.copy()
+        env["PGPASSWORD"] = url.password or ""
+
+        cmd = [
+            pg_restore_path,
+            "-h", url.host or "localhost",
+            "-p", str(url.port or 5432),
+            "-U", url.username or "postgres",
+            "-d", url.database or "logistic_hub",
+            "--clean",
+            "--if-exists",
+            backup_log.file_path,
+        ]
+
+        try:
+            subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
+            log_activity(current_user.id, "ripristino_backup",
+                f"{current_user.username} ha ripristinato il backup PostgreSQL {backup_log.created_at}",
+                "backup", backup_log.id)
+            flash("Database PostgreSQL ripristinato con successo.", "success")
+        except subprocess.CalledProcessError as e:
+            flash(f"Errore pg_restore: {e.stderr or e.stdout}", "error")
+        except FileNotFoundError:
+            flash("pg_restore non trovato sul server.", "error")
 
     return redirect(url_for("backup.lista"))
 

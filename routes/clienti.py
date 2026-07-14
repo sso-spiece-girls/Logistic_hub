@@ -7,6 +7,7 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 import clients as client_loader
 from core.pdf_extractor import leggi_pdf
+from core.auth_decorators import staff_required
 
 clienti = Blueprint("clienti", __name__, url_prefix="/clienti")
 
@@ -71,7 +72,7 @@ def upload_ddt(id_cliente):
     risultati = []
     errori = []
     for f in files:
-        if not f.filename.lower().endswith(".pdf"):
+        if not f.filename or not f.filename.lower().endswith(".pdf"):
             errori.append(f"{f.filename}: non è un PDF")
             continue
 
@@ -118,7 +119,7 @@ def anteprima_parser(id_cliente):
         return jsonify({"error": "Cliente non trovato"}), 404
 
     f = request.files.get("pdf_file")
-    if not f or not f.filename.lower().endswith(".pdf"):
+    if not f or not f.filename or not f.filename.lower().endswith(".pdf"):
         return jsonify({"error": "File PDF richiesto"}), 400
 
     upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "clienti", "_anteprima")
@@ -225,6 +226,7 @@ def modifica_riga(id_cliente):
 
 @clienti.route("/<id_cliente>/elimina-riga", methods=["POST"])
 @login_required
+@staff_required
 def elimina_riga(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:

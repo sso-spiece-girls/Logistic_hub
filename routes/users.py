@@ -3,19 +3,9 @@ from flask_login import login_required, current_user
 from models import User, db
 from forms import UserForm
 from routes.auth import log_activity, create_notification
+from core.auth_decorators import admin_required
 
 users = Blueprint("users", __name__, url_prefix="/users")
-
-
-def admin_required(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != "admin":
-            flash("Accesso negato. Solo gli admin possono accedere a questa sezione.", "error")
-            return redirect(url_for("dashboard.index"))
-        return f(*args, **kwargs)
-    return decorated
 
 
 @users.route("/")

@@ -9,7 +9,7 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" type="image/png" href="/static/img/icon-192.png">
     <title>Logistic Hub - {% block title %}Dashboard{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v={{ css_mtime }}">
 </head>
 <body class="{% if session.get('sidebar_collapsed') %}sidebar-collapsed{% endif %}">
     <nav class="navbar">

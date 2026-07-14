@@ -1,11 +1,15 @@
 import os
 import json
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
-from models import DDT, RigheDDT, Giacenza, Movimento, db
+from models import DDT, RigheDDT, Giacenza, db
 from forms import DDTForm
 from routes.auth import log_activity, create_notification
+from core.auth_decorators import staff_required
+from services.ddt_service import (
+    crea_ddt, modifica_ddt, parse_righe_json
+)
 from pdf_generator import genera_ddt_pdf
 from io import BytesIO
 
@@ -49,22 +53,11 @@ def api_articoli():
 @uscite.route("/api/duplicato")
 @login_required
 def api_duplicato():
-    """Controlla se esiste già un DDT per lo stesso articolo e stesso giorno."""
+    from services.ddt_service import controlla_duplicato_giornaliero
     codice = request.args.get("codice", "").strip()
-    oggi = date.today()
-    if not codice:
-        return jsonify({"duplicato": False})
-    esistente = RigheDDT.query.join(DDT).filter(
-        RigheDDT.articolo_codice == codice,
-        db.func.date(DDT.data_creazione) == oggi,
-        DDT.stato != "annullato",
-    ).first()
-    if esistente:
-        return jsonify({
-            "duplicato": True,
-            "ddt_id": esistente.ddt_id,
-            "numero_ddt": esistente.ddt.numero_ddt,
-        })
+    risultato = controlla_duplicato_giornaliero(codice)
+    if risultato:
+        return jsonify({"duplicato": True, **risultato})
     return jsonify({"duplicato": False})
 
 
@@ -73,118 +66,17 @@ def api_duplicato():
 def nuovo():
     form = DDTForm()
     if form.validate_on_submit():
-        # Legge e valida le righe PRIMA di creare il DDT
-        righe_json = request.form.get("righe_json", "[]")
-        try:
-            righe_data = json.loads(righe_json)
-        except (json.JSONDecodeError, TypeError):
-            righe_data = []
-
-        insufficienti = []
-        for r in righe_data:
-            art_codice = r.get("articolo_codice", "")
-            colli_richiesti = int(r.get("quantita_colli", 0))
-            peso_richiesto = float(r.get("peso_kg", 0))
-            if colli_richiesti > 0 or peso_richiesto > 0:
-                giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
-                if not giac:
-                    insufficienti.append(f"{art_codice} (nessuna giacenza)")
-                else:
-                    if colli_richiesti > 0 and (giac.colli or 0) < colli_richiesti:
-                        disp = giac.colli or 0
-                        insufficienti.append(f"{art_codice} ({colli_richiesti} colli richiesti, {disp} disponibili)")
-                    if peso_richiesto > 0 and (giac.peso_kg or 0) < peso_richiesto:
-                        disp = giac.peso_kg or 0
-                        insufficienti.append(f"{art_codice} ({peso_richiesto} kg richiesti, {disp} disponibili)")
-
-        if insufficienti:
-            flash(f"Stock insufficiente per: {'; '.join(insufficienti)}. DDT non creato.", "error")
+        ddt, errori = crea_ddt(form, request.form, current_user.id)
+        if errori:
+            flash(f"Stock insufficiente per: {'; '.join(errori)}. DDT non creato.", "error")
             return redirect(url_for("uscite.nuovo"))
 
-        ddt = DDT(
-            numero_ddt=form.numero_ddt.data,
-            cliente=form.cliente.data,
-            destinatario=form.destinatario.data or form.cliente.data,
-            provenienza=request.form.get("provenienza", ""),
-            vettore=request.form.get("vettore", ""),
-            causale_trasporto=request.form.get("causale_trasporto", "Vendita"),
-            data_spedizione=form.data_spedizione.data,
-            stato=form.stato.data,
-            note=form.note.data,
-            operatore_id=current_user.id,
-        )
-        db.session.add(ddt)
-        db.session.flush()
-
-        for r in righe_data:
-            riga = RigheDDT(
-                ddt_id=ddt.id,
-                articolo_codice=r.get("articolo_codice", ""),
-                descrizione=r.get("descrizione", ""),
-                quantita_colli=int(r.get("quantita_colli", 0)),
-                quantita_pallet=int(r.get("quantita_pallet", 0)),
-                peso_kg=float(r.get("peso_kg", 0)),
-                ubicazione=r.get("ubicazione", ""),
-            )
-            db.session.add(riga)
-
-            # Aggiorna giacenza (stock già verificato sopra)
-            giac = Giacenza.query.filter_by(codice_articolo=r.get("articolo_codice", "")).first()
-            if giac:
-                colli_da_scaricare = int(r.get("quantita_colli", 0))
-                if colli_da_scaricare > 0 and giac.colli >= colli_da_scaricare:
-                    giac.colli -= colli_da_scaricare
-                peso_da_scaricare = float(r.get("peso_kg", 0))
-                if peso_da_scaricare > 0 and (giac.peso_kg or 0) >= peso_da_scaricare:
-                    giac.peso_kg = (giac.peso_kg or 0) - peso_da_scaricare
-                giac.updated_by = current_user.id
-
-            # Registra movimento
-            mov = Movimento(
-                tipo="uscita",
-                articolo_codice=r.get("articolo_codice", ""),
-                descrizione=r.get("descrizione", ""),
-                colli=int(r.get("quantita_colli", 0)),
-                pallet=int(r.get("quantita_pallet", 0)),
-                peso_kg=float(r.get("peso_kg", 0)),
-                ubicazione=r.get("ubicazione", ""),
-                riferimento_id=ddt.id,
-                riferimento_tipo="ddt",
-                user_id=current_user.id,
-                note=f"DDT {form.numero_ddt.data} - {form.cliente.data}",
-            )
-            db.session.add(mov)
-
-        db.session.commit()
-
-        # Genera PDF
-        ddt_data = {
-            "numero_ddt": ddt.numero_ddt,
-            "data": ddt.data_creazione.strftime("%d/%m/%Y"),
-            "cliente": ddt.cliente,
-            "destinatario": ddt.destinatario or ddt.cliente,
-            "vettore": request.form.get("vettore", ""),
-            "causale_trasporto": request.form.get("causale_trasporto", "Vendita"),
-            "provenienza": request.form.get("provenienza", ""),
-        }
-        pdf_bytes = genera_ddt_pdf(ddt_data, righe_data)
-
-        # Salva PDF su disco
-        pdf_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "docs")
-        os.makedirs(pdf_dir, exist_ok=True)
-        pdf_filename = f"DDT_{ddt.numero_ddt.replace('/', '_')}.pdf"
-        pdf_path = os.path.join(pdf_dir, pdf_filename)
-        with open(pdf_path, "wb") as f:
-            f.write(pdf_bytes)
-        ddt.filename_pdf = pdf_path
-        db.session.commit()
-
+        righe_data = parse_righe_json(request.form)
         log_activity(current_user.id, "crea_ddt",
             f"{current_user.username} ha generato il DDT {ddt.numero_ddt} con {len(righe_data)} righe",
             "ddt", ddt.id)
         create_notification(None, "DDT generato",
             f"{current_user.username} ha generato il DDT {ddt.numero_ddt}", "success")
-
         flash(f"DDT {ddt.numero_ddt} generato con successo.", "success")
         return redirect(url_for("uscite.lista"))
 
@@ -205,78 +97,10 @@ def modifica(id):
     ddt = DDT.query.get_or_404(id)
     form = DDTForm(obj=ddt)
     if form.validate_on_submit():
-        form.populate_obj(ddt)
-        ddt.provenienza = request.form.get("provenienza", "")
-        ddt.vettore = request.form.get("vettore", "")
-        ddt.causale_trasporto = request.form.get("causale_trasporto", "Vendita")
-
-        # Carica righe dal form
-        try:
-            righe_json = request.form.get("righe_json", "[]")
-            righe_data = json.loads(righe_json)
-        except (json.JSONDecodeError, TypeError):
-            righe_data = []
-
-        # Annulla giacenze e movimenti delle vecchie righe
-        for vecchia in list(ddt.righe):
-            giac = Giacenza.query.filter_by(codice_articolo=vecchia.articolo_codice).first()
-            if giac:
-                giac.colli = (giac.colli or 0) + (vecchia.quantita_colli or 0)
-                giac.peso_kg = (giac.peso_kg or 0) + (vecchia.peso_kg or 0)
-                giac.updated_by = current_user.id
-            Movimento.query.filter_by(riferimento_id=ddt.id, riferimento_tipo="ddt",
-                articolo_codice=vecchia.articolo_codice).delete()
-            db.session.delete(vecchia)
-
-        # Salva nuove righe
-        for r in righe_data:
-            art_codice = r.get("articolo_codice", "").strip()
-            if not art_codice:
-                continue
-            riga = RigheDDT(
-                ddt_id=ddt.id,
-                articolo_codice=art_codice,
-                descrizione=r.get("descrizione", ""),
-                quantita_colli=int(r.get("quantita_colli", 0)),
-                quantita_pallet=int(r.get("quantita_pallet", 0)),
-                peso_kg=float(r.get("peso_kg", 0)),
-                ubicazione=r.get("ubicazione", ""),
-            )
-            db.session.add(riga)
-
-            giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
-            if giac:
-                colli = int(r.get("quantita_colli", 0))
-                if colli > 0 and giac.colli >= colli:
-                    giac.colli -= colli
-                peso = float(r.get("peso_kg", 0))
-                if peso > 0 and (giac.peso_kg or 0) >= peso:
-                    giac.peso_kg = (giac.peso_kg or 0) - peso
-                giac.updated_by = current_user.id
-
-        db.session.commit()
-
-        # Rigenera PDF
-        try:
-            pdf_bytes = genera_ddt_pdf({
-                "numero_ddt": ddt.numero_ddt,
-                "data": ddt.data_creazione.strftime("%d/%m/%Y"),
-                "cliente": ddt.cliente,
-                "destinatario": ddt.destinatario or ddt.cliente,
-                "vettore": request.form.get("vettore", ""),
-                "causale_trasporto": request.form.get("causale_trasporto", "Vendita"),
-                "provenienza": request.form.get("provenienza", ""),
-            }, righe_data)
-            pdf_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "docs")
-            os.makedirs(pdf_dir, exist_ok=True)
-            pdf_filename = f"DDT_{ddt.numero_ddt.replace('/', '_')}.pdf"
-            pdf_path = os.path.join(pdf_dir, pdf_filename)
-            with open(pdf_path, "wb") as f:
-                f.write(pdf_bytes)
-            ddt.filename_pdf = pdf_path
-            db.session.commit()
-        except Exception:
-            pass
+        risultato, errori = modifica_ddt(ddt, form, request.form, current_user.id)
+        if errori:
+            flash(f"Stock insufficiente per: {'; '.join(errori)}. Modifica annullata.", "error")
+            return redirect(url_for("uscite.lista"))
 
         log_activity(current_user.id, "modifica_ddt",
             f"{current_user.username} ha modificato il DDT {ddt.numero_ddt}",
@@ -284,7 +108,6 @@ def modifica(id):
         flash("DDT aggiornato con successo.", "success")
         return redirect(url_for("uscite.dettaglio", id=ddt.id))
 
-    # Passa righe esistenti come JSON al template
     righe_json = json.dumps([{
         "articolo_codice": r.articolo_codice or "",
         "descrizione": r.descrizione or "",
@@ -300,10 +123,8 @@ def modifica(id):
 
 @uscite.route("/ddt/<int:id>/elimina", methods=["POST"])
 @login_required
+@staff_required
 def elimina(id):
-    if current_user.role not in ("admin", "ufficio"):
-        flash("Solo admin e ufficio possono eliminare DDT.", "error")
-        return redirect(url_for("uscite.lista"))
     ddt = DDT.query.get_or_404(id)
     RigheDDT.query.filter_by(ddt_id=ddt.id).delete()
     db.session.delete(ddt)

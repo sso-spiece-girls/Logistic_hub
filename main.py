@@ -63,19 +63,17 @@ def create_app():
         unread_count = 0
         notifications = []
         if current_user.is_authenticated:
-            notifications = Notification.query.filter(
+            base_q = Notification.query.filter(
                 (Notification.user_id == current_user.id) | (Notification.user_id.is_(None)),
                 Notification.read == False
-            ).order_by(Notification.created_at.desc()).limit(10).all()
-            unread_count = len([
-                n for n in Notification.query.filter(
-                    (Notification.user_id == current_user.id) | (Notification.user_id.is_(None)),
-                    Notification.read == False
-                ).all()
-            ])
+            )
+            unread_count = base_q.count()
+            notifications = base_q.order_by(Notification.created_at.desc()).limit(10).all()
+        css_path = os.path.join(os.path.dirname(__file__), "static", "css", "app.css")
         return {
             "unread_notifications": notifications,
             "unread_count": unread_count,
+            "css_mtime": int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1,
         }
 
     return app
@@ -96,8 +94,11 @@ def seed_admin(app):
             if not pwd:
                 import secrets
                 pwd = secrets.token_urlsafe(16)
-                print(f"[ATTENZIONE] ADMIN_PASSWORD non impostata. Password generata: {pwd}")
-                print("[ATTENZIONE] Imposta la variabile d'ambiente ADMIN_PASSWORD per fissarla.")
+                import logging
+                logging.getLogger(__name__).warning(
+                    "ADMIN_PASSWORD non impostata. Password generata: %s. "
+                    "Imposta ADMIN_PASSWORD per fissarla.", pwd
+                )
             admin = User(
                 username="Francesco",
                 email=os.environ.get("ADMIN_EMAIL", "francesco@logistichub.local"),
@@ -106,7 +107,8 @@ def seed_admin(app):
             admin.set_password(pwd)
             db.session.add(admin)
             db.session.commit()
-            print("Utente Francesco creato.")
+            import logging
+            logging.getLogger(__name__).info("Utente Francesco creato con ruolo admin.")
 
 
 app = create_app()
