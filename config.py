@@ -15,4 +15,4 @@ class Config:
     WTF_CSRF_ENABLED = True
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(BASE_DIR, "data", "docs"))
     BACKUP_FOLDER = os.environ.get("BACKUP_FOLDER", os.path.join(BASE_DIR, "data", "backup"))
-    MAX_CONTENT_LENGTH = 50 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 100 * 1024 * 1024

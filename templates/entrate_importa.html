@@ -61,7 +61,7 @@
 <div class="form-card" id="step-review" style="display:none">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span style="font-weight:600;color:#16a34a" id="review-title">Dati estratti — rivedi e conferma</span>
+        <span style="font-weight:600;color:var(--success)" id="review-title">Dati estratti — rivedi e conferma</span>
     </div>
 
     <form id="form-conferma-multi" method="POST" action="/entrate/conferma-importa-multi">
@@ -85,7 +85,7 @@
             </table>
         </div>
 
-        <div id="no-risultati" style="text-align:center;color:#64748b;padding:24px;font-size:.9rem;display:none">
+        <div id="no-risultati" style="text-align:center;color:var(--text-muted);padding:24px;font-size:.9rem;display:none">
             Nessun dato estratto dai PDF caricati
         </div>
 
@@ -97,11 +97,11 @@
 </div>
 
 <style>
-.badge-ok { display:inline-block;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
-.badge-err { display:inline-block;background:#fef2f2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
-.badge-0 { display:inline-block;background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:10px;font-size:.75rem }
-input.row-edit { border:1px solid #e2e8f0;border-radius:4px;padding:4px 6px;font-size:.8rem;width:100%;box-sizing:border-box }
-input.row-edit:focus { border-color:#3b82f6;outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.15) }
+.badge-ok { display:inline-block;background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-err { display:inline-block;background:var(--error-bg);color:var(--error);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-0 { display:inline-block;background:var(--warning-bg);color:var(--warning);padding:2px 8px;border-radius:10px;font-size:.75rem }
+input.row-edit { border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:.8rem;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text) }
+input.row-edit:focus { border-color:var(--primary-light);outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.15) }
 </style>
 
 <script>
@@ -274,12 +274,12 @@ document.addEventListener('DOMContentLoaded', function() {
             var badgeText = nRighe > 0 ? nRighe + ' righe' : '0';
             var dataVal = r.data_arrivo || '';
             tr.innerHTML =
-                '<td style="text-align:center;font-weight:600;color:#64748b">' + (i + 1) + '</td>' +
+                '<td style="text-align:center;font-weight:600;color:var(--text-muted)">' + (i + 1) + '</td>' +
                 '<td><input type="text" class="row-edit" value="' + (r.fornitore || '').replace(/"/g,'&quot;') + '" placeholder="Fornitore"></td>' +
                 '<td><input type="text" class="row-edit" value="' + (r.numero_bolla || '').replace(/"/g,'&quot;') + '" placeholder="N. bolla"></td>' +
                 '<td><input type="date" class="row-edit" value="' + dataVal + '"></td>' +
                 '<td style="text-align:center"><span class="' + badgeClass + '">' + badgeText + '</span></td>' +
-                '<td style="font-size:.75rem;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
+                '<td style="font-size:.75rem;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
                 '<td><button type="button" class="btn btn-sm btn-outline" onclick="toggleRighe(' + i + ')">Dettaglio</button></td>';
             risultatiBody.appendChild(tr);
 
@@ -290,14 +290,14 @@ document.addEventListener('DOMContentLoaded', function() {
             var detailTd = document.createElement('td');
             detailTd.colSpan = 7;
             detailTd.style.padding = '8px 12px';
-            detailTd.style.background = '#f8fafc';
+            detailTd.style.background = 'var(--surface-hover)';
             if (nRighe > 0) {
                 var html = '<table style="width:100%;font-size:.75rem"><thead><tr style="color:#64748b">' +
-                    '<th style="text-align:left;padding:2px 6px">Descrizione</th>' +
-                    '<th style="text-align:center;padding:2px 6px">Q.tà</th>' +
-                    '<th style="text-align:center;padding:2px 6px">Pallet</th>' +
-                    '<th style="text-align:center;padding:2px 6px">UM</th>' +
-                    '<th style="text-align:right;padding:2px 6px">Peso</th></tr></thead><tbody>';
+                    '<th style="text-align:left;padding:2px 6px;color:var(--text-muted)">Descrizione</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">Q.tà</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">Pallet</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">UM</th>' +
+                    '<th style="text-align:right;padding:2px 6px;color:var(--text-muted)">Peso</th></tr></thead><tbody>';
                 for (var j = 0; j < r.righe.length; j++) {
                     var art = r.righe[j];
                     html += '<tr><td style="padding:1px 6px">' + (art.descrizione || '') + '</td>' +
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '</tbody></table>';
                 detailTd.innerHTML = html;
             } else {
-                detailTd.innerHTML = '<span style="color:#94a3b8;font-size:.8rem">Nessun articolo estratto</span>';
+                detailTd.innerHTML = '<span style="color:var(--text-muted);font-size:.8rem">Nessun articolo estratto</span>';
             }
             detailTr.appendChild(detailTd);
             risultatiBody.appendChild(detailTr);

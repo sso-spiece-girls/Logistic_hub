@@ -120,10 +120,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var container = document.getElementById('toast-container');
     if (!container) return;
     var iconMap = {
-      success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-      warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+      success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" color="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" color="var(--error)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" color="var(--warning)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" color="var(--info)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
     };
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + category;
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var dropdown = document.createElement('div');
     dropdown.className = 'status-dropdown';
-    dropdown.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:100;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);padding:4px;min-width:130px;margin-top:4px;';
+    dropdown.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);padding:4px;min-width:130px;margin-top:4px;';
 
     stati.forEach(function (s) {
       var opt = document.createElement('button');
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function () {
       opt.textContent = STATUS_LABELS[s] || s;
       if (s === badge.getAttribute('data-stato')) {
         opt.style.fontWeight = '600';
-        opt.style.background = '#f1f5f9';
+        opt.style.background = 'var(--surface-hover)';
       }
       opt.addEventListener('click', function (ev) {
         ev.stopPropagation();

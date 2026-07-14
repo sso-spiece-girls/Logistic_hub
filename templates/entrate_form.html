@@ -163,9 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusEl.style.display = 'none';
                 if (data.error) {
                     resultEl.style.display = 'block';
-                    resultEl.style.background = '#fef2f2';
-                    resultEl.style.borderColor = '#fecaca';
-                    resultEl.style.color = '#dc2626';
+                    resultEl.className = 'notif-strip-item notif-error';
                     resultEl.textContent = 'Errore OCR: ' + data.error;
                     return;
                 }
@@ -193,24 +191,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (compilati.length > 0) {
                     resultEl.style.display = 'block';
-                    resultEl.style.background = '#f0fdf4';
-                    resultEl.style.borderColor = '#bbf7d0';
-                    resultEl.style.color = '#16a34a';
+                    resultEl.className = 'notif-strip-item notif-success';
                     resultEl.innerHTML = '<strong>Campi compilati automaticamente:</strong><br>' + compilati.join('<br>');
                 } else {
                     resultEl.style.display = 'block';
-                    resultEl.style.background = '#fffbeb';
-                    resultEl.style.borderColor = '#fde68a';
-                    resultEl.style.color = '#d97706';
+                    resultEl.className = 'notif-strip-item notif-warning';
                     resultEl.textContent = 'Nessun campo estratto dal PDF. Compila manualmente.';
                 }
             })
             .catch(function(err) {
                 statusEl.style.display = 'none';
                 resultEl.style.display = 'block';
-                resultEl.style.background = '#fef2f2';
-                resultEl.style.borderColor = '#fecaca';
-                resultEl.style.color = '#dc2626';
+                resultEl.className = 'notif-strip-item notif-error';
                 resultEl.textContent = 'Errore di connessione durante OCR.';
             });
     });
