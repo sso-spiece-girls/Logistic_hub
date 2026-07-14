@@ -1,0 +1,97 @@
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_required, current_user
+from models import Giacenza, db
+from forms import GiacenzaForm
+from routes.auth import log_activity, create_notification
+
+giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
+
+
+@giacenze.route("/")
+@login_required
+def lista():
+    search = request.args.get("q", "").strip()
+    filtro_magazzino = request.args.get("magazzino", "").strip()
+    query = Giacenza.query.order_by(Giacenza.codice_articolo)
+
+    if search:
+        query = query.filter(
+            db.or_(
+                Giacenza.codice_articolo.ilike(f"%{search}%"),
+                Giacenza.descrizione.ilike(f"%{search}%"),
+                Giacenza.ubicazione.ilike(f"%{search}%"),
+                Giacenza.id_bobina.ilike(f"%{search}%"),
+                Giacenza.provenienza.ilike(f"%{search}%"),
+            )
+        )
+    if filtro_magazzino:
+        query = query.filter(Giacenza.magazzino == filtro_magazzino)
+
+    giacenze = query.all()
+    return render_template("giacenze.html", giacenze=giacenze, search=search, filtro_magazzino=filtro_magazzino)
+
+
+@giacenze.route("/nuovo", methods=["GET", "POST"])
+@login_required
+def nuovo():
+    form = GiacenzaForm()
+    if form.validate_on_submit():
+        giacenza = Giacenza(
+            codice_articolo=form.codice_articolo.data,
+            descrizione=form.descrizione.data,
+            quantita=form.quantita.data or 0,
+            colli=form.colli.data or 0,
+            pallet=form.pallet.data or 0,
+            peso_kg=form.peso_kg.data or 0.0,
+            id_bobina=form.id_bobina.data or None,
+            qualita=form.qualita.data or None,
+            provenienza=form.provenienza.data or None,
+            ubicazione=form.ubicazione.data or None,
+            magazzino=form.magazzino.data or None,
+            updated_by=current_user.id,
+        )
+        db.session.add(giacenza)
+        db.session.commit()
+        log_activity(current_user.id, "crea_giacenza",
+            f"{current_user.username} ha creato la giacenza {giacenza.codice_articolo}",
+            "giacenza", giacenza.id)
+        flash("Giacenza creata con successo.", "success")
+        return redirect(url_for("giacenze.lista"))
+    return render_template("giacenze_form.html", form=form, titolo="Nuova Giacenza")
+
+
+@giacenze.route("/<int:id>")
+@login_required
+def dettaglio(id):
+    giacenza = Giacenza.query.get_or_404(id)
+    return render_template("giacenze_dettaglio.html", giacenza=giacenza)
+
+
+@giacenze.route("/<int:id>/modifica", methods=["GET", "POST"])
+@login_required
+def modifica(id):
+    giacenza = Giacenza.query.get_or_404(id)
+    form = GiacenzaForm(obj=giacenza)
+    if form.validate_on_submit():
+        form.populate_obj(giacenza)
+        giacenza.updated_by = current_user.id
+        db.session.commit()
+        log_activity(current_user.id, "modifica_giacenza",
+            f"{current_user.username} ha modificato la giacenza {giacenza.codice_articolo}",
+            "giacenza", giacenza.id)
+        flash("Giacenza aggiornata con successo.", "success")
+        return redirect(url_for("giacenze.lista"))
+    return render_template("giacenze_form.html", form=form, titolo="Modifica Giacenza", giacenza=giacenza)
+
+
+@giacenze.route("/<int:id>/elimina", methods=["POST"])
+@login_required
+def elimina(id):
+    giacenza = Giacenza.query.get_or_404(id)
+    db.session.delete(giacenza)
+    db.session.commit()
+    log_activity(current_user.id, "elimina_giacenza",
+        f"{current_user.username} ha eliminato la giacenza {giacenza.codice_articolo}",
+        "giacenza", id)
+    flash("Giacenza eliminata.", "success")
+    return redirect(url_for("giacenze.lista"))

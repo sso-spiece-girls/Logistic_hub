@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Ricerca: {{ query }}{% endblock %}
+{% block breadcrumb_title %}Ricerca{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Risultati ricerca: "{{ query }}"</h1>
+    <p class="page-subtitle">{{ bolle|length + ddt|length + giacenze|length + picking|length }} risultati trovati</p>
+</div>
+
+<div class="search-results-page">
+    {% if bolle %}
+    <section class="search-section">
+        <h2 class="search-section-title">Bolle ({{ bolle|length }})</h2>
+        <div class="search-item-list">
+            {% for b in bolle %}
+            <a href="/entrate/bolla/{{ b.id }}" class="search-item">
+                <div class="search-item-icon" style="background:#dbeafe;color:#2563eb">B</div>
+                <div class="search-item-body">
+                    <div class="search-item-title">{{ b.numero_bolla }}</div>
+                    <div class="search-item-sub">{{ b.fornitore }} - {{ b.stato_label }}</div>
+                </div>
+                <span class="search-item-date">{{ b.created_at.strftime('%d/%m/%Y') }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if ddt %}
+    <section class="search-section">
+        <h2 class="search-section-title">DDT ({{ ddt|length }})</h2>
+        <div class="search-item-list">
+            {% for d in ddt %}
+            <a href="/uscite/ddt/{{ d.id }}" class="search-item">
+                <div class="search-item-icon" style="background:#fae8ff;color:#9333ea">D</div>
+                <div class="search-item-body">
+                    <div class="search-item-title">{{ d.numero_ddt }}</div>
+                    <div class="search-item-sub">{{ d.cliente }} - {{ d.stato_label }}</div>
+                </div>
+                <span class="search-item-date">{{ d.created_at.strftime('%d/%m/%Y') }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if giacenze %}
+    <section class="search-section">
+        <h2 class="search-section-title">Giacenze ({{ giacenze|length }})</h2>
+        <div class="search-item-list">
+            {% for g in giacenze %}
+            <a href="/giacenze/{{ g.id }}" class="search-item">
+                <div class="search-item-icon" style="background:#dcfce7;color:#16a34a">G</div>
+                <div class="search-item-body">
+                    <div class="search-item-title">{{ g.codice_articolo }}</div>
+                    <div class="search-item-sub">{{ g.descrizione }} - Qty: {{ g.quantita }} - Ubic: {{ g.ubicazione or '-' }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if picking %}
+    <section class="search-section">
+        <h2 class="search-section-title">Picking ({{ picking|length }})</h2>
+        <div class="search-item-list">
+            {% for p in picking %}
+            <a href="/pianificazione" class="search-item">
+                <div class="search-item-icon" style="background:#fef3c7;color:#d97706">P</div>
+                <div class="search-item-body">
+                    <div class="search-item-title">{{ p.numero_picking }}</div>
+                    <div class="search-item-sub">{{ p.cliente or '-' }} - {{ p.stato_label }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if not bolle and not ddt and not giacenze and not picking %}
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.3">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p>Nessun risultato per "{{ query }}"</p>
+        <p class="text-muted" style="margin-top:0.5rem">Suggerimenti:</p>
+        <ul style="list-style:none;font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;line-height:1.8">
+            <li>• Prova con un codice articolo (es. PL060)</li>
+            <li>• Cerca per numero bolla o DDT</li>
+            <li>• Cerca per nome fornitore o cliente</li>
+            <li>• Usa meno caratteri per una ricerca più ampia</li>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

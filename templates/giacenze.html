@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Giacenze{% endblock %}
+{% block breadcrumb_title %}Giacenze{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Giacenze</h1>
+        <p class="page-subtitle">Inventario e stock di magazzino</p>
+    </div>
+    <div class="header-actions">
+        <a href="/giacenze/nuovo" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuova Giacenza
+        </a>
+    </div>
+</div>
+
+<div class="search-bar">
+    <form method="GET" action="/giacenze" class="search-form" id="giacenze-search-form">
+        <input type="text" name="q" class="form-input" id="giacenze-q" placeholder="Cerca per codice articolo, descrizione, ubicazione..." value="{{ search }}" autocomplete="off">
+        <select name="magazzino" class="form-input" id="giacenze-magazzino" style="max-width:150px">
+            <option value="">Tutti i magazzini</option>
+            <option value="Colle 1" {% if filtro_magazzino == 'Colle 1' %}selected{% endif %}>Colle 1</option>
+            <option value="Colle 2" {% if filtro_magazzino == 'Colle 2' %}selected{% endif %}>Colle 2</option>
+            <option value="Colle 3" {% if filtro_magazzino == 'Colle 3' %}selected{% endif %}>Colle 3</option>
+            <option value="Colle 4" {% if filtro_magazzino == 'Colle 4' %}selected{% endif %}>Colle 4</option>
+            <option value="Colle 5" {% if filtro_magazzino == 'Colle 5' %}selected{% endif %}>Colle 5</option>
+        </select>
+        <button type="submit" class="btn btn-primary" id="giacenze-search-btn">Cerca</button>
+        {% if search or filtro_magazzino %}<a href="/giacenze" class="btn btn-ghost">Annulla filtro</a>{% endif %}
+    </form>
+</div>
+
+<div id="giacenze-table-container">
+    <div id="giacenze-loading" style="display:none;text-align:center;padding:2rem;color:var(--text-muted)">Caricamento...</div>
+    <div id="giacenze-content">
+        {% if giacenze %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Codice</th>
+                        <th>Descrizione</th>
+                        <th>Q.tà</th>
+                        <th>Colli</th>
+                        <th>Pallet</th>
+                        <th>Peso kg</th>
+                        <th>Magazzino</th>
+                        <th>Ubicazione</th>
+                        <th>Bobina</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="giacenze-tbody">
+                    {% for g in giacenze %}
+                    <tr>
+                        <td><strong>{{ g.codice_articolo }}</strong></td>
+                        <td>{{ g.descrizione }}</td>
+                        <td>{{ g.quantita }}</td>
+                        <td>{{ g.colli }}</td>
+                        <td>{{ g.pallet or '-' }}</td>
+                        <td>{{ g.peso_kg or '-' }}</td>
+                        <td>{{ g.magazzino or '-' }}</td>
+                        <td>{{ g.ubicazione or '-' }}</td>
+                        <td>{{ g.id_bobina or '-' }}</td>
+                        <td class="actions-cell">
+                            <a href="/giacenze/{{ g.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                            <form method="POST" action="/giacenze/{{ g.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare?')">
+                                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state" id="giacenze-empty">
+            <p>{% if search or filtro_magazzino %}Nessuna giacenza trovata{% else %}Nessuna giacenza registrata{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = document.getElementById('giacenze-q');
+    var magazzinoSelect = document.getElementById('giacenze-magazzino');
+    var searchBtn = document.getElementById('giacenze-search-btn');
+    var tbody = document.getElementById('giacenze-tbody');
+    var content = document.getElementById('giacenze-content');
+    var loading = document.getElementById('giacenze-loading');
+    var empty = document.getElementById('giacenze-empty');
+    var searchTimeout = null;
+
+    function doSearch() {
+        var q = searchInput.value.trim();
+        var magazzino = magazzinoSelect.value;
+        loading.style.display = 'block';
+        content.style.display = 'none';
+
+        fetch('/api/v1/giacenze?q=' + encodeURIComponent(q) + '&magazzino=' + encodeURIComponent(magazzino))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loading.style.display = 'none';
+                content.style.display = 'block';
+                renderResults(data, q, magazzino);
+            })
+            .catch(function() {
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            });
+    }
+
+    function renderResults(data, q, magazzino) {
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            if (!empty) {
+                var parent = document.getElementById('giacenze-table-container');
+                var newEmpty = document.createElement('div');
+                newEmpty.className = 'empty-state';
+                newEmpty.id = 'giacenze-empty';
+                newEmpty.innerHTML = '<p>' + (q || magazzino ? 'Nessuna giacenza trovata' : 'Nessuna giacenza registrata') + '</p>';
+                parent.appendChild(newEmpty);
+            } else {
+                empty.style.display = '';
+                empty.innerHTML = '<p>' + (q || magazzino ? 'Nessuna giacenza trovata' : 'Nessuna giacenza registrata') + '</p>';
+            }
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        data.forEach(function(g) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><strong>' + esc(g.codice_articolo) + '</strong></td>' +
+                '<td>' + esc(g.descrizione || '') + '</td>' +
+                '<td>' + g.quantita + '</td>' +
+                '<td>' + g.colli + '</td>' +
+                '<td>' + (g.pallet || '-') + '</td>' +
+                '<td>' + (g.peso_kg || '-') + '</td>' +
+                '<td>' + esc(g.magazzino || '-') + '</td>' +
+                '<td>' + esc(g.ubicazione || '-') + '</td>' +
+                '<td>' + esc(g.id_bobina || '-') + '</td>' +
+                '<td class="actions-cell">' +
+                '<a href="/giacenze/' + g.id + '/modifica" class="btn btn-sm btn-ghost">Modifica</a> ' +
+                '<form method="POST" action="/giacenze/' + g.id + '/elimina" style="display:inline" onsubmit="return confirm(\'Eliminare?\')">' +
+                '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
+            tbody.appendChild(tr);
+        });
+        // Update URL without reload
+        var params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (magazzino) params.set('magazzino', magazzino);
+        var newUrl = '/giacenze' + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Debounced search on input
+    searchInput.addEventListener('input', function() {
+        if (searchTimeout) clearTimeout(searchTimeout);
+        var val = this.value.trim();
+        if (val.length === 0 || val.length >= 2) {
+            searchTimeout = setTimeout(doSearch, 300);
+        }
+    });
+
+    // Search on warehouse change
+    magazzinoSelect.addEventListener('change', doSearch);
+
+    // Prevent form submission (we use AJAX)
+    document.getElementById('giacenze-search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        doSearch();
+    });
+});
+</script>
+{% endblock %}

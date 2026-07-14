@@ -1,0 +1,17 @@
+name: Keep Render Awake (Orario Ufficio)
+
+on:
+  schedule:
+    # Ogni 5 minuti, Lun-Ven, 6:00-16:59 UTC
+    # Italia: 8:00-17:59 ESTATE / 7:00-16:59 INVERNO
+    # L'intervallo 6-16 UTC copre entrambi i periodi
+    - cron: '*/5 6-16 * * 1-5'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render
+        run: |
+          curl -sS --connect-timeout 10 "${{ secrets.RENDER_URL }}" > /dev/null 2>&1 && \
+          echo "Ping OK: $(date)" || echo "Ping fallito: $(date)"

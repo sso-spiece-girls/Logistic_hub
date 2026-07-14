@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Gestione Clienti{% endblock %}
+{% block breadcrumb_title %}Clienti{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Gestione Clienti</h1>
+    <p class="page-subtitle">Seleziona un cliente per importare DDT e gestire i fogli Excel mensili</p>
+</div>
+
+<div class="clienti-grid">
+{% for p in plugins %}
+    <div class="card cliente-card">
+        <div class="card-body">
+            <div class="cliente-header">
+                <div class="cliente-avatar">{{ p.nome[:2] }}</div>
+                <div>
+                    <h3 class="cliente-nome">{{ p.nome }}</h3>
+                    <span class="cliente-id">ID: {{ p.id }}</span>
+                </div>
+            </div>
+            <div class="cliente-actions">
+                <a href="{{ url_for('clienti.upload_ddt', id_cliente=p.id) }}" class="btn btn-primary cliente-btn">
+                    Carica DDT
+                </a>
+                <a href="{{ url_for('clienti.dettaglio', id_cliente=p.id) }}" class="btn cliente-btn-secondario">
+                    Dettaglio
+                </a>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

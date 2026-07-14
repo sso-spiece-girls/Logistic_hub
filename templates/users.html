@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Gestione Utenti{% endblock %}
+{% block breadcrumb_title %}Utenti{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Gestione Utenti</h1>
+        <p class="page-subtitle">Amministrazione account e permessi</p>
+    </div>
+    <div class="header-actions">
+        <a href="/users/nuovo" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            Nuovo Utente
+        </a>
+    </div>
+</div>
+
+{% if utenti %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Ruolo</th>
+                <th>Stato</th>
+                <th>Ultimo Accesso</th>
+                <th>Creato il</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in utenti %}
+            <tr>
+                <td><strong>{{ u.username }}</strong></td>
+                <td>{{ u.email or '-' }}</td>
+                <td><span class="role-badge role-{{ u.role }}">{{ u.role_label }}</span></td>
+                <td>{% if u.is_active %}<span class="status-dot active"></span> Attivo{% else %}<span class="status-dot inactive"></span> Disabilitato{% endif %}</td>
+                <td>{{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Mai' }}</td>
+                <td>{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+                <td class="actions-cell">
+                    <a href="/users/{{ u.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    <form method="POST" action="/users/{{ u.id }}/toggle" style="display:inline">
+                        <button type="submit" class="btn btn-sm btn-ghost">
+                            {% if u.is_active %}Disabilita{% else %}Abilita{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Nessun utente trovato</p>
+</div>
+{% endif %}
+{% endblock %}
+

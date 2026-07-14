@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dettaglio - {{ plugin.nome }}{% endblock %}
+{% block breadcrumbs %}
+<a href="/dashboard" class="breadcrumb-link">Home</a>
+<span class="breadcrumb-sep">/</span>
+<a href="/clienti" class="breadcrumb-link">Clienti</a>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-current">{{ plugin.nome }}</span>
+{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem">
+    <div>
+        <h1 class="page-title">{{ plugin.nome }}</h1>
+        <p class="page-subtitle">ID: {{ plugin.id }} — {{ ddt_importati|length }} DDT importati</p>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+        <a href="{{ url_for('clienti.upload_ddt', id_cliente=plugin.id) }}" class="btn btn-primary">
+            + Carica DDT
+        </a>
+        <a href="{{ url_for('clienti.scarica_excel', id_cliente=plugin.id) }}" class="btn btn-secondary">
+            Scarica Excel
+        </a>
+    </div>
+</div>
+
+{% if plugin.get_config %}
+{% set conf = plugin.get_config() %}
+{% endif %}
+
+<div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">
+        DDT Importati ({{ ddt_importati|length }})
+    </div>
+    <div class="card-body" style="padding:0;overflow-x:auto">
+        {% if ddt_importati %}
+        <table class="table" style="width:100%;border-collapse:collapse;font-size:0.875rem">
+            <thead>
+                <tr>
+                    {% for col in range(ddt_importati[0]|length) %}
+                    <th style="padding:0.75rem 1rem;text-align:left;white-space:nowrap">{{ ['Data','DDT','Cliente','Dettaglio','Qta','Note','Info'][col] if col < 7 else 'Campo ' ~ (col+1) }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in ddt_importati %}
+                <tr>
+                    {% for cell in row %}
+                    <td style="padding:0.625rem 1rem">{{ cell if cell is not none else '' }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:3rem 1.5rem">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.4">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>Nessun DDT importato per questo cliente.</p>
+            <a href="{{ url_for('clienti.upload_ddt', id_cliente=plugin.id) }}" style="color:var(--primary-light);text-decoration:none;font-weight:500">
+                Carica il primo DDT →
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

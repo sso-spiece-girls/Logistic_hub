@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Bolla {{ bolla.numero_bolla }}{% endblock %}
+{% block breadcrumbs %}
+<a href="/dashboard" class="breadcrumb-link">Home</a>
+<span class="breadcrumb-sep">/</span>
+<a href="/entrate" class="breadcrumb-link">Bolle</a>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-current">{{ bolla.numero_bolla }}</span>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Bolla {{ bolla.numero_bolla }}</h1>
+        <p class="page-subtitle">{{ bolla.fornitore }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="/entrate/bolla/{{ bolla.id }}/modifica" class="btn btn-secondary">Modifica</a>
+        <form method="POST" action="/entrate/bolla/{{ bolla.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa bolla?')">
+            <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="card-header"><h3>Informazioni</h3></div>
+        <div class="card-body">
+            <dl class="detail-list">
+                <dt>Numero Bolla</dt>
+                <dd>{{ bolla.numero_bolla }}</dd>
+                <dt>Fornitore</dt>
+                <dd>{{ bolla.fornitore }}</dd>
+                <dt>Data Arrivo</dt>
+                <dd>{{ bolla.data_arrivo.strftime('%d/%m/%Y') if bolla.data_arrivo else '-' }}</dd>
+                <dt>Stato</dt>
+                <dd><span class="status-badge status-{{ bolla.stato }}">{{ bolla.stato_label }}</span></dd>
+                <dt>Operatore</dt>
+                <dd>{{ bolla.operatore.username if bolla.operatore else '-' }}</dd>
+                <dt>Data Caricamento</dt>
+                <dd>{{ bolla.data_caricamento.strftime('%d/%m/%Y %H:%M') if bolla.data_caricamento else '-' }}</dd>
+                <dt>Note</dt>
+                <dd>{{ bolla.note or '-' }}</dd>
+            </dl>
+        </div>
+    </div>
+</div>
+
+{% if bolla.righe.count() > 0 %}
+<div class="card" style="margin-top:1.5rem">
+    <div class="card-header"><h3>Articoli</h3></div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Codice</th>
+                        <th>Descrizione</th>
+                        <th>Pallet</th>
+                        <th>Colli</th>
+                        <th>Peso (kg)</th>
+                        <th>SSCC/Lotto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set tot_colli = namespace(v=0) %}
+                    {% set tot_pallet = namespace(v=0) %}
+                    {% set tot_peso = namespace(v=0.0) %}
+                    {% for r in bolla.righe %}
+                    {% set tot_colli.v = tot_colli.v + (r.quantita_colli or 0) %}
+                    {% set tot_pallet.v = tot_pallet.v + (r.quantita_pallet or 0) %}
+                    {% set tot_peso.v = tot_peso.v + (r.peso_kg or 0) %}
+                    <tr>
+                        <td><strong>{{ r.articolo_codice }}</strong></td>
+                        <td>{{ r.descrizione or '-' }}</td>
+                        <td>{{ r.quantita_pallet }}</td>
+                        <td>{{ r.quantita_colli }}</td>
+                        <td>{{ '%.1f'|format(r.peso_kg) if r.peso_kg else '-' }}</td>
+                        <td>{{ r.sscc_lotto or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight:700;background:var(--border-light)">
+                        <td colspan="2">TOTALI</td>
+                        <td>{{ tot_pallet.v }}</td>
+                        <td>{{ tot_colli.v }}</td>
+                        <td>{{ '%.1f'|format(tot_peso.v) }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

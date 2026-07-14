@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Importa Bolla{% endblock %}
+{% block breadcrumb_title %}Importa Bolla{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Importa Bolla</h1>
+        <p class="page-subtitle">Carica un PDF e i dati verranno estratti automaticamente</p>
+    </div>
+</div>
+
+<!-- STEP 1: Upload -->
+<div class="form-card" id="step-upload">
+    <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+        </div>
+        <div class="upload-zone-title">Trascina il PDF qui oppure clicca per selezionare</div>
+        <div class="upload-zone-hint">Solo file PDF — massimo 10MB</div>
+        <input type="file" id="file-input" accept=".pdf,application/pdf" style="display:none">
+    </div>
+
+    <!-- Unified loading card: replaces old file-info + ocr-loading -->
+    <div id="ocr-loading" class="loading-card" style="display:none">
+        <div class="loading-card-header">
+            <div class="loading-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+            </div>
+            <div class="loading-card-info">
+                <div class="loading-filename" id="ocr-filename"></div>
+                <div class="loading-filesize" id="ocr-filesize"></div>
+            </div>
+        </div>
+        <div class="progress-indeterminate"></div>
+        <div class="loading-card-footer">
+            <span class="loading-status" id="ocr-status-text">Lettura del documento in corso...</span>
+            <span class="loading-timer" id="ocr-timer"></span>
+        </div>
+    </div>
+
+    <div id="ocr-error" class="alert-card alert-error" style="display:none">
+        <div class="alert-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="alert-card-title">Errore di elaborazione</div>
+            <div class="alert-card-msg" id="ocr-error-text"></div>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 2: Review -->
+<div class="form-card" id="step-review" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span style="font-weight:600;color:#16a34a">Dati estratti dal PDF — rivedi e conferma</span>
+    </div>
+
+    <form id="form-conferma" method="POST" action="/entrate/conferma-importa">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="file_pdf_base64" id="hidden-file-data">
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="rev-fornitore">Fornitore</label>
+                <input type="text" name="fornitore" id="rev-fornitore" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label for="rev-numero-bolla">Numero Bolla</label>
+                <input type="text" name="numero_bolla" id="rev-numero-bolla" class="form-input" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="rev-data">Data Arrivo</label>
+                <input type="date" name="data_arrivo" id="rev-data" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="rev-stato">Stato</label>
+                <select name="stato" id="rev-stato" class="form-input">
+                    <option value="da_elaborare">Da elaborare</option>
+                    <option value="in_lavorazione">In lavorazione</option>
+                    <option value="completata">Completata</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="rev-note">Note</label>
+            <textarea name="note" id="rev-note" class="form-input form-textarea" rows="2" placeholder="Note opzionali..."></textarea>
+        </div>
+
+        <!-- Righe estratte -->
+        <div style="margin-top:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <label style="font-weight:600;margin:0">Articoli estratti</label>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-add-riga">+ Aggiungi riga</button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-righe">
+                    <thead>
+                        <tr>
+                            <th style="width:30%">Descrizione</th>
+                            <th style="width:12%">Pallet</th>
+                            <th style="width:12%">Quantità</th>
+                            <th style="width:12%">U.M.</th>
+                            <th style="width:14%">Peso (kg)</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="righe-body">
+                    </tbody>
+                </table>
+            </div>
+            <div id="no-righe" style="text-align:center;color:#64748b;padding:16px;font-size:.85rem">
+                Nessuna riga estratta dal PDF
+            </div>
+        </div>
+
+        <div class="form-actions" style="margin-top:20px">
+            <button type="button" class="btn btn-ghost" id="btn-back-upload">Indietro</button>
+            <button type="submit" class="btn btn-primary">Salva Bolla</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var uploadZone = document.getElementById('upload-zone');
+    var fileInput = document.getElementById('file-input');
+    var ocrLoading = document.getElementById('ocr-loading');
+    var ocrError = document.getElementById('ocr-error');
+    var stepUpload = document.getElementById('step-upload');
+    var stepReview = document.getElementById('step-review');
+    var righeBody = document.getElementById('righe-body');
+    var noRighe = document.getElementById('no-righe');
+    var selectedFile = null;
+    var ocrTimer = null;
+    var ocrStatusCycle = null;
+    var ocrStartTime = null;
+    var statusMessages = [
+        'Lettura del documento in corso...',
+        'Analisi del contenuto...',
+        'Riconoscimento testo in corso...',
+        'Estrazione dati strutturati...',
+        'Preparazione risultati...'
+    ];
+    var statusIndex = 0;
+
+    // Click to upload
+    uploadZone.addEventListener('click', function() { fileInput.click(); });
+    uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', function(e) { e.preventDefault(); this.classList.remove('drag-over'); });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        var files = e.dataTransfer.files;
+        if (files.length && files[0].type === 'application/pdf') {
+            handleFile(files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) handleFile(this.files[0]);
+    });
+
+    document.getElementById('btn-back-upload').addEventListener('click', function() {
+        stopOcrProgress();
+        stepReview.style.display = 'none';
+        stepUpload.style.display = '';
+        resetUpload();
+    });
+
+    // Add riga
+    document.getElementById('btn-add-riga').addEventListener('click', function() {
+        addRiga({descrizione: '', quantita: 1, pallet: 0, unita_misura: 'colli', peso_kg: 0});
+    });
+
+    function stopOcrProgress() {
+        if (ocrTimer) { clearInterval(ocrTimer); ocrTimer = null; }
+        if (ocrStatusCycle) { clearInterval(ocrStatusCycle); ocrStatusCycle = null; }
+    }
+
+    function resetUpload() {
+        stopOcrProgress();
+        selectedFile = null;
+        fileInput.value = '';
+        ocrLoading.style.display = 'none';
+        ocrError.style.display = 'none';
+        uploadZone.style.display = '';
+    }
+
+    function showOcrLoading(file) {
+        uploadZone.style.display = 'none';
+        ocrError.style.display = 'none';
+        document.getElementById('ocr-filename').textContent = file.name;
+        document.getElementById('ocr-filesize').textContent = (file.size / 1024).toFixed(1) + ' KB';
+        document.getElementById('ocr-status-text').textContent = statusMessages[0];
+        document.getElementById('ocr-timer').textContent = '';
+        statusIndex = 0;
+        ocrLoading.style.display = 'block';
+
+        // Start elapsed timer
+        ocrStartTime = Date.now();
+        ocrTimer = setInterval(function() {
+            var elapsed = ((Date.now() - ocrStartTime) / 1000).toFixed(1);
+            document.getElementById('ocr-timer').textContent = '\u23F1 ' + elapsed + 's';
+        }, 100);
+
+        // Cycle status messages every 3s
+        ocrStatusCycle = setInterval(function() {
+            statusIndex = (statusIndex + 1) % statusMessages.length;
+            document.getElementById('ocr-status-text').textContent = statusMessages[statusIndex];
+        }, 3000);
+    }
+
+    function hideOcrLoading() {
+        stopOcrProgress();
+        ocrLoading.style.display = 'none';
+    }
+
+    function showOcrError(message) {
+        hideOcrLoading();
+        document.getElementById('ocr-error-text').textContent = message;
+        ocrError.style.display = 'flex';
+    }
+
+    function handleFile(file) {
+        if (file.type !== 'application/pdf') {
+            showOcrError('Solo file PDF accettati. Il file selezionato non \u00E8 un PDF valido.');
+            return;
+        }
+        selectedFile = file;
+        showOcrLoading(file);
+
+        var fd = new FormData();
+        fd.append('file_pdf', file);
+        fetch('/entrate/upload-ocr', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    showOcrError(data.error);
+                    return;
+                }
+                hideOcrLoading();
+                showReview(data, fd);
+            })
+            .catch(function() {
+                showOcrError('Errore di connessione durante l\'elaborazione OCR. Verifica la connessione e riprova.');
+            });
+    }
+
+    function showReview(data, fd) {
+        // Fill review fields
+        document.getElementById('rev-fornitore').value = data.fornitore || '';
+        document.getElementById('rev-numero-bolla').value = data.numero_bolla || '';
+        document.getElementById('rev-data').value = data.data_arrivo || '';
+
+        // Need to read file as base64 for hidden field
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('hidden-file-data').value = e.target.result;
+        };
+        if (selectedFile) reader.readAsDataURL(selectedFile);
+
+        // Fill righe
+        righeBody.innerHTML = '';
+        var righe = data.righe || [];
+        if (righe.length === 0) {
+            noRighe.style.display = '';
+        } else {
+            noRighe.style.display = 'none';
+            righe.forEach(function(r) { addRiga(r); });
+        }
+
+        stepUpload.style.display = 'none';
+        stepReview.style.display = '';
+    }
+
+    function addRiga(riga) {
+        noRighe.style.display = 'none';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><input type="text" name="righe_desc[]" class="form-input" value="' + (riga.descrizione || '').replace(/"/g, '&quot;') + '" placeholder="Descrizione articolo" tabindex="1"></td>' +
+            '<td><input type="number" name="righe_pallet[]" class="form-input" value="' + (riga.pallet || 0) + '" min="0" tabindex="2"></td>' +
+            '<td><input type="number" name="righe_qta[]" class="form-input" value="' + (riga.quantita || 1) + '" min="1" tabindex="3"></td>' +
+            '<td><select name="righe_um[]" class="form-input" tabindex="4"><option value="colli"' + (riga.unita_misura === 'colli' ? ' selected' : '') + '>Colli</option><option value="pezzi"' + (riga.unita_misura === 'pezzi' ? ' selected' : '') + '>Pezzi</option><option value="kg"' + (riga.unita_misura === 'kg' ? ' selected' : '') + '>Kg</option></select></td>' +
+            '<td><input type="number" name="righe_peso[]" class="form-input" value="' + (riga.peso_kg || 0) + '" step="0.01" min="0" tabindex="5"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-danger" tabindex="6" onclick="this.closest(\'tr\').remove()">\u2715</button></td>';
+        righeBody.appendChild(tr);
+    }
+
+    // Ctrl+Enter to submit review form
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            var form = document.getElementById('form-conferma');
+            if (form && form.style.display !== 'none') {
+                form.submit();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

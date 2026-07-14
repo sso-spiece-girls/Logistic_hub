@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Risultati - {{ plugin.nome }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Risultati Estrazione</h1>
+    <p class="page-subtitle">{{ plugin.nome }} — {{ risultati|length }} file elaborati</p>
+</div>
+
+{% for r in risultati %}
+<div class="card" style="margin-bottom:1.25rem;border-left:4px solid {{ 'var(--success)' if r.successo else 'var(--error)' }}">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:600">{{ r.file }}</span>
+        <span class="result-badge {{ 'result-success' if r.successo else 'result-error' }}">
+            {{ 'Estratto' if r.successo else 'Errore' }}
+        </span>
+    </div>
+    <div class="card-body" style="padding:1.25rem 1.5rem">
+        {% if r.successo %}
+        <table class="table" style="font-size:0.9rem">
+            <tr><td class="data-label" style="width:140px">DDT</td><td class="data-value">{{ r.dati.ddt }}</td></tr>
+            <tr><td class="data-label">Data</td><td class="data-value">{{ r.dati.data }}</td></tr>
+            <tr><td class="data-label">Cliente</td><td class="data-value">{{ r.dati.cliente }}</td></tr>
+            <tr><td class="data-label">Causale</td><td class="data-value">{{ r.dati.causale }}</td></tr>
+            <tr><td class="data-label">Colli</td><td class="data-value">{{ r.dati.totale_colli }}</td></tr>
+            {% if r.dati.totale_peso %}<tr><td class="data-label">Peso</td><td class="data-value">{{ r.dati.totale_peso }} kg</td></tr>{% endif %}
+        </table>
+        {% if r.dati.articoli %}
+        <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem">ARTICOLI ({{ r.dati.articoli|length }})</div>
+            <table class="table" style="font-size:0.85rem">
+                <thead>
+                    <tr>
+                        <th style="padding:0.375rem 0.5rem;text-align:left">Codice</th>
+                        <th style="padding:0.375rem 0.5rem;text-align:left">Descrizione</th>
+                        <th style="padding:0.375rem 0.5rem;text-align:right">Qta</th>
+                        <th style="padding:0.375rem 0.5rem;text-align:center">Unità</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for a in r.dati.articoli %}
+                    <tr>
+                        <td style="padding:0.375rem 0.5rem">{{ a.codice }}</td>
+                        <td style="padding:0.375rem 0.5rem">{{ a.descrizione }}</td>
+                        <td style="padding:0.375rem 0.5rem;text-align:right">{{ a.qta }}</td>
+                        <td style="padding:0.375rem 0.5rem;text-align:center">{{ a.unita }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% else %}
+        <div style="color:var(--error)">{{ r.errore }}</div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<div class="form-actions" style="margin-top:1.5rem">
+    <a href="{{ url_for('clienti.upload_ddt', id_cliente=plugin.id) }}" class="btn btn-primary">
+        Carica altri DDT
+    </a>
+    <a href="{{ url_for('clienti.dettaglio', id_cliente=plugin.id) }}" class="btn btn-secondary">
+        Vedi Excel
+    </a>
+</div>
+{% endblock %}

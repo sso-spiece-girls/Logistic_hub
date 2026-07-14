@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="username">Username</label>
+                {{ form.username(class="form-input" + (" is-invalid" if form.username.errors else ""), placeholder="Nome utente") }}
+                {% if form.username.errors %}<div class="form-error">{% for e in form.username.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                {{ form.email(class="form-input" + (" is-invalid" if form.email.errors else ""), placeholder="email@esempio.com") }}
+                {% if form.email.errors %}<div class="form-error">{% for e in form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="password">Password</label>
+                {{ form.password(class="form-input" + (" is-invalid" if form.password.errors else ""), placeholder="Password") }}
+                {% if form.password.errors %}<div class="form-error">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                {% if user %}<small class="form-hint">Lascia vuoto per mantenere la password attuale</small>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="role">Ruolo</label>
+                {{ form.role(class="form-input" + (" is-invalid" if form.role.errors else "")) }}
+                {% if form.role.errors %}<div class="form-error">{% for e in form.role.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-actions">
+            <a href="/users" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

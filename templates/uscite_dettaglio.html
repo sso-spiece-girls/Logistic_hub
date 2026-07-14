@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}DDT {{ ddt.numero_ddt }}{% endblock %}
+{% block breadcrumbs %}
+<a href="/dashboard" class="breadcrumb-link">Home</a>
+<span class="breadcrumb-sep">/</span>
+<a href="/uscite" class="breadcrumb-link">Uscite</a>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-current">{{ ddt.numero_ddt }}</span>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">DDT {{ ddt.numero_ddt }}</h1>
+        <p class="page-subtitle">{{ ddt.cliente }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="/uscite/ddt/{{ ddt.id }}/pdf" class="btn btn-primary" target="_blank">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Scarica PDF
+        </a>
+        <a href="/uscite/ddt/{{ ddt.id }}/modifica" class="btn btn-secondary">Modifica</a>
+        <form method="POST" action="/uscite/ddt/{{ ddt.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questo DDT?')">
+            <button type="submit" class="btn btn-danger">Elimina</button>
+        </form>
+    </div>
+</div>
+
+<div class="content-grid">
+    <div class="card">
+        <div class="card-header"><h3>Informazioni DDT</h3></div>
+        <div class="card-body">
+            <dl class="detail-list">
+                <dt>Numero DDT</dt>
+                <dd>{{ ddt.numero_ddt }}</dd>
+                <dt>Cliente</dt>
+                <dd>{{ ddt.cliente }}</dd>
+                <dt>Destinatario</dt>
+                <dd>{{ ddt.destinatario or '-' }}</dd>
+                <dt>Data Creazione</dt>
+                <dd>{{ ddt.data_creazione.strftime('%d/%m/%Y %H:%M') }}</dd>
+                <dt>Data Spedizione</dt>
+                <dd>{{ ddt.data_spedizione.strftime('%d/%m/%Y') if ddt.data_spedizione else '-' }}</dd>
+                <dt>Stato</dt>
+                <dd><span class="status-badge status-{{ ddt.stato }}">{{ ddt.stato_label }}</span></dd>
+                <dt>Operatore</dt>
+                <dd>{{ ddt.operatore.username if ddt.operatore else '-' }}</dd>
+                <dt>Note</dt>
+                <dd>{{ ddt.note or '-' }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h3>Riepilogo</h3></div>
+        <div class="card-body">
+            {% if righe %}
+            {% set tot_colli = righe|sum(attribute='quantita_colli') %}
+            {% set tot_pallet = righe|sum(attribute='quantita_pallet') %}
+            {% set tot_peso = righe|sum(attribute='peso_kg') %}
+            <dl class="detail-list">
+                <dt>Totale Articoli</dt>
+                <dd>{{ righe|length }}</dd>
+                <dt>Totale Colli</dt>
+                <dd>{{ tot_colli }}</dd>
+                <dt>Totale Pallet</dt>
+                <dd>{{ tot_pallet }}</dd>
+                <dt>Peso Totale (kg)</dt>
+                <dd>{{ '%.1f'|format(tot_peso) }}</dd>
+            </dl>
+            {% else %}
+            <div class="empty-state">Nessun dettaglio articoli</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if righe %}
+<div class="card" style="margin-top:1.5rem">
+    <div class="card-header"><h3>Articoli</h3></div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Codice Articolo</th>
+                        <th>Descrizione</th>
+                        <th>Pallet</th>
+                        <th>Colli</th>
+                        <th>Peso (kg)</th>
+                        <th>Ubicazione</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in righe %}
+                    <tr>
+                        <td><strong>{{ r.articolo_codice }}</strong></td>
+                        <td>{{ r.descrizione or '-' }}</td>
+                        <td>{{ r.quantita_pallet }}</td>
+                        <td>{{ r.quantita_colli }}</td>
+                        <td>{{ '%.1f'|format(r.peso_kg) if r.peso_kg else '-' }}</td>
+                        <td>{{ r.ubicazione or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
