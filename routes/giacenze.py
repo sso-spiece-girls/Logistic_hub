@@ -14,6 +14,7 @@ giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
 def lista():
     search = request.args.get("q", "").strip()
     filtro_magazzino = request.args.get("magazzino", "").strip()
+    gruppi = request.args.get("gruppi") == "1"
     query = Giacenza.query.order_by(Giacenza.codice_articolo)
 
     if search:
@@ -30,7 +31,7 @@ def lista():
         query = query.filter(Giacenza.magazzino == filtro_magazzino)
 
     giacenze = query.all()
-    return render_template("giacenze.html", giacenze=giacenze, search=search, filtro_magazzino=filtro_magazzino)
+    return render_template("giacenze.html", giacenze=giacenze, search=search, filtro_magazzino=filtro_magazzino, gruppi=gruppi)
 
 
 @giacenze.route("/nuovo", methods=["GET", "POST"])

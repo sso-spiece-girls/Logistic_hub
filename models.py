@@ -71,7 +71,7 @@ class Bolla(db.Model):
     __tablename__ = "bolle"
 
     id = db.Column(db.Integer, primary_key=True)
-    numero_bolla = db.Column(db.String(100), nullable=False, index=True)
+    numero_bolla = db.Column(db.Text, nullable=False, index=True)
     fornitore = db.Column(db.String(200), nullable=False)
     data_arrivo = db.Column(db.Date, nullable=True)
     data_caricamento = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -99,7 +99,7 @@ class DDT(db.Model):
     __tablename__ = "ddt"
 
     id = db.Column(db.Integer, primary_key=True)
-    numero_ddt = db.Column(db.String(100), nullable=False, index=True)
+    numero_ddt = db.Column(db.Text, nullable=False, index=True)
     cliente = db.Column(db.String(200), nullable=False)
     destinatario = db.Column(db.String(200), nullable=True)
     provenienza = db.Column(db.String(300), nullable=True)
