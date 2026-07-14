@@ -129,7 +129,7 @@ class Giacenza(db.Model):
     __tablename__ = "giacenze"
 
     id = db.Column(db.Integer, primary_key=True)
-    codice_articolo = db.Column(db.String(100), nullable=False, index=True)
+    codice_articolo = db.Column(db.String(500), nullable=False, index=True)
     descrizione = db.Column(db.String(300), nullable=False)
     quantita = db.Column(db.Float, default=0)
     ubicazione = db.Column(db.String(100), nullable=True)
@@ -224,7 +224,7 @@ class Articolo(db.Model):
     __tablename__ = "articoli"
 
     id = db.Column(db.Integer, primary_key=True)
-    codice = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    codice = db.Column(db.String(500), nullable=False, unique=True, index=True)
     descrizione = db.Column(db.String(300), nullable=False)
     unita_misura = db.Column(db.String(20), default="colli")
     categoria = db.Column(db.String(100), nullable=True)
@@ -275,7 +275,7 @@ class Movimento(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(20), nullable=False)
-    articolo_codice = db.Column(db.String(100), nullable=False, index=True)
+    articolo_codice = db.Column(db.String(500), nullable=False, index=True)
     descrizione = db.Column(db.String(300), nullable=True)
     id_bobina = db.Column(db.String(100), nullable=True)
     quantita = db.Column(db.Float, default=0)
