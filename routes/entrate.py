@@ -158,11 +158,21 @@ def _processa_un_pdf(percorso):
     }
 
 
+_TEMP_PDF_DIR = None
+
+def _get_temp_pdf_dir():
+    global _TEMP_PDF_DIR
+    if _TEMP_PDF_DIR is None:
+        import tempfile as _tf
+        _TEMP_PDF_DIR = _tf.mkdtemp(prefix="ocr_pdf_")
+    return _TEMP_PDF_DIR
+
+
 @entrate.route("/upload-ocr", methods=["POST"])
 @login_required
 def upload_ocr():
+    import uuid
     import os as _os
-    import tempfile
     from time import sleep
     files = request.files.getlist("file_pdf") or [request.files.get("file_pdf")]
     files = [f for f in files if f and f.filename]
@@ -174,22 +184,16 @@ def upload_ocr():
         if not file.filename.lower().endswith(".pdf"):
             risultati.append({"filename": file.filename, "error": "Solo PDF"})
             continue
-        tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-        file.save(tmp.name)
-        tmp.close()
+        saved_id = str(uuid.uuid4())
+        dest = _os.path.join(_get_temp_pdf_dir(), saved_id + ".pdf")
+        file.save(dest)
         try:
-            res = _processa_un_pdf(tmp.name)
+            res = _processa_un_pdf(dest)
             res["filename"] = file.filename
+            res["_temp_id"] = saved_id
             risultati.append(res)
         except Exception as e:
             risultati.append({"filename": file.filename, "error": str(e)})
-        finally:
-            for _ in range(5):
-                try:
-                    _os.unlink(tmp.name)
-                    break
-                except OSError:
-                    sleep(0.3)
 
     resp = {"risultati": risultati}
     if len(risultati) == 1 and not risultati[0].get("error"):
@@ -240,7 +244,7 @@ def conferma_importa():
 @entrate.route("/conferma-importa-multi", methods=["POST"])
 @login_required
 def conferma_importa_multi():
-    import json
+    import json, os as _os, hashlib, base64
     raw = request.form.get("bolle_json", "")
     if not raw:
         flash("Errore: dati bolle non validi (JSON vuoto).", "error")
@@ -255,16 +259,35 @@ def conferma_importa_multi():
         flash("Nessuna bolla da importare.", "warning")
         return redirect(url_for("entrate.importa"))
 
+    from services.bolla_service import bolla_esistente_per_hash, importa_bolla_da_pdf
+    from werkzeug.datastructures import ImmutableMultiDict as _IMD
+
+    processed_ids = set()
     importate = 0
     errori = 0
-    for idx, bd in enumerate(bolle_data):
+    for bd in bolle_data:
         numero_bolla = (bd.get("numero_bolla") or "").strip()
         fornitore = (bd.get("fornitore") or "").strip()
         if not numero_bolla or not fornitore:
             errori += 1
             continue
 
-        from werkzeug.datastructures import ImmutableMultiDict
+        # Legge il PDF dal file temporaneo salvato da upload-ocr
+        temp_id = bd.get("_temp_id", "")
+        if temp_id:
+            processed_ids.add(temp_id)
+        pdf_bytes = None
+        if temp_id:
+            pdf_path = _os.path.join(_get_temp_pdf_dir(), temp_id + ".pdf")
+            if _os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as fh:
+                    pdf_bytes = fh.read()
+
+        hash_val = hashlib.sha256(pdf_bytes).hexdigest() if pdf_bytes else None
+        if hash_val and bolla_esistente_per_hash(hash_val):
+            errori += 1
+            continue
+
         righe = bd.get("righe", [])
         form_data_list = [
             ("numero_bolla", numero_bolla),
@@ -272,25 +295,12 @@ def conferma_importa_multi():
             ("data_arrivo", (bd.get("data_arrivo") or "").strip()),
             ("stato", bd.get("stato", "da_elaborare")),
             ("note", (bd.get("note") or "").strip()),
-            ("file_pdf_base64", (bd.get("file_pdf_base64") or "")),
         ]
 
-        pdf_bytes = None
-        file_data = bd.get("file_pdf_base64", "")
-        if file_data and ";base64," in file_data:
-            import base64
-            try:
-                header, b64data = file_data.split(";base64,", 1)
-                pdf_bytes = base64.b64decode(b64data)
-            except Exception:
-                pdf_bytes = None
-
+        # Ricostruisce file_pdf_base64 dal PDF letto da disco (solo per importa_bolla_da_pdf)
         if pdf_bytes:
-            hash_val = hashlib.sha256(pdf_bytes).hexdigest()
-            from services.bolla_service import bolla_esistente_per_hash
-            if bolla_esistente_per_hash(hash_val):
-                errori += 1
-                continue
+            f_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+            form_data_list.append(("file_pdf_base64", "data:application/pdf;base64," + f_b64))
 
         for r in righe:
             form_data_list.append(("righe_desc[]", r.get("descrizione", "")))
@@ -298,7 +308,6 @@ def conferma_importa_multi():
             form_data_list.append(("righe_pallet[]", str(r.get("pallet", 0))))
             form_data_list.append(("righe_peso[]", str(r.get("peso_kg", 0))))
 
-        from werkzeug.datastructures import ImmutableMultiDict as _IMD
         dummy_form = _IMD(form_data_list)
 
         try:
@@ -309,6 +318,14 @@ def conferma_importa_multi():
                     f"{current_user.username} ha importato la bolla {bolla.numero_bolla} da PDF multiplo", "bolla", bolla.id)
         except Exception:
             errori += 1
+
+    # Cleanup temp PDFs
+    for tid in processed_ids:
+        p = _os.path.join(_get_temp_pdf_dir(), tid + ".pdf")
+        try:
+            _os.unlink(p)
+        except OSError:
+            pass
 
     if importate:
         create_notification(None, "Bolle importate",

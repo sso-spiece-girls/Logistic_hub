@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data_arrivo: inputs[2].value || '',
                 stato: 'da_elaborare',
                 note: '',
-                file_pdf_base64: bd._fileBase64 || '',
+                _temp_id: bd._temp_id || '',
                 righe: bd.righe || []
             });
         }
@@ -235,25 +235,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     showOcrError('Nessun risultato ricevuto dal server.');
                     return;
                 }
-                // Store base64 for each file
                 bolleResults = risultati;
-                for (var k = 0; k < risultati.length && k < pdfs.length; k++) {
-                    risultati[k]._fileBase64 = '';
-                }
-                // Read base64 for each file asynchronously
-                var pending = pdfs.length;
-                for (var m = 0; m < pdfs.length && m < risultati.length; m++) {
-                    (function(idx) {
-                        var reader = new FileReader();
-                        reader.onload = function(e) {
-                            if (risultati[idx]) risultati[idx]._fileBase64 = e.target.result;
-                            pending--;
-                            if (pending === 0) showReviewTable(risultati);
-                        };
-                        reader.readAsDataURL(pdfs[idx]);
-                    })(m);
-                }
-                if (pending === 0) showReviewTable(risultati);
+                showReviewTable(risultati);
             })
             .catch(function() {
                 showOcrError('Errore di connessione durante l\'elaborazione.');
