@@ -142,8 +142,8 @@ body {
 @media (max-width: 768px) {
   .sidebar { transform: translateX(0); }
   .sidebar-collapsed .sidebar { transform: translateX(-100%); }
-  .sidebar-backdrop { display: none; }
-  .sidebar-collapsed .sidebar-backdrop { display: block; }
+  .sidebar-backdrop { display: block; }
+  .sidebar-collapsed .sidebar-backdrop { display: none; }
   .main-content { padding-left: 2rem; }
   .sidebar-collapsed .main-content { padding-left: 2rem; }
 }

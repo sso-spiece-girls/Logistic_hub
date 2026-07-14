@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var rows = risultatiBody.querySelectorAll('tr');
         for (var i = 0; i < rows.length; i++) {
             var inputs = rows[i].querySelectorAll('input.row-edit');
+            if (inputs.length < 3) continue;
             var fornitore = inputs[0].value.trim();
             var nBolla = inputs[1].value.trim();
             if (!fornitore || !nBolla) continue;

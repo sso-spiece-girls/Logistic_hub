@@ -241,8 +241,12 @@ def conferma_importa():
 @login_required
 def conferma_importa_multi():
     import json
+    raw = request.form.get("bolle_json", "")
+    if not raw:
+        flash("Errore: dati bolle non validi (JSON vuoto).", "error")
+        return redirect(url_for("entrate.importa"))
     try:
-        bolle_data = json.loads(request.form.get("bolle_json", "[]"))
+        bolle_data = json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         flash("Errore: dati bolle non validi.", "error")
         return redirect(url_for("entrate.importa"))
