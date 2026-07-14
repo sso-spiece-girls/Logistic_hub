@@ -45,7 +45,7 @@
         <tbody>
             {% for b in bolle %}
             <tr>
-                <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a>{% if (b.numero_bolla, b.fornitore) in duplicati %} <span class="badge-doppione">DOPPIONE</span>{% endif %}</td>
+                <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a>{% if b.id in ids_duplicati %} <span class="badge-doppione">DOPPIONE</span>{% endif %}</td>
                 <td>{{ b.fornitore }}</td>
                 <td>{{ b.data_arrivo.strftime('%d/%m/%Y') if b.data_arrivo else '-' }}</td>
                 <td><span class="status-badge status-{{ b.stato }} status-inline" data-entity="bolle" data-id="{{ b.id }}" data-stato="{{ b.stato }}" role="button" tabindex="0">{{ b.stato_label }}</span></td>
@@ -53,6 +53,11 @@
                 <td class="actions-cell">
                     <a href="/entrate/bolla/{{ b.id }}" class="btn btn-sm btn-ghost">Dettaglio</a>
                     <a href="/entrate/bolla/{{ b.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    {% if b.id in ids_duplicati %}
+                    <form method="POST" action="/entrate/bolla/{{ b.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare bolla duplicata?')">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                    </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

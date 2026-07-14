@@ -23,16 +23,17 @@ def lista():
     if stato:
         query = query.filter_by(stato=stato)
     bolle = query.all()
-    # Trova (numero_bolla, fornitore) che appaiono più di una volta
-    duplicati = set()
-    counts = {}
+    # Trova bolle duplicate: stesso (numero_bolla, fornitore) appaiono piu' volte
+    # Solo la seconda+ istanza viene marcata come duplicato
+    visti = set()
+    ids_duplicati = set()
     for b in bolle:
         key = (b.numero_bolla, b.fornitore)
-        counts[key] = counts.get(key, 0) + 1
-    for key, cnt in counts.items():
-        if cnt > 1:
-            duplicati.add(key)
-    return render_template("entrate.html", bolle=bolle, filtro_stato=stato, duplicati=duplicati)
+        if key in visti:
+            ids_duplicati.add(b.id)
+        else:
+            visti.add(key)
+    return render_template("entrate.html", bolle=bolle, filtro_stato=stato, ids_duplicati=ids_duplicati)
 
 
 @entrate.route("/nuova", methods=["GET", "POST"])

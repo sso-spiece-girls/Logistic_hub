@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import User, db
@@ -26,14 +27,19 @@ def nuovo():
             flash("Username già esistente.", "error")
             return render_template("users_form.html", form=form, titolo="Nuovo Utente")
 
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            role=form.role.data,
-        )
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
+        try:
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                role=form.role.data,
+            )
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash("Errore: username o email già in uso.", "error")
+            return render_template("users_form.html", form=form, titolo="Nuovo Utente")
         log_activity(current_user.id, "crea_utente",
             f"{current_user.username} ha creato l'utente {user.username}",
             "user", user.id)
