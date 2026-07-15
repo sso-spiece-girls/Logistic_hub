@@ -45,6 +45,9 @@ def parse_righe_json(form_data):
 
 
 def crea_righe_bolla(bolla_id, righe_data, operatore_id):
+    codici = {normalizza_codice_articolo(r.get("descrizione", "")) for r in righe_data if r.get("descrizione", "").strip()}
+    giacenze_esistenti = {g.codice_articolo: g for g in Giacenza.query.filter(Giacenza.codice_articolo.in_(codici)).all()}
+
     for r in righe_data:
         art_codice = normalizza_codice_articolo(r.get("descrizione", ""))
         if not art_codice:
@@ -58,15 +61,15 @@ def crea_righe_bolla(bolla_id, righe_data, operatore_id):
             peso_kg=float(r.get("peso_kg", 0)),
         )
         db.session.add(riga)
-        _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, bolla_id, None)
+        _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, bolla_id, None, giacenze_esistenti)
 
 
-def _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, riferimento_id, riferimento_tipo):
+def _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, riferimento_id, riferimento_tipo, giacenze_cache=None):
     colli = int(r.get("quantita", 1))
     pallet = int(r.get("pallet", 0))
     peso = float(r.get("peso_kg", 0))
 
-    giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
+    giac = giacenze_cache.get(art_codice) if giacenze_cache is not None else Giacenza.query.filter_by(codice_articolo=art_codice).first()
     if giac:
         giac.colli = (giac.colli or 0) + colli
         giac.peso_kg = (giac.peso_kg or 0) + peso
@@ -81,6 +84,8 @@ def _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, riferimento_id, rif
             updated_by=operatore_id,
         )
         db.session.add(giac)
+        if giacenze_cache is not None:
+            giacenze_cache[art_codice] = giac
 
     mov = Movimento(
         tipo="ingresso",

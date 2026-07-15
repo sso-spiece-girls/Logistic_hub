@@ -44,6 +44,7 @@
     <button class="btn btn-primary" style="margin-top:1rem" onclick="document.getElementById('uploadModal').classList.add('open')">Carica Documento</button>
 </div>
 {% endif %}
+{% include "components/pagination.html" %}
 
 <div class="modal" id="uploadModal">
     <div class="modal-backdrop" onclick="this.parentElement.classList.remove('open')"></div>

@@ -41,12 +41,12 @@ class Activity(db.Model):
     __tablename__ = "activities"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     action = db.Column(db.String(50), nullable=False)
     description = db.Column(db.String(500), nullable=False)
     entity_type = db.Column(db.String(50), nullable=True)
     entity_id = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     def __repr__(self):
         return f"<Activity {self.action} by {self.user_id}>"
@@ -56,12 +56,12 @@ class Notification(db.Model):
     __tablename__ = "notifications"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     title = db.Column(db.String(200), nullable=False)
     message = db.Column(db.String(500), nullable=False)
     type = db.Column(db.String(20), default="info")
-    read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    read = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     def __repr__(self):
         return f"<Notification {self.title}>"
@@ -72,11 +72,11 @@ class Bolla(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     numero_bolla = db.Column(db.Text, nullable=False, index=True)
-    fornitore = db.Column(db.String(200), nullable=False)
-    data_arrivo = db.Column(db.Date, nullable=True)
+    fornitore = db.Column(db.String(200), nullable=False, index=True)
+    data_arrivo = db.Column(db.Date, nullable=True, index=True)
     data_caricamento = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    stato = db.Column(db.String(30), default="da_elaborare")
-    operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    stato = db.Column(db.String(30), default="da_elaborare", index=True)
+    operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     file_path = db.Column(db.String(500), nullable=True)
     note = db.Column(db.Text, nullable=True)
     hash_pdf = db.Column(db.String(64), nullable=True, unique=True)
@@ -100,15 +100,15 @@ class DDT(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     numero_ddt = db.Column(db.Text, nullable=False, index=True)
-    cliente = db.Column(db.String(200), nullable=False)
+    cliente = db.Column(db.String(200), nullable=False, index=True)
     destinatario = db.Column(db.String(200), nullable=True)
     provenienza = db.Column(db.String(300), nullable=True)
     vettore = db.Column(db.String(200), nullable=True)
     causale_trasporto = db.Column(db.String(200), nullable=True)
-    data_creazione = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    data_creazione = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     data_spedizione = db.Column(db.Date, nullable=True)
-    stato = db.Column(db.String(30), default="bozza")
-    operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    stato = db.Column(db.String(30), default="bozza", index=True)
+    operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     note = db.Column(db.Text, nullable=True)
     filename_pdf = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -238,8 +238,8 @@ class DettaglioBolla(db.Model):
     __tablename__ = "dettaglio_bolla"
 
     id = db.Column(db.Integer, primary_key=True)
-    bolla_id = db.Column(db.Integer, db.ForeignKey("bolle.id"), nullable=False)
-    articolo_codice = db.Column(db.String(500), nullable=False)
+    bolla_id = db.Column(db.Integer, db.ForeignKey("bolle.id"), nullable=False, index=True)
+    articolo_codice = db.Column(db.String(500), nullable=False, index=True)
     descrizione = db.Column(db.String(300), nullable=True)
     quantita_colli = db.Column(db.Integer, default=0)
     quantita_pallet = db.Column(db.Integer, default=0)
@@ -256,8 +256,8 @@ class RigheDDT(db.Model):
     __tablename__ = "righe_ddt"
 
     id = db.Column(db.Integer, primary_key=True)
-    ddt_id = db.Column(db.Integer, db.ForeignKey("ddt.id"), nullable=False)
-    articolo_codice = db.Column(db.String(500), nullable=False)
+    ddt_id = db.Column(db.Integer, db.ForeignKey("ddt.id"), nullable=False, index=True)
+    articolo_codice = db.Column(db.String(500), nullable=False, index=True)
     descrizione = db.Column(db.String(300), nullable=True)
     quantita_colli = db.Column(db.Integer, default=0)
     quantita_pallet = db.Column(db.Integer, default=0)
@@ -274,7 +274,7 @@ class Movimento(db.Model):
     __tablename__ = "movimenti"
 
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20), nullable=False)
+    tipo = db.Column(db.String(20), nullable=False, index=True)
     articolo_codice = db.Column(db.String(500), nullable=False, index=True)
     descrizione = db.Column(db.String(300), nullable=True)
     id_bobina = db.Column(db.String(100), nullable=True)
@@ -284,11 +284,11 @@ class Movimento(db.Model):
     peso_kg = db.Column(db.Float, default=0.0)
     magazzino = db.Column(db.String(50), nullable=True)
     ubicazione = db.Column(db.String(100), nullable=True)
-    riferimento_id = db.Column(db.Integer, nullable=True)
-    riferimento_tipo = db.Column(db.String(50), nullable=True)
+    riferimento_id = db.Column(db.Integer, nullable=True, index=True)
+    riferimento_tipo = db.Column(db.String(50), nullable=True, index=True)
     note = db.Column(db.String(500), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship("User", foreign_keys=[user_id])
 

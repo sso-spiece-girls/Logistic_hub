@@ -1,7 +1,8 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from flask import Blueprint, render_template
 from flask_login import login_required, current_user
 from models import Bolla, DDT, Giacenza, Picking, Activity, Documento, Notification, db
+from sqlalchemy import select, func
 
 dashboard = Blueprint("dashboard", __name__)
 
@@ -10,22 +11,27 @@ dashboard = Blueprint("dashboard", __name__)
 @dashboard.route("/dashboard")
 @login_required
 def index():
-    bolle_da_elaborare = Bolla.query.filter_by(stato="da_elaborare").count()
-    ddt_oggi = DDT.query.filter(
-        db.func.date(DDT.data_creazione) == datetime.now(timezone.utc).date()
-    ).count()
-    giacenze_totali = db.session.query(db.func.sum(Giacenza.quantita)).scalar() or 0
-    colli_totali = db.session.query(db.func.sum(Giacenza.colli)).scalar() or 0
+    today = datetime.now(timezone.utc).date()
+
+    row = db.session.execute(
+        select(
+            select(func.count()).select_from(Bolla).where(Bolla.stato == "da_elaborare").scalar_subquery(),
+            select(func.count()).select_from(DDT).where(db.func.date(DDT.data_creazione) == today).scalar_subquery(),
+            select(func.coalesce(func.sum(Giacenza.quantita), 0)).select_from(Giacenza).scalar_subquery(),
+            select(func.coalesce(func.sum(Giacenza.colli), 0)).select_from(Giacenza).scalar_subquery(),
+            select(func.count()).select_from(Picking).where(Picking.stato.in_(["aperto", "in_corso"])).scalar_subquery(),
+        )
+    ).one()
+
+    bolle_da_elaborare, ddt_oggi, giacenze_totali, colli_totali, picking_attivi = row
 
     ultime_attivita = Activity.query.order_by(Activity.created_at.desc()).limit(10).all()
     ultimi_documenti = Documento.query.order_by(Documento.created_at.desc()).limit(5).all()
 
-    picking_attivi = Picking.query.filter(Picking.stato.in_(["aperto", "in_corso"])).count()
-
     notifiche_non_lette = Notification.query.filter(
         (Notification.user_id == current_user.id) | (Notification.user_id.is_(None)),
         Notification.read == False
-    ).order_by(Notification.created_at.desc()).all()
+    ).order_by(Notification.created_at.desc()).limit(10).all()
 
     return render_template("dashboard.html",
         bolle_da_elaborare=bolle_da_elaborare,

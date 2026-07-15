@@ -52,6 +52,10 @@ def mark_notification(notifica_id):
             return redirect(url_for("dashboard.index"))
     notifica.read = True
     db.session.commit()
+    from main import _NOTIF_CACHE
+    _NOTIF_CACHE.pop(current_user.id, None)
+    if notifica.user_id and notifica.user_id != current_user.id:
+        _NOTIF_CACHE.pop(notifica.user_id, None)
     return redirect(request.referrer or url_for("dashboard.index"))
 
 
@@ -65,6 +69,8 @@ def mark_all_notifications():
     for n in notifications:
         n.read = True
     db.session.commit()
+    from main import _NOTIF_CACHE
+    _NOTIF_CACHE.pop(current_user.id, None)
     flash("Tutte le notifiche sono state segnate come lette.", "success")
     return redirect(request.referrer or url_for("dashboard.index"))
 
@@ -90,3 +96,5 @@ def create_notification(user_id, title, message, type="info"):
     )
     db.session.add(notification)
     db.session.commit()
+    from main import _NOTIF_CACHE
+    _NOTIF_CACHE.pop(user_id, None)

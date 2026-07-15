@@ -32,6 +32,8 @@ def carica_tutti():
 
 
 def get_plugin(nome=None, id=None):
+    if not _plugins:
+        carica_tutti()
     if nome and nome in _plugins:
         return _plugins[nome]
     if id and id in _plugins_by_id:
@@ -40,11 +42,15 @@ def get_plugin(nome=None, id=None):
 
 
 def get_all_plugins():
+    if not _plugins:
+        carica_tutti()
     return list(_plugins.values())
 
 
 def riconosci_cliente(testo_pdf):
     """Auto-riconosce il cliente dal testo del PDF."""
+    if not _plugins:
+        carica_tutti()
     for nome, plugin in _plugins.items():
         if plugin.riconosci(testo_pdf):
             return plugin
@@ -52,4 +58,6 @@ def riconosci_cliente(testo_pdf):
 
 
 def lista_clienti():
+    if not _plugins:
+        carica_tutti()
     return {p.id: p.nome for p in _plugins.values()}

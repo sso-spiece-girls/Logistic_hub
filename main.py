@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask
@@ -26,6 +27,26 @@ from routes.clienti import clienti
 from config import Config
 
 
+_NOTIF_CACHE = {}
+_NOTIF_TTL = 20
+
+
+def _get_cached_notifiche(user_id):
+    now = time.monotonic()
+    cached = _NOTIF_CACHE.get(user_id)
+    if cached and now - cached[0] < _NOTIF_TTL:
+        return cached[1], cached[2]
+
+    base_q = Notification.query.filter(
+        (Notification.user_id == user_id) | (Notification.user_id.is_(None)),
+        Notification.read == False
+    )
+    unread_count = base_q.count()
+    notifications = base_q.order_by(Notification.created_at.desc()).limit(10).all()
+    _NOTIF_CACHE[user_id] = (now, unread_count, notifications)
+    return unread_count, notifications
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -36,6 +57,9 @@ def create_app():
 
     db.init_app(app)
     login_manager.init_app(app)
+
+    css_path = os.path.join(os.path.dirname(__file__), "static", "css", "app.css")
+    css_mtime = int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1
 
     app.register_blueprint(auth)
     app.register_blueprint(dashboard)
@@ -52,9 +76,6 @@ def create_app():
     app.register_blueprint(api)
     app.register_blueprint(clienti)
 
-    import clients
-    clients.carica_tutti()
-
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.get(User, int(user_id))
@@ -65,17 +86,11 @@ def create_app():
         unread_count = 0
         notifications = []
         if current_user.is_authenticated:
-            base_q = Notification.query.filter(
-                (Notification.user_id == current_user.id) | (Notification.user_id.is_(None)),
-                Notification.read == False
-            )
-            unread_count = base_q.count()
-            notifications = base_q.order_by(Notification.created_at.desc()).limit(10).all()
-        css_path = os.path.join(os.path.dirname(__file__), "static", "css", "app.css")
+            unread_count, notifications = _get_cached_notifiche(current_user.id)
         return {
             "unread_notifications": notifications,
             "unread_count": unread_count,
-            "css_mtime": int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1,
+            "css_mtime": css_mtime,
         }
 
     @app.route("/ping")
@@ -86,6 +101,9 @@ def create_app():
     def add_cache_headers(response):
         if response.content_type and "text/" in response.content_type:
             response.headers["X-Content-Type-Options"] = "nosniff"
+        if response.content_type and ("text/css" in response.content_type or "application/javascript" in response.content_type or "image/" in response.content_type):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            response.headers["Expires"] = "Thu, 31 Dec 2037 23:55:55 GMT"
         return response
 
     return app

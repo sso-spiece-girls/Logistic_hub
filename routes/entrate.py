@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
@@ -18,13 +19,14 @@ entrate = Blueprint("entrate", __name__, url_prefix="/entrate")
 @entrate.route("/")
 @login_required
 def lista():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 50, type=int)
     stato = request.args.get("stato", "")
     query = Bolla.query.options(db.joinedload(Bolla.operatore)).order_by(Bolla.created_at.desc())
     if stato:
         query = query.filter_by(stato=stato)
-    bolle = query.all()
-    # Trova bolle duplicate: stesso (numero_bolla, fornitore) appaiono piu' volte
-    # Solo la seconda+ istanza viene marcata come duplicato
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    bolle = pagination.items
     visti = set()
     ids_duplicati = set()
     for b in bolle:
@@ -33,7 +35,7 @@ def lista():
             ids_duplicati.add(b.id)
         else:
             visti.add(key)
-    return render_template("entrate.html", bolle=bolle, filtro_stato=stato, ids_duplicati=ids_duplicati)
+    return render_template("entrate.html", bolle=bolle, pagination=pagination, filtro_stato=stato, ids_duplicati=ids_duplicati)
 
 
 @entrate.route("/nuova", methods=["GET", "POST"])
@@ -133,19 +135,19 @@ def _processa_un_pdf(percorso):
     testo = pdf_leggi_pdf(percorso)
 
     # 1) Fornitore specifico (Base SPA, Saleri, Carrara)
-    from fornitori import _specifici
-    for p in _specifici:
-        if p.riconosci(testo):
-            dati = p.parse_bolla(testo)
-            fornitore = p.estrai_fornitore(testo)
-            return {
-                "testo": testo[:2000],
-                "dati": [{"picking": r.get("descrizione", ""), "pallet": r.get("pallet", 0), "colli": r.get("quantita", 0), "peso_kg": r.get("peso_kg", 0)} for r in dati.get("righe", [])],
-                "fornitore": fornitore,
-                "numero_bolla": dati.get("numero_bolla", ""),
-                "data_arrivo": _converti_data(dati.get("data_arrivo", "")),
-                "righe": dati.get("righe", []),
-            }
+    from fornitori import riconosci_fornitore as riconosci_fornitore_plugin
+    p = riconosci_fornitore_plugin(testo)
+    if p and p.id != "gen":
+        dati = p.parse_bolla(testo)
+        fornitore = p.estrai_fornitore(testo)
+        return {
+            "testo": testo[:2000],
+            "dati": [{"picking": r.get("descrizione", ""), "pallet": r.get("pallet", 0), "colli": r.get("quantita", 0), "peso_kg": r.get("peso_kg", 0)} for r in dati.get("righe", [])],
+            "fornitore": fornitore,
+            "numero_bolla": dati.get("numero_bolla", ""),
+            "data_arrivo": _converti_data(dati.get("data_arrivo", "")),
+            "righe": dati.get("righe", []),
+        }
 
     # 2) Plugin cliente (Enegan, Elle Group, Soffas, Magis, DAS, La Leccia)
     from clients import riconosci_cliente
@@ -179,6 +181,22 @@ def _processa_un_pdf(percorso):
 
 
 _TEMP_PDF_DIR = None
+_ocr_tasks = {}
+_ocr_tasks_lock = threading.Lock()
+
+
+def _pulisci_ocr_task(task_id):
+    with _ocr_tasks_lock:
+        _ocr_tasks.pop(task_id, None)
+
+
+def _pulisci_vecchie_task():
+    with _ocr_tasks_lock:
+        ora = datetime.now(timezone.utc).timestamp()
+        da_rimuovere = [tid for tid, t in _ocr_tasks.items() if t.get("status") in ("completed", "error") and ora - t.get("ts", 0) > 3600]
+        for tid in da_rimuovere:
+            del _ocr_tasks[tid]
+
 
 def _get_temp_pdf_dir():
     global _TEMP_PDF_DIR
@@ -188,13 +206,41 @@ def _get_temp_pdf_dir():
     return _TEMP_PDF_DIR
 
 
+def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
+    import os as _os
+    from models import Bolla
+    dest = _os.path.join(_get_temp_pdf_dir(), saved_id + ".pdf")
+    try:
+        res = _processa_un_pdf(dest)
+        res["filename"] = filename
+        res["_temp_id"] = saved_id
+        n_bolla = (res.get("numero_bolla") or "").strip()
+        fornitore = (res.get("fornitore") or "").strip()
+        if n_bolla and fornitore:
+            with flask_app.app_context():
+                esistente = Bolla.query.filter_by(numero_bolla=n_bolla, fornitore=fornitore).first()
+                if esistente:
+                    res["duplicato"] = True
+                    res["bolla_esistente"] = {
+                        "id": esistente.id,
+                        "numero_bolla": esistente.numero_bolla,
+                        "data_arrivo": str(esistente.data_arrivo or ""),
+                        "fornitore": esistente.fornitore
+                    }
+        with _ocr_tasks_lock:
+            _ocr_tasks[task_id] = {"status": "completed", "result": res, "ts": datetime.now(timezone.utc).timestamp()}
+    except Exception as e:
+        with _ocr_tasks_lock:
+            _ocr_tasks[task_id] = {"status": "error", "error": str(e), "filename": filename, "ts": datetime.now(timezone.utc).timestamp()}
+
+
 @entrate.route("/upload-ocr", methods=["POST"])
 @login_required
 def upload_ocr():
     import uuid
     import os as _os
-    from time import sleep
-    from models import Bolla
+    from flask import current_app
+    _app = current_app._get_current_object()
     files = request.files.getlist("file_pdf") or [request.files.get("file_pdf")]
     files = [f for f in files if f and f.filename]
     if not files:
@@ -206,39 +252,46 @@ def upload_ocr():
             risultati.append({"filename": file.filename, "error": "Solo PDF"})
             continue
         saved_id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
         dest = _os.path.join(_get_temp_pdf_dir(), saved_id + ".pdf")
         file.save(dest)
-        try:
-            res = _processa_un_pdf(dest)
-            res["filename"] = file.filename
-            res["_temp_id"] = saved_id
-            # Controllo duplicato per numero_bolla + fornitore
-            n_bolla = (res.get("numero_bolla") or "").strip()
-            fornitore = (res.get("fornitore") or "").strip()
-            if n_bolla and fornitore:
-                esistente = Bolla.query.filter_by(numero_bolla=n_bolla, fornitore=fornitore).first()
-                if esistente:
-                    res["duplicato"] = True
-                    res["bolla_esistente"] = {
-                        "id": esistente.id,
-                        "numero_bolla": esistente.numero_bolla,
-                        "data_arrivo": str(esistente.data_arrivo or ""),
-                        "fornitore": esistente.fornitore
-                    }
-            risultati.append(res)
-        except Exception as e:
-            risultati.append({"filename": file.filename, "error": str(e)})
+        with _ocr_tasks_lock:
+            _ocr_tasks[task_id] = {"status": "processing", "filename": file.filename}
+        thread = threading.Thread(target=_processa_pdf_in_background, args=(task_id, saved_id, file.filename, _app), daemon=True)
+        thread.start()
+        risultati.append({"task_id": task_id, "_temp_id": saved_id, "filename": file.filename})
 
-    resp = {"risultati": risultati}
-    if len(risultati) == 1 and not risultati[0].get("error"):
-        r = risultati[0]
-        resp["testo"] = r.get("testo", "")
-        resp["dati"] = r.get("dati", [])
-        resp["fornitore"] = r.get("fornitore", "")
-        resp["numero_bolla"] = r.get("numero_bolla", "")
-        resp["data_arrivo"] = r.get("data_arrivo", "")
-        resp["righe"] = r.get("righe", [])
+    resp = {"risultati": risultati, "async": True}
     return jsonify(resp)
+
+
+@entrate.route("/ocr-status/<task_id>")
+@login_required
+def ocr_status(task_id):
+    _pulisci_vecchie_task()
+    with _ocr_tasks_lock:
+        task = _ocr_tasks.get(task_id)
+    if task is None:
+        return jsonify({"status": "not_found"}), 404
+    if task["status"] == "processing":
+        return jsonify({"status": "processing"})
+    if task["status"] == "completed":
+        res = task["result"]
+        resp = {
+            "status": "completed",
+            "filename": res.get("filename", ""),
+            "fornitore": res.get("fornitore", ""),
+            "numero_bolla": res.get("numero_bolla", ""),
+            "data_arrivo": res.get("data_arrivo", ""),
+            "righe": res.get("righe", []),
+            "dati": res.get("dati", []),
+            "testo": res.get("testo", ""),
+            "duplicato": res.get("duplicato", False),
+            "bolla_esistente": res.get("bolla_esistente"),
+            "_temp_id": res.get("_temp_id", ""),
+        }
+        return jsonify(resp)
+    return jsonify({"status": "error", "error": task.get("error", "Errore sconosciuto"), "filename": task.get("filename", "")})
 
 
 @entrate.route("/importa")

@@ -12,6 +12,8 @@ giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
 @giacenze.route("/")
 @login_required
 def lista():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 50, type=int)
     search = request.args.get("q", "").strip()
     filtro_magazzino = request.args.get("magazzino", "").strip()
     gruppi = request.args.get("gruppi") == "1"
@@ -30,8 +32,9 @@ def lista():
     if filtro_magazzino:
         query = query.filter(Giacenza.magazzino == filtro_magazzino)
 
-    giacenze = query.all()
-    return render_template("giacenze.html", giacenze=giacenze, search=search, filtro_magazzino=filtro_magazzino, gruppi=gruppi)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    giacenze = pagination.items
+    return render_template("giacenze.html", giacenze=giacenze, pagination=pagination, search=search, filtro_magazzino=filtro_magazzino, gruppi=gruppi)
 
 
 @giacenze.route("/nuovo", methods=["GET", "POST"])

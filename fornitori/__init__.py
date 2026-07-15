@@ -11,7 +11,8 @@ _generico = None
 
 def carica_tutti():
     global _specifici, _generico
-    _specifici = []
+    if _specifici:
+        return _specifici + [_generico] if _generico else _specifici
 
     _specifici.append(SaleriParser({
         "id": "saleri",
@@ -39,7 +40,9 @@ def carica_tutti():
 
 
 def get_plugin(nome=None, id=None):
-    for p in _specifici + [_generico]:
+    if not _specifici:
+        carica_tutti()
+    for p in _specifici + ([_generico] if _generico else []):
         if nome and p.nome == nome:
             return p
         if id and p.id == id:
@@ -48,14 +51,15 @@ def get_plugin(nome=None, id=None):
 
 
 def get_all_plugins():
+    if not _specifici:
+        carica_tutti()
     return list(_specifici) + ([_generico] if _generico else [])
 
 
 def riconosci_fornitore(testo_pdf):
+    if not _specifici:
+        carica_tutti()
     for p in _specifici:
         if p.riconosci(testo_pdf):
             return p
     return _generico
-
-
-carica_tutti()

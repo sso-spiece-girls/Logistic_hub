@@ -212,32 +212,6 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadZone.style.display = '';
     }
 
-    function showOcrLoading(count) {
-        uploadZone.style.display = 'none';
-        ocrError.style.display = 'none';
-        document.getElementById('ocr-filename').textContent = count + ' file selezionati';
-        document.getElementById('ocr-filesize').textContent = '';
-        document.getElementById('ocr-status-text').textContent = 'Elaborazione in corso...';
-        document.getElementById('ocr-timer').textContent = '';
-        ocrLoading.style.display = 'block';
-        ocrStartTime = Date.now();
-        ocrTimer = setInterval(function() {
-            var elapsed = ((Date.now() - ocrStartTime) / 1000).toFixed(1);
-            document.getElementById('ocr-timer').textContent = '\u23F1 ' + elapsed + 's';
-        }, 100);
-    }
-
-    function hideOcrLoading() {
-        stopOcrProgress();
-        ocrLoading.style.display = 'none';
-    }
-
-    function showOcrError(message) {
-        hideOcrLoading();
-        document.getElementById('ocr-error-text').textContent = message;
-        ocrError.style.display = 'flex';
-    }
-
     function handleFiles(files) {
         var pdfs = [];
         for (var i = 0; i < files.length; i++) {
@@ -266,12 +240,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     showOcrError('Nessun risultato ricevuto dal server.');
                     return;
                 }
-                bolleResults = risultati;
-                showReviewTable(risultati);
+                if (data.async) {
+                    pollOcrResults(risultati, 0, pdfs.length, []);
+                } else {
+                    bolleResults = risultati;
+                    showReviewTable(risultati);
+                }
             })
             .catch(function() {
                 showOcrError('Errore di connessione durante l\'elaborazione.');
             });
+    }
+
+    function pollOcrResults(tasks, doneCount, totalCount, accResults) {
+        if (doneCount >= tasks.length) {
+            hideOcrLoading();
+            bolleResults = accResults;
+            showReviewTable(accResults);
+            return;
+        }
+        var task = tasks[doneCount];
+        document.getElementById('ocr-filename').textContent = 'Elaborazione ' + (doneCount + 1) + '/' + totalCount + ': ' + task.filename;
+        (function(idx) {
+            var poll = function() {
+                fetch('/entrate/ocr-status/' + task.task_id)
+                    .then(function(r) { return r.json(); })
+                    .then(function(status) {
+                        if (status.status === 'completed') {
+                            accResults.push(status);
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        } else if (status.status === 'error') {
+                            accResults.push({filename: task.filename, error: status.error});
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        } else {
+                            setTimeout(poll, 500);
+                        }
+                    })
+                    .catch(function() {
+                        setTimeout(poll, 1000);
+                    });
+            };
+            poll();
+        })(doneCount);
+    }
+
+    function showOcrLoading(count) {
+        uploadZone.style.display = 'none';
+        ocrError.style.display = 'none';
+        document.getElementById('ocr-filename').textContent = count + ' file selezionati';
+        document.getElementById('ocr-filesize').textContent = '';
+        document.getElementById('ocr-status-text').textContent = 'Elaborazione in corso...';
+        document.getElementById('ocr-timer').textContent = '';
+        ocrLoading.style.display = 'block';
+        ocrStartTime = Date.now();
+        ocrTimer = setInterval(function() {
+            var elapsed = ((Date.now() - ocrStartTime) / 1000).toFixed(1);
+            document.getElementById('ocr-timer').textContent = '\u23F1 ' + elapsed + 's';
+        }, 100);
+    }
+
+    function hideOcrLoading() {
+        stopOcrProgress();
+        ocrLoading.style.display = 'none';
+    }
+
+    function showOcrError(message) {
+        hideOcrLoading();
+        document.getElementById('ocr-error-text').textContent = message;
+        ocrError.style.display = 'flex';
     }
 
     function showReviewTable(risultati) {

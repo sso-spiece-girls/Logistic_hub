@@ -19,12 +19,15 @@ uscite = Blueprint("uscite", __name__, url_prefix="/uscite")
 @uscite.route("/")
 @login_required
 def lista():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 50, type=int)
     stato = request.args.get("stato", "")
     query = DDT.query.order_by(DDT.created_at.desc())
     if stato:
         query = query.filter_by(stato=stato)
-    ddt = query.all()
-    return render_template("uscite.html", ddt_list=ddt, filtro_stato=stato)
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    ddt = pagination.items
+    return render_template("uscite.html", ddt_list=ddt, pagination=pagination, filtro_stato=stato)
 
 
 @uscite.route("/api/articoli")
