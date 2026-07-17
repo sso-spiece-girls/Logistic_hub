@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for
 from flask_login import login_required, current_user
 from models import Bolla, DDT, Giacenza, Picking, Activity, Documento, Notification, db
 from sqlalchemy import select, func
@@ -11,6 +11,8 @@ dashboard = Blueprint("dashboard", __name__)
 @dashboard.route("/dashboard")
 @login_required
 def index():
+    if current_user.role == "cliente":
+        return redirect(url_for("prenotazioni.calendario"))
     today = datetime.now(timezone.utc).date()
 
     row = db.session.execute(

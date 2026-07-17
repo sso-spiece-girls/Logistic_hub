@@ -10,6 +10,8 @@ auth = Blueprint("auth", __name__)
 @auth.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
+        if current_user.role == "cliente":
+            return redirect(url_for("prenotazioni.calendario"))
         return redirect(url_for("dashboard.index"))
 
     form = LoginForm()
@@ -28,6 +30,8 @@ def login():
             create_notification(None, "Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
 
             next_page = request.args.get("next")
+            if user.role == "cliente":
+                return redirect(next_page or url_for("prenotazioni.calendario"))
             return redirect(next_page or url_for("dashboard.index"))
         else:
             flash("Credenziali non valide.", "error")
