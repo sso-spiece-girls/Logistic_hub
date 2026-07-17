@@ -14,8 +14,18 @@ bp = Blueprint("prenotazioni", __name__, url_prefix="/prenotazioni")
 GIORNI_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 
 
-def _slot_disponibili(regola, giorno, capienza):
+def _capienza_magazzini():
+    """Restituisce capienza totale sommando tutti i magazzini configurati, o 999 se nessuno."""
+    righe = MagazzinoCapienza.query.all()
+    if not righe:
+        return 999
+    return sum(r.capienza_contemporanea for r in righe)
+
+
+def _slot_disponibili(regola, giorno, capienza=None):
     """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno."""
+    if capienza is None:
+        capienza = _capienza_magazzini()
     slots = []
     cur = datetime.combine(giorno, regola.ora_inizio)
     fine = datetime.combine(giorno, regola.ora_fine)
@@ -26,8 +36,9 @@ def _slot_disponibili(regola, giorno, capienza):
         occupate = Prenotazione.query.filter(
             Prenotazione.slot_orario_id == regola.id,
             Prenotazione.data == giorno,
-            Prenotazione.ora_inizio == oi,
             Prenotazione.stato.in_(["in_attesa", "confermata"]),
+            Prenotazione.ora_inizio < of,
+            Prenotazione.ora_fine > oi,
         ).count()
         slots.append({
             "slot_orario_id": regola.id,
@@ -88,7 +99,7 @@ def calendario():
         for r in regole:
             if g.weekday() != r.giorno_settimana:
                 continue
-            for s in _slot_disponibili(r, g, r.capienza):
+            for s in _slot_disponibili(r, g):
                 chiavi.append(s)
         if chiavi:
             slots_per_giorno[g.isoformat()] = {
@@ -154,7 +165,7 @@ def prenota():
         Prenotazione.ora_inizio < proposta_fine,
         Prenotazione.ora_fine > ora_inizio,
     ).count()
-    if occupate >= regola.capienza:
+    if occupate >= _capienza_magazzini():
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     tipo = form.tipo.data
@@ -241,7 +252,7 @@ def admin_calendario():
         for r in regole:
             if g.weekday() != r.giorno_settimana:
                 continue
-            for s in _slot_disponibili(r, g, r.capienza):
+            for s in _slot_disponibili(r, g):
                 oi = datetime.strptime(s["ora_inizio"], "%H:%M").time()
                 of = datetime.strptime(s["ora_fine"], "%H:%M").time()
                 key = (r.id, g.isoformat())
@@ -301,7 +312,7 @@ def approva(id):
         Prenotazione.ora_inizio < p.ora_fine,
         Prenotazione.ora_fine > p.ora_inizio,
     ).count()
-    if occupate > regola.capienza:
+    if occupate > _capienza_magazzini():
         p.stato = "rifiutata"
         p.note_operatore = "Slot non più disponibile al momento dell'approvazione."
         p.approvato_da_id = current_user.id
