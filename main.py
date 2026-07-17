@@ -164,7 +164,7 @@ def seed_slot_orari(app):
                 giorno_settimana=giorno,
                 ora_inizio=time(9, 0),
                 ora_fine=time(18, 0),
-                durata_minuti=15,
+                durata_minuti=60,
                 capienza=1,
                 attivo=True,
                 creato_da_id=admin.id,
