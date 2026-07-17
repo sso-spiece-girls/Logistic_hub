@@ -164,7 +164,7 @@ def seed_slot_orari(app):
                 giorno_settimana=giorno,
                 ora_inizio=time(9, 0),
                 ora_fine=time(18, 0),
-                durata_minuti=60,
+                durata_minuti=15,
                 capienza=1,
                 attivo=True,
                 creato_da_id=admin.id,
@@ -204,6 +204,14 @@ if __name__ == "__main__":
                 db.session.commit()
             except Exception:
                 pass
+        # Allinea griglia slot a 15 min per durate variabili
+        try:
+            updated = SlotOrario.query.filter(SlotOrario.durata_minuti == 60).update({"durata_minuti": 15})
+            if updated:
+                db.session.commit()
+                print(f"Slot aggiornati a griglia 15 min: {updated} regole modificate.")
+        except Exception:
+            db.session.rollback()
 
     port = int(os.environ.get("PORT", 5000))
     import webbrowser

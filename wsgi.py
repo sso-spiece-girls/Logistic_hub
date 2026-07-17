@@ -36,6 +36,15 @@ def run_migrations(app):
                 db.session.commit()
             except Exception:
                 pass
+        # Allinea griglia slot a 15 min per durate variabili
+        try:
+            from models import SlotOrario
+            updated = SlotOrario.query.filter(SlotOrario.durata_minuti == 60).update({"durata_minuti": 15})
+            if updated:
+                db.session.commit()
+                print(f"Slot aggiornati a griglia 15 min: {updated} regole modificate.")
+        except Exception:
+            db.session.rollback()
 
 
 app = create_app()
