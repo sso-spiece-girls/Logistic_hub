@@ -154,15 +154,11 @@ def prenota():
         flash("Orario non valido o non allineato agli slot disponibili.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     ora_inizio, ora_fine = orari
-    proposta_fine = (datetime.combine(date.min, ora_inizio) + timedelta(minutes=tipologia.durata_minuti)).time()
-    if form.ora_fine.data != proposta_fine.strftime("%H:%M"):
-        flash("Orario di fine non corrisponde alla durata della tipologia scelta.", "error")
-        return redirect(url_for("prenotazioni.calendario"))
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == data_prenot,
         Prenotazione.stato.in_(["in_attesa", "confermata"]),
-        Prenotazione.ora_inizio < proposta_fine,
+        Prenotazione.ora_inizio < ora_fine,
         Prenotazione.ora_fine > ora_inizio,
     ).count()
     if occupate >= _capienza_magazzini():
@@ -177,7 +173,7 @@ def prenota():
         slot_orario_id=regola.id,
         data=data_prenot,
         ora_inizio=ora_inizio,
-        ora_fine=proposta_fine,
+        ora_fine=ora_fine,
         tipo=tipo,
         tipologia_materiale_id=tipologia.id,
         stato="in_attesa",
