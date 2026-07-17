@@ -11,7 +11,11 @@
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label class="form-label">Seleziona file PDF</label>
-                <input type="file" name="pdf_files" class="form-control file-input" accept=".pdf" multiple required>
+                <input type="file" name="pdf_files" id="pdf-files" accept=".pdf" multiple required style="display:none">
+                <div style="display:flex;align-items:center;gap:.75rem">
+                    <label for="pdf-files" class="btn btn-secondary" style="cursor:pointer">Scegli file</label>
+                    <span id="file-names" class="text-muted" style="font-size:.85rem"></span>
+                </div>
                 <small class="text-muted" style="margin-top:0.5rem;display:block">
                     Puoi selezionare più file contemporaneamente (Ctrl+click / Cmd+click)
                 </small>
@@ -38,3 +42,10 @@
     </div>
 </div>
 {% endblock %}
+<script>
+document.getElementById('pdf-files').addEventListener('change', function() {
+    var names = [];
+    for (var i = 0; i < this.files.length; i++) names.push(this.files[i].name);
+    document.getElementById('file-names').textContent = names.join(', ');
+});
+</script>
