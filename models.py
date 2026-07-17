@@ -413,6 +413,8 @@ class Prenotazione(db.Model):
             postgresql_where=db.text("stato IN ('in_attesa', 'confermata')"),
         ),
         db.Index("ix_prenotazioni_data_ora", "data", "ora_inizio"),
+        db.Index("ix_prenotazioni_data_stato", "data", "stato"),
+        db.Index("ix_prenotazioni_cliente_data", "cliente_id", "data"),
     )
 
     def __repr__(self):
