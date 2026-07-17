@@ -5,11 +5,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask
 from flask_compress import Compress
-from extensions import db, login_manager
+from werkzeug.middleware.proxy_fix import ProxyFix
+from extensions import db, login_manager, limiter
 from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
-    SlotOrario, Prenotazione,
+    SlotOrario, Prenotazione, MagazzinoCapienza, TipologiaMateriale,
 )
 from routes.auth import auth
 from routes.dashboard import dashboard
@@ -26,6 +27,7 @@ from routes.movimenti import movimenti
 from routes.api import api
 from routes.clienti import clienti
 from routes.prenotazioni import bp as prenotazioni
+from routes.tipologie_materiale import tipologie
 from config import Config
 
 
@@ -59,6 +61,9 @@ def create_app():
 
     db.init_app(app)
     login_manager.init_app(app)
+    limiter.init_app(app)
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
     css_path = os.path.join(os.path.dirname(__file__), "static", "css", "app.css")
     css_mtime = int(os.path.getmtime(css_path)) if os.path.exists(css_path) else 1
@@ -78,6 +83,7 @@ def create_app():
     app.register_blueprint(api)
     app.register_blueprint(clienti)
     app.register_blueprint(prenotazioni)
+    app.register_blueprint(tipologie)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -165,6 +171,7 @@ if __name__ == "__main__":
             "ALTER TABLE ddt ADD COLUMN causale_trasporto VARCHAR(200)",
             "ALTER TABLE prenotazioni ADD COLUMN tipo VARCHAR(10) DEFAULT 'scarico'",
             "ALTER TABLE prenotazioni ADD COLUMN magazzino VARCHAR(50)",
+            "ALTER TABLE prenotazioni ADD COLUMN tipologia_materiale_id INTEGER REFERENCES tipologie_materiale(id)",
         ]
         for sql in migrazioni:
             try:

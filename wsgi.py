@@ -27,6 +27,7 @@ def run_migrations(app):
         "ALTER TABLE ddt ADD COLUMN causale_trasporto VARCHAR(200)",
         "ALTER TABLE prenotazioni ADD COLUMN tipo VARCHAR(10) DEFAULT 'scarico'",
         "ALTER TABLE prenotazioni ADD COLUMN magazzino VARCHAR(50)",
+        "ALTER TABLE prenotazioni ADD COLUMN tipologia_materiale_id INTEGER REFERENCES tipologie_materiale(id)",
     ]
     with app.app_context():
         for sql in migrazioni:

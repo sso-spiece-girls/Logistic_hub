@@ -121,6 +121,7 @@ class PrenotazioneForm(FlaskForm):
         ("scarico", "Scarico"),
         ("carico", "Carico"),
     ], validators=[DataRequired()])
+    tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
 
 
 class SlotOrarioForm(FlaskForm):
@@ -143,3 +144,13 @@ class SlotOrarioForm(FlaskForm):
 class PrenotazioneAdminForm(FlaskForm):
     motivo = StringField("Motivo (opzionale per rifiuto)", validators=[Optional()])
     magazzino = SelectField("Assegna magazzino", choices=MAGAZZINI, validators=[Optional()])
+
+
+class MagazzinoCapienzaForm(FlaskForm):
+    magazzino = SelectField("Magazzino", choices=MAGAZZINI, validators=[DataRequired()])
+    capienza_contemporanea = IntegerField("Capienza contemporanea", validators=[DataRequired()], default=1)
+
+
+class TipologiaMaterialeForm(FlaskForm):
+    nome = StringField("Nome tipologia", validators=[DataRequired(), Length(max=100)])
+    durata_minuti = IntegerField("Durata (minuti)", validators=[DataRequired()], default=60)

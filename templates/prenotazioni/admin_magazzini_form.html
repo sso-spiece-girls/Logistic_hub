@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ titolo }}</h1>
+    </div>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.magazzino.label(class="form-label") }}
+            {{ form.magazzino(class="form-input") }}
+            {% for error in form.magazzino.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+            {{ form.capienza_contemporanea.label(class="form-label") }}
+            {{ form.capienza_contemporanea(class="form-input", type="number", min=1) }}
+            {% for error in form.capienza_contemporanea.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+            <small class="form-hint">Numero massimo di prenotazioni contemporanee per questo magazzino nella stessa fascia oraria.</small>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Salva</button>
+            <a href="/prenotazioni/admin/magazzini" class="btn btn-ghost">Annulla</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-card { max-width:600px; margin-top:16px }
+</style>
+{% endblock %}

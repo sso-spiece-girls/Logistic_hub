@@ -10,6 +10,7 @@
     <div class="header-actions">
         <a href="/prenotazioni/admin/in-attesa" class="btn btn-ghost">Da approvare</a>
         <a href="/prenotazioni/admin/slot" class="btn btn-ghost">Gestione slot</a>
+        <a href="/prenotazioni/admin/magazzini" class="btn btn-ghost">Capienza magazzini</a>
     </div>
 </div>
 
@@ -39,6 +40,9 @@
                 </span>
                 {% if slot.prenotazione.magazzino %}
                 <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.magazzino }}</span>
+                {% endif %}
+                {% if slot.prenotazione.tipologia_materiale %}
+                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.tipologia_materiale.nome }}</span>
                 {% endif %}
                 {% else %}
                 <span class="slot-libero">Libero</span>

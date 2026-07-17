@@ -3,8 +3,8 @@ import secrets
 from datetime import datetime, timezone, date, timedelta, time
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file
 from flask_login import login_required, current_user
-from models import db, Prenotazione, SlotOrario, User
-from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm
+from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale
+from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm
 from routes.auth import log_activity, create_notification
 from core.auth_decorators import operatore_required, admin_required
 import qrcode
@@ -49,8 +49,10 @@ def _genera_token():
     return secrets.token_urlsafe(32)
 
 
-def _allinea_orario(regola, ora_inizio_str):
+def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     """Verifica che ora_inizio sia valida per la regola e restituisce (ora_inizio, ora_fine) o None."""
+    if durata_minuti is None:
+        durata_minuti = regola.durata_minuti
     try:
         oi = datetime.strptime(ora_inizio_str, "%H:%M").time()
     except (ValueError, TypeError):
@@ -63,7 +65,7 @@ def _allinea_orario(regola, ora_inizio_str):
     delta = int((slot_start - inizio_regola).total_seconds() // 60)
     if delta % regola.durata_minuti != 0:
         return None
-    slot_end = slot_start + timedelta(minutes=regola.durata_minuti)
+    slot_end = slot_start + timedelta(minutes=durata_minuti)
     if slot_end > fine_regola:
         return None
     return oi, slot_end.time()
@@ -94,10 +96,14 @@ def calendario():
                 "giorno_nome": GIORNI_IT[g.weekday()],
                 "slots": chiavi,
             }
+    tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()
+    form = PrenotazioneForm()
+    form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
     return render_template(
         "prenotazioni/calendario.html",
         slots_per_giorno=slots_per_giorno,
-        form=PrenotazioneForm(),
+        form=form,
+        tipologie_attive=tipologie_attive,
     )
 
 
@@ -108,6 +114,7 @@ def prenota():
         flash("Accesso riservato ai clienti.", "error")
         return redirect(url_for("dashboard.index"))
     form = PrenotazioneForm()
+    form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()]
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))
@@ -127,19 +134,25 @@ def prenota():
     if data_prenot.weekday() != regola.giorno_settimana:
         flash("Giorno non valido per questa regola.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    orari = _allinea_orario(regola, form.ora_inizio.data)
+    tipologia = db.session.get(TipologiaMateriale, form.tipologia_materiale_id.data) if form.tipologia_materiale_id.data else None
+    if not tipologia or tipologia.cliente_id != current_user.id or not tipologia.attivo:
+        flash("Tipologia materiale non valida.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+    orari = _allinea_orario(regola, form.ora_inizio.data, tipologia.durata_minuti)
     if orari is None:
         flash("Orario non valido o non allineato agli slot disponibili.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     ora_inizio, ora_fine = orari
-    if form.ora_fine.data != ora_fine.strftime("%H:%M"):
-        flash("Orario di fine non corrisponde alla durata dello slot.", "error")
+    proposta_fine = (datetime.combine(date.min, ora_inizio) + timedelta(minutes=tipologia.durata_minuti)).time()
+    if form.ora_fine.data != proposta_fine.strftime("%H:%M"):
+        flash("Orario di fine non corrisponde alla durata della tipologia scelta.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == data_prenot,
-        Prenotazione.ora_inizio == ora_inizio,
         Prenotazione.stato.in_(["in_attesa", "confermata"]),
+        Prenotazione.ora_inizio < proposta_fine,
+        Prenotazione.ora_fine > ora_inizio,
     ).count()
     if occupate >= regola.capienza:
         flash("Slot non più disponibile.", "error")
@@ -153,8 +166,9 @@ def prenota():
         slot_orario_id=regola.id,
         data=data_prenot,
         ora_inizio=ora_inizio,
-        ora_fine=ora_fine,
+        ora_fine=proposta_fine,
         tipo=tipo,
+        tipologia_materiale_id=tipologia.id,
         stato="in_attesa",
     )
     db.session.add(p)
@@ -216,8 +230,10 @@ def admin_calendario():
     ).order_by(Prenotazione.data, Prenotazione.ora_inizio).all()
     p_map = {}
     for p in prenotazioni:
-        key = (p.slot_orario_id, p.data.isoformat(), p.ora_inizio.strftime("%H:%M"))
-        p_map[key] = p
+        key = (p.slot_orario_id, p.data.isoformat())
+        if key not in p_map:
+            p_map[key] = []
+        p_map[key].append(p)
     slots_per_giorno = {}
     for i in range(14):
         g = oggi + timedelta(days=i)
@@ -226,12 +242,18 @@ def admin_calendario():
             if g.weekday() != r.giorno_settimana:
                 continue
             for s in _slot_disponibili(r, g, r.capienza):
-                key = (r.id, g.isoformat(), s["ora_inizio"])
-                p = p_map.get(key)
+                oi = datetime.strptime(s["ora_inizio"], "%H:%M").time()
+                of = datetime.strptime(s["ora_fine"], "%H:%M").time()
+                key = (r.id, g.isoformat())
+                prenotazione = None
+                for bp in p_map.get(key, []):
+                    if bp.ora_inizio < of and bp.ora_fine > oi:
+                        prenotazione = bp
+                        break
                 chiavi.append({
                     **s,
                     "slot_orario_id": r.id,
-                    "prenotazione": p,
+                    "prenotazione": prenotazione,
                 })
         if chiavi:
             slots_per_giorno[g.isoformat()] = {
@@ -275,8 +297,9 @@ def approva(id):
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == p.data,
-        Prenotazione.ora_inizio == p.ora_inizio,
         Prenotazione.stato.in_(["in_attesa", "confermata"]),
+        Prenotazione.ora_inizio < p.ora_fine,
+        Prenotazione.ora_fine > p.ora_inizio,
     ).count()
     if occupate > regola.capienza:
         p.stato = "rifiutata"
@@ -286,6 +309,20 @@ def approva(id):
         db.session.commit()
         flash("Prenotazione rifiutata: capienza esaurita nel frattempo.", "warning")
         return redirect(url_for("prenotazioni.in_attesa"))
+    if form.magazzino.data:
+        mag = db.session.query(MagazzinoCapienza).filter(
+            MagazzinoCapienza.magazzino == form.magazzino.data
+        ).with_for_update().first()
+        if mag:
+            occupati = Prenotazione.query.filter(
+                Prenotazione.magazzino == form.magazzino.data,
+                Prenotazione.data == p.data,
+                Prenotazione.ora_inizio == p.ora_inizio,
+                Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
+            ).count()
+            if occupati >= mag.capienza_contemporanea:
+                flash(f"Magazzino {form.magazzino.data} già pieno in questa fascia oraria.", "error")
+                return redirect(url_for("prenotazioni.in_attesa"))
     p.stato = "confermata"
     p.token_qr = _genera_token()
     p.magazzino = form.magazzino.data
@@ -439,6 +476,93 @@ def admin_slot_elimina(id):
     )
     flash("Regola slot eliminata.", "success")
     return redirect(url_for("prenotazioni.admin_slot"))
+
+
+# ─── ADMIN MAGAZZINI ────────────────────────────────────────────────
+
+@bp.route("/admin/magazzini")
+@login_required
+@admin_required
+def admin_magazzini():
+    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
+    return render_template("prenotazioni/admin_magazzini.html", magazzini=magazzini)
+
+
+@bp.route("/admin/magazzini/nuovo", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_magazzini_nuovo():
+    form = MagazzinoCapienzaForm()
+    if form.validate_on_submit():
+        esistente = MagazzinoCapienza.query.filter_by(magazzino=form.magazzino.data).first()
+        if esistente:
+            flash("Magazzino già configurato.", "error")
+            return render_template("prenotazioni/admin_magazzini_form.html", form=form, titolo="Nuova capienza magazzino")
+        mag = MagazzinoCapienza(
+            magazzino=form.magazzino.data,
+            capienza_contemporanea=form.capienza_contemporanea.data,
+            creato_da_id=current_user.id,
+        )
+        db.session.add(mag)
+        db.session.commit()
+        log_activity(
+            current_user.id, "crea_capienza_magazzino",
+            f"{current_user.username} ha configurato capienza per {mag.magazzino} ({mag.capienza_contemporanea})",
+            "magazzino_capienza", mag.id,
+        )
+        flash("Capienza magazzino configurata.", "success")
+        return redirect(url_for("prenotazioni.admin_magazzini"))
+    return render_template("prenotazioni/admin_magazzini_form.html", form=form, titolo="Nuova capienza magazzino")
+
+
+@bp.route("/admin/magazzini/<int:id>/modifica", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_magazzini_modifica(id):
+    mag = MagazzinoCapienza.query.get_or_404(id)
+    form = MagazzinoCapienzaForm(obj=mag)
+    if form.validate_on_submit():
+        conflitto = MagazzinoCapienza.query.filter(
+            MagazzinoCapienza.magazzino == form.magazzino.data,
+            MagazzinoCapienza.id != id,
+        ).first()
+        if conflitto:
+            flash("Un altro magazzino ha già questo nome.", "error")
+            return render_template("prenotazioni/admin_magazzini_form.html", form=form, titolo="Modifica capienza magazzino")
+        mag.magazzino = form.magazzino.data
+        mag.capienza_contemporanea = form.capienza_contemporanea.data
+        db.session.commit()
+        log_activity(
+            current_user.id, "modifica_capienza_magazzino",
+            f"{current_user.username} ha modificato capienza per {mag.magazzino}",
+            "magazzino_capienza", mag.id,
+        )
+        flash("Capienza magazzino aggiornata.", "success")
+        return redirect(url_for("prenotazioni.admin_magazzini"))
+    return render_template("prenotazioni/admin_magazzini_form.html", form=form, titolo="Modifica capienza magazzino")
+
+
+@bp.route("/admin/magazzini/<int:id>/elimina", methods=["POST"])
+@login_required
+@admin_required
+def admin_magazzini_elimina(id):
+    mag = MagazzinoCapienza.query.get_or_404(id)
+    attive = Prenotazione.query.filter(
+        Prenotazione.magazzino == mag.magazzino,
+        Prenotazione.stato.in_(["in_attesa", "confermata"]),
+    ).count()
+    if attive > 0:
+        flash(f"Impossibile eliminare: ci sono {attive} prenotazioni attive su {mag.magazzino}.", "error")
+        return redirect(url_for("prenotazioni.admin_magazzini"))
+    db.session.delete(mag)
+    db.session.commit()
+    log_activity(
+        current_user.id, "elimina_capienza_magazzino",
+        f"{current_user.username} ha eliminato capienza per {mag.magazzino}",
+        "magazzino_capienza", mag.id,
+    )
+    flash("Configurazione capienza eliminata.", "success")
+    return redirect(url_for("prenotazioni.admin_magazzini"))
 
 
 # ─── VERIFICA QR ────────────────────────────────────────────────────

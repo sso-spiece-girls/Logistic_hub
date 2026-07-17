@@ -3,11 +3,13 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Activity, Notification, db
 from forms import LoginForm
+from extensions import limiter
 
 auth = Blueprint("auth", __name__)
 
 
 @auth.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per 15 minutes", methods=["POST"])
 def login():
     if current_user.is_authenticated:
         if current_user.role == "cliente":

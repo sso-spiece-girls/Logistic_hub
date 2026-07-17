@@ -34,6 +34,10 @@
             <span class="verifica-value">{{ p.tipo|capitalize }}</span>
         </div>
         <div class="verifica-row">
+            <span class="verifica-label">Tipologia</span>
+            <span class="verifica-value">{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</span>
+        </div>
+        <div class="verifica-row">
             <span class="verifica-label">Magazzino</span>
             <span class="verifica-value">{{ p.magazzino or '-' }}</span>
         </div>

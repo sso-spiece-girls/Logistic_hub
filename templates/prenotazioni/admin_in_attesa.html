@@ -23,6 +23,7 @@
             <tr>
                 <th>Cliente</th>
                 <th>Tipo</th>
+                <th>Tipologia</th>
                 <th>Data</th>
                 <th>Ora</th>
                 <th>Richiesto il</th>
@@ -34,6 +35,7 @@
             <tr>
                 <td><strong>{{ p.cliente.username }}</strong></td>
                 <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
+                <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
                 <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
                 <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
                 <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>

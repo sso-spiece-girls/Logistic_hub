@@ -332,6 +332,37 @@ class SlotOrario(db.Model):
         return f"<SlotOrario giorno={self.giorno_settimana} {self.ora_inizio}-{self.ora_fine}>"
 
 
+class MagazzinoCapienza(db.Model):
+    __tablename__ = "magazzini_capienza"
+
+    id = db.Column(db.Integer, primary_key=True)
+    magazzino = db.Column(db.String(50), nullable=False, unique=True)
+    capienza_contemporanea = db.Column(db.Integer, nullable=False, default=1)
+    creato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    creato_da = db.relationship("User", foreign_keys=[creato_da_id])
+
+    def __repr__(self):
+        return f"<MagazzinoCapienza {self.magazzino} capienza={self.capienza_contemporanea}>"
+
+
+class TipologiaMateriale(db.Model):
+    __tablename__ = "tipologie_materiale"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    nome = db.Column(db.String(100), nullable=False)
+    durata_minuti = db.Column(db.Integer, nullable=False, default=60)
+    attivo = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    cliente = db.relationship("User", foreign_keys=[cliente_id])
+
+    def __repr__(self):
+        return f"<TipologiaMateriale {self.nome} cliente={self.cliente_id}>"
+
+
 class Prenotazione(db.Model):
     __tablename__ = "prenotazioni"
 
@@ -343,6 +374,7 @@ class Prenotazione(db.Model):
     ora_fine = db.Column(db.Time, nullable=False)
     tipo = db.Column(db.String(10), nullable=False, default="scarico")  # carico / scarico
     magazzino = db.Column(db.String(50), nullable=True)
+    tipologia_materiale_id = db.Column(db.Integer, db.ForeignKey("tipologie_materiale.id"), nullable=True)
     stato = db.Column(db.String(20), nullable=False, default="in_attesa", index=True)
     token_qr = db.Column(db.String(64), unique=True, nullable=True, index=True)
     note_operatore = db.Column(db.Text, nullable=True)
@@ -354,6 +386,7 @@ class Prenotazione(db.Model):
 
     cliente = db.relationship("User", foreign_keys=[cliente_id], backref="prenotazioni")
     slot_orario = db.relationship("SlotOrario", foreign_keys=[slot_orario_id])
+    tipologia_materiale = db.relationship("TipologiaMateriale", foreign_keys=[tipologia_materiale_id])
     approvato_da = db.relationship("User", foreign_keys=[approvato_da_id])
     ingresso_verificato_da = db.relationship("User", foreign_keys=[ingresso_verificato_da_id])
 

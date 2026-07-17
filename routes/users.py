@@ -1,8 +1,8 @@
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from models import User, db
-from forms import UserForm
+from models import User, db, TipologiaMateriale
+from forms import UserForm, TipologiaMaterialeForm
 from routes.auth import log_activity, create_notification
 from core.auth_decorators import admin_required
 
@@ -71,7 +71,8 @@ def modifica(id):
             "user", user.id)
         flash("Utente aggiornato con successo.", "success")
         return redirect(url_for("users.lista"))
-    return render_template("users_form.html", form=form, titolo="Modifica Utente", user=user)
+    tipologie = TipologiaMateriale.query.filter_by(cliente_id=user.id).order_by(TipologiaMateriale.nome).all() if user.role == "cliente" else []
+    return render_template("users_form.html", form=form, titolo="Modifica Utente", user=user, tipologie=tipologie, tipologia_form=TipologiaMaterialeForm())
 
 
 @users.route("/<int:id>/toggle", methods=["POST"])

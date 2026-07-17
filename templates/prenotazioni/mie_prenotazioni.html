@@ -25,6 +25,7 @@
         <thead>
             <tr>
                 <th>Tipo</th>
+                <th>Tipologia</th>
                 <th>Data</th>
                 <th>Ora</th>
                 <th>Stato</th>
@@ -36,6 +37,7 @@
             {% for p in prenotazioni %}
             <tr>
                 <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
+                <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
                 <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
                 <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
                 <td>
