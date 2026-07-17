@@ -179,6 +179,16 @@ app = create_app()
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        from sqlalchemy import text
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS ix_prenotazioni_data_stato ON prenotazioni (data, stato)",
+            "CREATE INDEX IF NOT EXISTS ix_prenotazioni_cliente_data ON prenotazioni (cliente_id, data)",
+        ]:
+            try:
+                db.session.execute(text(idx_sql))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
         seed_admin(app)
         seed_slot_orari(app)
 
