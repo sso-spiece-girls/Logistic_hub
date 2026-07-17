@@ -150,12 +150,37 @@ def seed_admin(app):
             logging.getLogger(__name__).info("Utente Francesco creato con ruolo admin.")
 
 
+def seed_slot_orari(app):
+    """Crea slot orari default Lun-Ven 09:00-18:00 se non esiste già nessuna regola."""
+    with app.app_context():
+        if SlotOrario.query.count() > 0:
+            return
+        admin = User.query.filter_by(role="admin").first()
+        if not admin:
+            return
+        from datetime import time
+        for giorno in range(5):  # 0=lunedì … 4=venerdì
+            regola = SlotOrario(
+                giorno_settimana=giorno,
+                ora_inizio=time(9, 0),
+                ora_fine=time(18, 0),
+                durata_minuti=60,
+                capienza=1,
+                attivo=True,
+                creato_da_id=admin.id,
+            )
+            db.session.add(regola)
+        db.session.commit()
+        print(f"Slot orari Lun-Ven creati (admin: {admin.username}).")
+
+
 app = create_app()
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         seed_admin(app)
+        seed_slot_orari(app)
         # Aggiungi colonne mancanti se necessario
         from sqlalchemy import text
         migrazioni = [

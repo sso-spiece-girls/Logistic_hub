@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from main import create_app, seed_admin
+from main import create_app, seed_admin, seed_slot_orari
 from models import db
 from sqlalchemy import text
 
@@ -44,6 +44,7 @@ with app.app_context():
     db.create_all()
     run_migrations(app)
     seed_admin(app)
+    seed_slot_orari(app)
     print("[WSGI] Database initialized, admin user ready.")
 
 if __name__ == "__main__":
