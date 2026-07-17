@@ -33,7 +33,7 @@
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
                 {% if slot.disponibile %}
                 <form method="POST" action="/prenotazioni/prenota" class="slot-form">
-                    {{ form.hidden_tag() }}
+                    {{ form.csrf_token }}
                     <input type="hidden" name="slot_orario_id" value="{{ slot.slot_orario_id }}">
                     <input type="hidden" name="data_prenotazione" value="{{ giorno_key }}">
                     <input type="hidden" name="ora_inizio" value="{{ slot.ora_inizio }}">
