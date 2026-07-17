@@ -117,6 +117,10 @@ class PrenotazioneForm(FlaskForm):
     data_prenotazione = DateField("Data", validators=[DataRequired()])
     ora_inizio = StringField("Ora inizio", validators=[DataRequired()])
     ora_fine = StringField("Ora fine", validators=[DataRequired()])
+    tipo = SelectField("Tipo operazione", choices=[
+        ("scarico", "Scarico"),
+        ("carico", "Carico"),
+    ], validators=[DataRequired()])
 
 
 class SlotOrarioForm(FlaskForm):
@@ -138,3 +142,4 @@ class SlotOrarioForm(FlaskForm):
 
 class PrenotazioneAdminForm(FlaskForm):
     motivo = StringField("Motivo (opzionale per rifiuto)", validators=[Optional()])
+    magazzino = SelectField("Assegna magazzino", choices=MAGAZZINI, validators=[Optional()])

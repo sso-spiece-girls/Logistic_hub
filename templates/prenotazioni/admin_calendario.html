@@ -33,9 +33,13 @@
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
                 {% if slot.prenotazione %}
                 <span class="slot-cliente">{{ slot.prenotazione.cliente.username }}</span>
+                <span class="status-badge status-{{ slot.prenotazione.tipo }}" style="font-size:.75rem">{{ slot.prenotazione.tipo|capitalize }}</span>
                 <span class="status-badge status-{{ slot.prenotazione.stato }}">
                     {{ slot.prenotazione.stato }}
                 </span>
+                {% if slot.prenotazione.magazzino %}
+                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.magazzino }}</span>
+                {% endif %}
                 {% else %}
                 <span class="slot-libero">Libero</span>
                 {% endif %}

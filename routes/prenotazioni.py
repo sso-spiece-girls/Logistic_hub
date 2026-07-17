@@ -144,24 +144,29 @@ def prenota():
     if occupate >= regola.capienza:
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
+    tipo = form.tipo.data
+    if tipo not in ("carico", "scarico"):
+        flash("Tipo operazione non valido.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
     p = Prenotazione(
         cliente_id=current_user.id,
         slot_orario_id=regola.id,
         data=data_prenot,
         ora_inizio=ora_inizio,
         ora_fine=ora_fine,
+        tipo=tipo,
         stato="in_attesa",
     )
     db.session.add(p)
     db.session.commit()
     log_activity(
         current_user.id, "prenota_slot",
-        f"{current_user.username} ha prenotato lo slot {data_prenot} {ora_inizio}-{ora_fine}",
+        f"{current_user.username} ha prenotato {tipo} per {data_prenot} {ora_inizio}-{ora_fine}",
         "prenotazione", p.id,
     )
     _notifica_operatori(
         "Nuova prenotazione",
-        f"{current_user.username} ha richiesto una prenotazione per {data_prenot} {ora_inizio.strftime('%H:%M')}-{ora_fine.strftime('%H:%M')}",
+        f"{current_user.username} ha richiesto un {tipo} per {data_prenot} {ora_inizio.strftime('%H:%M')}-{ora_fine.strftime('%H:%M')}",
     )
     flash("Richiesta di prenotazione inviata. In attesa di approvazione.", "success")
     return redirect(url_for("prenotazioni.mie"))
@@ -255,6 +260,13 @@ def approva(id):
     if p.stato != "in_attesa":
         flash("Questa prenotazione non è in attesa di approvazione.", "warning")
         return redirect(url_for("prenotazioni.in_attesa"))
+    form = PrenotazioneAdminForm()
+    if not form.validate_on_submit():
+        flash("Errore nei dati inviati.", "error")
+        return redirect(url_for("prenotazioni.in_attesa"))
+    if not form.magazzino.data:
+        flash("Seleziona un magazzino per la prenotazione.", "error")
+        return redirect(url_for("prenotazioni.in_attesa"))
     # Lock della regola per race condition
     regola = db.session.query(SlotOrario).filter(SlotOrario.id == p.slot_orario_id).with_for_update().first()
     if not regola:
@@ -276,17 +288,18 @@ def approva(id):
         return redirect(url_for("prenotazioni.in_attesa"))
     p.stato = "confermata"
     p.token_qr = _genera_token()
+    p.magazzino = form.magazzino.data
     p.approvato_da_id = current_user.id
     p.approvato_at = datetime.now(timezone.utc)
     db.session.commit()
     create_notification(
         p.cliente_id,
         "Prenotazione confermata",
-        f"La tua prenotazione del {p.data} alle {p.ora_inizio.strftime('%H:%M')} è stata confermata. QR code disponibile.",
+        f"{p.tipo.capitalize()} del {p.data} alle {p.ora_inizio.strftime('%H:%M')} confermato. Magazzino: {p.magazzino}. QR code disponibile.",
     )
     log_activity(
         current_user.id, "approva_prenotazione",
-        f"{current_user.username} ha approvato la prenotazione {p.id}",
+        f"{current_user.username} ha approvato {p.tipo} prenotazione {p.id} su {p.magazzino}",
         "prenotazione", p.id,
     )
     flash("Prenotazione approvata con successo.", "success")

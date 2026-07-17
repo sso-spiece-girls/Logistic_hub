@@ -38,6 +38,10 @@
                     <input type="hidden" name="data_prenotazione" value="{{ giorno_key }}">
                     <input type="hidden" name="ora_inizio" value="{{ slot.ora_inizio }}">
                     <input type="hidden" name="ora_fine" value="{{ slot.ora_fine }}">
+                    <select name="tipo" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px">
+                        <option value="scarico">Scarico</option>
+                        <option value="carico">Carico</option>
+                    </select>
                     <button type="submit" class="btn btn-sm btn-primary">Prenota</button>
                 </form>
                 {% else %}

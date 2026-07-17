@@ -163,6 +163,8 @@ if __name__ == "__main__":
             "ALTER TABLE ddt ADD COLUMN provenienza VARCHAR(300)",
             "ALTER TABLE ddt ADD COLUMN vettore VARCHAR(200)",
             "ALTER TABLE ddt ADD COLUMN causale_trasporto VARCHAR(200)",
+            "ALTER TABLE prenotazioni ADD COLUMN tipo VARCHAR(10) DEFAULT 'scarico'",
+            "ALTER TABLE prenotazioni ADD COLUMN magazzino VARCHAR(50)",
         ]
         for sql in migrazioni:
             try:

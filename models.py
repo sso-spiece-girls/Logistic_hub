@@ -341,6 +341,8 @@ class Prenotazione(db.Model):
     data = db.Column(db.Date, nullable=False)
     ora_inizio = db.Column(db.Time, nullable=False)
     ora_fine = db.Column(db.Time, nullable=False)
+    tipo = db.Column(db.String(10), nullable=False, default="scarico")  # carico / scarico
+    magazzino = db.Column(db.String(50), nullable=True)
     stato = db.Column(db.String(20), nullable=False, default="in_attesa", index=True)
     token_qr = db.Column(db.String(64), unique=True, nullable=True, index=True)
     note_operatore = db.Column(db.Text, nullable=True)

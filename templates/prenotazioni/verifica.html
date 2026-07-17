@@ -30,6 +30,14 @@
             <span class="verifica-value">{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</span>
         </div>
         <div class="verifica-row">
+            <span class="verifica-label">Tipo</span>
+            <span class="verifica-value">{{ p.tipo|capitalize }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Magazzino</span>
+            <span class="verifica-value">{{ p.magazzino or '-' }}</span>
+        </div>
+        <div class="verifica-row">
             <span class="verifica-label">Stato</span>
             <span class="verifica-value">
                 <span class="status-badge status-{{ p.stato }}">{{ p.stato }}</span>
