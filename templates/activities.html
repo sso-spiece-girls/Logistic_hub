@@ -7,9 +7,9 @@
     <p class="page-subtitle">Cronologia delle operazioni effettuate</p>
 </div>
 
-{% if attivita %}
+{% if pagination.items %}
 <div class="activity-timeline">
-    {% for a in attivita %}
+    {% for a in pagination.items %}
     <div class="timeline-item">
         <div class="timeline-dot"></div>
         <div class="timeline-content">
@@ -20,6 +20,7 @@
     </div>
     {% endfor %}
 </div>
+{% include '_pagination.html' %}
 {% else %}
 <div class="empty-state">
     <p>Nessuna attività registrata</p>

@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required
-from models import Movimento, db
+from sqlalchemy.orm import load_only, joinedload
+from models import Movimento, User, db
 
 movimenti = Blueprint("movimenti", __name__, url_prefix="/movimenti")
 
@@ -15,7 +16,16 @@ def lista():
     data_da = request.args.get("data_da", "").strip()
     data_a = request.args.get("data_a", "").strip()
 
-    query = Movimento.query.order_by(Movimento.created_at.desc())
+    page = request.args.get("page", 1, type=int)
+    query = Movimento.query.options(
+        joinedload(Movimento.user).load_only(User.username),
+        load_only(
+            Movimento.tipo, Movimento.articolo_codice, Movimento.descrizione,
+            Movimento.colli, Movimento.pallet, Movimento.peso_kg,
+            Movimento.riferimento_tipo, Movimento.riferimento_id,
+            Movimento.created_at, Movimento.magazzino,
+        ),
+    ).order_by(Movimento.created_at.desc())
 
     if tipo:
         query = query.filter(Movimento.tipo == tipo)
@@ -24,8 +34,8 @@ def lista():
     if magazzino:
         query = query.filter(Movimento.magazzino == magazzino)
 
-    movimenti = query.limit(200).all()
-    return render_template("movimenti.html", movimenti=movimenti,
+    pagination = query.paginate(page=page, per_page=100, error_out=False)
+    return render_template("movimenti.html", pagination=pagination,
                            filtro_tipo=tipo, filtro_articolo=articolo,
                            filtro_magazzino=magazzino)
 
