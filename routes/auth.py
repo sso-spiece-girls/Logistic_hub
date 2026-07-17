@@ -29,7 +29,7 @@ def login():
             db.session.commit()
 
             log_activity(user.id, "login", f"{user.username} ha effettuato l'accesso")
-            create_notification(None, "Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
+            notifica_operatori("Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
 
             next_page = request.args.get("next")
             if user.role == "cliente":
@@ -102,5 +102,12 @@ def create_notification(user_id, title, message, type="info"):
     )
     db.session.add(notification)
     db.session.commit()
+
+
+def notifica_operatori(title, message, type="info"):
+    from models import User
+    operatori = User.query.filter(User.role.in_(["admin", "operatore"])).all()
+    for op in operatori:
+        create_notification(op.id, title, message, type)
     from main import _NOTIF_CACHE
     _NOTIF_CACHE.pop(user_id, None)

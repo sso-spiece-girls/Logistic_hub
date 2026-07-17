@@ -30,21 +30,25 @@ def run_migrations(app):
         "ALTER TABLE prenotazioni ADD COLUMN tipologia_materiale_id INTEGER REFERENCES tipologie_materiale(id)",
     ]
     with app.app_context():
+        import logging
+        log = logging.getLogger(__name__)
         for sql in migrazioni:
             try:
                 db.session.execute(text(sql))
                 db.session.commit()
-            except Exception:
-                pass
+                log.info(f"Migrazione OK: {sql[:60]}...")
+            except Exception as e:
+                log.warning(f"Migrazione saltata (già presente?): {e}")
         # Allinea griglia slot a 15 min per durate variabili
         try:
             from models import SlotOrario
             updated = SlotOrario.query.filter(SlotOrario.durata_minuti == 60).update({"durata_minuti": 15})
             if updated:
                 db.session.commit()
-                print(f"Slot aggiornati a griglia 15 min: {updated} regole modificate.")
-        except Exception:
+                log.info(f"Slot aggiornati a griglia 15 min: {updated} regole modificate.")
+        except Exception as e:
             db.session.rollback()
+            log.warning(f"Allineamento slot saltato: {e}")
 
 
 app = create_app()

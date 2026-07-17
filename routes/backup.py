@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, send_file, request
 from flask_login import login_required, current_user
 from models import BackupLog, db
-from routes.auth import log_activity, create_notification
+from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import admin_required
 
 backup = Blueprint("backup", __name__, url_prefix="/backup")
@@ -52,7 +52,7 @@ def crea():
             log_activity(current_user.id, "backup",
                 f"{current_user.username} ha creato un backup ({timestamp})",
                 "backup", log.id)
-            create_notification(None, "Backup completato",
+            notifica_operatori("Backup completato",
                 f"Backup creato con successo ({size // 1024} KB)", "success")
             flash(f"Backup creato con successo ({size // 1024} KB).", "success")
         else:
@@ -96,7 +96,7 @@ def crea():
             log_activity(current_user.id, "backup",
                 f"{current_user.username} ha creato un backup PostgreSQL ({timestamp})",
                 "backup", log.id)
-            create_notification(None, "Backup completato",
+            notifica_operatori("Backup completato",
                 f"Backup PostgreSQL creato con successo ({size // 1024} KB)", "success")
             flash(f"Backup PostgreSQL creato con successo ({size // 1024} KB).", "success")
         except subprocess.CalledProcessError as e:

@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models import Bolla, DettaglioBolla, Giacenza, Movimento
 from forms import BollaForm
-from routes.auth import log_activity, create_notification
+from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import staff_required
 from services.bolla_service import (
     calcola_hash_pdf, bolla_esistente_per_hash, crea_bolla, modifica_bolla,
@@ -58,7 +58,7 @@ def nuova():
         log_activity(current_user.id, "carica_bolla",
             f"{current_user.username} ha caricato la bolla {bolla.numero_bolla} con {len(righe_data)} articoli",
             "bolla", bolla.id)
-        create_notification(None, "Bolla caricata",
+        notifica_operatori("Bolla caricata",
             f"{current_user.username} ha caricato la bolla {bolla.numero_bolla}", "success")
         flash("Bolla caricata con successo.", "success")
         return redirect(url_for("entrate.lista"))
@@ -322,7 +322,7 @@ def conferma_importa():
 
     log_activity(current_user.id, "importa_bolla",
         f"{current_user.username} ha importato la bolla {bolla.numero_bolla} da PDF", "bolla", bolla.id)
-    create_notification(None, "Bolla importata",
+    notifica_operatori("Bolla importata",
         f"{current_user.username} ha importato la bolla {bolla.numero_bolla} da PDF", "success")
     flash(f"Bolla {bolla.numero_bolla} importata con successo.", "success")
     return redirect(url_for("entrate.dettaglio", id=bolla.id))
@@ -415,7 +415,7 @@ def conferma_importa_multi():
             pass
 
     if importate:
-        create_notification(None, "Bolle importate",
+        notifica_operatori("Bolle importate",
             f"{current_user.username} ha importato {importate} bolle da PDF", "success")
         flash(f"{importate} bolle importate con successo.", "success")
     if errori:

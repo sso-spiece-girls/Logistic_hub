@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from models import User, db, TipologiaMateriale
 from forms import UserForm, TipologiaMaterialeForm
-from routes.auth import log_activity, create_notification
+from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import admin_required
 
 users = Blueprint("users", __name__, url_prefix="/users")
@@ -43,7 +43,7 @@ def nuovo():
         log_activity(current_user.id, "crea_utente",
             f"{current_user.username} ha creato l'utente {user.username}",
             "user", user.id)
-        create_notification(None, "Utente creato",
+        notifica_operatori("Utente creato",
             f"{current_user.username} ha creato l'utente {user.username} ({user.role_label})", "info")
         flash("Utente creato con successo.", "success")
         return redirect(url_for("users.lista"))

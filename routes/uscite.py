@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from models import DDT, RigheDDT, Giacenza, db
 from forms import DDTForm
-from routes.auth import log_activity, create_notification
+from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import staff_required
 from services.ddt_service import (
     crea_ddt, modifica_ddt, parse_righe_json
@@ -78,7 +78,7 @@ def nuovo():
         log_activity(current_user.id, "crea_ddt",
             f"{current_user.username} ha generato il DDT {ddt.numero_ddt} con {len(righe_data)} righe",
             "ddt", ddt.id)
-        create_notification(None, "DDT generato",
+        notifica_operatori("DDT generato",
             f"{current_user.username} ha generato il DDT {ddt.numero_ddt}", "success")
         flash(f"DDT {ddt.numero_ddt} generato con successo.", "success")
         return redirect(url_for("uscite.lista"))

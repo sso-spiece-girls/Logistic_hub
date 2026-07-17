@@ -604,6 +604,11 @@ def conferma_ingresso(token):
     p.ingresso_verificato_da_id = current_user.id
     p.ingresso_verificato_at = datetime.now(timezone.utc)
     db.session.commit()
+    create_notification(
+        p.cliente_id,
+        f"{p.tipo.capitalize()} accettato",
+        f"Il {p.tipo} del {p.data} alle {p.ora_inizio.strftime('%H:%M')} è stato accettato.",
+    )
     log_activity(
         current_user.id, "conferma_ingresso",
         f"{current_user.username} ha confermato l'ingresso per la prenotazione {p.id}",
