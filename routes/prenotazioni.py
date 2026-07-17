@@ -38,12 +38,13 @@ def _slot_disponibili(regola, giorno, capienza=None):
     while cur + step <= fine:
         oi = cur.time()
         of = (cur + step).time()
+        stesso_orario = any(p.ora_inizio == oi for p in prenotazioni_giorno)
         occupate = sum(1 for p in prenotazioni_giorno if p.ora_inizio < of and p.ora_fine > oi)
         slots.append({
             "slot_orario_id": regola.id,
             "ora_inizio": oi.strftime("%H:%M"),
             "ora_fine": of.strftime("%H:%M"),
-            "disponibile": occupate < capienza,
+            "disponibile": (not stesso_orario) and occupate < capienza,
         })
         cur += step
     return slots
@@ -153,6 +154,15 @@ def prenota():
         flash("Orario non valido o non allineato agli slot disponibili.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     ora_inizio, ora_fine = orari
+    stesso_orario = Prenotazione.query.filter(
+        Prenotazione.slot_orario_id == regola.id,
+        Prenotazione.data == data_prenot,
+        Prenotazione.ora_inizio == ora_inizio,
+        Prenotazione.stato.in_(["in_attesa", "confermata"]),
+    ).count() > 0
+    if stesso_orario:
+        flash("Orario non disponibile: slot già occupato.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == data_prenot,
@@ -178,7 +188,12 @@ def prenota():
         stato="in_attesa",
     )
     db.session.add(p)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("Errore durante la prenotazione. Riprova.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
     log_activity(
         current_user.id, "prenota_slot",
         f"{current_user.username} ha prenotato {tipo} per {data_prenot} {ora_inizio}-{ora_fine}",
