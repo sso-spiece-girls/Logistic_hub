@@ -30,16 +30,15 @@ def _slot_disponibili(regola, giorno, capienza=None):
     cur = datetime.combine(giorno, regola.ora_inizio)
     fine = datetime.combine(giorno, regola.ora_fine)
     step = timedelta(minutes=regola.durata_minuti)
+    prenotazioni_giorno = Prenotazione.query.filter(
+        Prenotazione.slot_orario_id == regola.id,
+        Prenotazione.data == giorno,
+        Prenotazione.stato.in_(["in_attesa", "confermata"]),
+    ).all()
     while cur + step <= fine:
         oi = cur.time()
         of = (cur + step).time()
-        occupate = Prenotazione.query.filter(
-            Prenotazione.slot_orario_id == regola.id,
-            Prenotazione.data == giorno,
-            Prenotazione.stato.in_(["in_attesa", "confermata"]),
-            Prenotazione.ora_inizio < of,
-            Prenotazione.ora_fine > oi,
-        ).count()
+        occupate = sum(1 for p in prenotazioni_giorno if p.ora_inizio < of and p.ora_fine > oi)
         slots.append({
             "slot_orario_id": regola.id,
             "ora_inizio": oi.strftime("%H:%M"),
@@ -199,7 +198,9 @@ def mie():
     if current_user.role != "cliente":
         flash("Accesso riservato ai clienti.", "error")
         return redirect(url_for("dashboard.index"))
-    prenotazioni = Prenotazione.query.filter_by(cliente_id=current_user.id).order_by(
+    prenotazioni = Prenotazione.query.options(
+        db.joinedload(Prenotazione.tipologia_materiale),
+    ).filter_by(cliente_id=current_user.id).order_by(
         Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
     ).all()
     return render_template("prenotazioni/mie_prenotazioni.html", prenotazioni=prenotazioni)
@@ -232,7 +233,10 @@ def qr_code(token):
 def admin_calendario():
     oggi = date.today()
     regole = SlotOrario.query.filter_by(attivo=True).all()
-    prenotazioni = Prenotazione.query.filter(
+    prenotazioni = Prenotazione.query.options(
+        db.joinedload(Prenotazione.cliente),
+        db.joinedload(Prenotazione.tipologia_materiale),
+    ).filter(
         Prenotazione.data >= oggi,
     ).order_by(Prenotazione.data, Prenotazione.ora_inizio).all()
     p_map = {}
@@ -275,7 +279,10 @@ def admin_calendario():
 @login_required
 @operatore_required
 def in_attesa():
-    richieste = Prenotazione.query.filter_by(stato="in_attesa").order_by(
+    richieste = Prenotazione.query.options(
+        db.joinedload(Prenotazione.cliente),
+        db.joinedload(Prenotazione.tipologia_materiale),
+    ).filter_by(stato="in_attesa").order_by(
         Prenotazione.data, Prenotazione.ora_inizio
     ).all()
     return render_template("prenotazioni/admin_in_attesa.html", richieste=richieste, form=PrenotazioneAdminForm())
@@ -578,7 +585,11 @@ def admin_magazzini_elimina(id):
 @login_required
 @operatore_required
 def verifica(token):
-    p = Prenotazione.query.filter_by(token_qr=token).first()
+    p = Prenotazione.query.options(
+        db.joinedload(Prenotazione.cliente),
+        db.joinedload(Prenotazione.tipologia_materiale),
+        db.joinedload(Prenotazione.ingresso_verificato_da),
+    ).filter_by(token_qr=token).first()
     if not p:
         flash("QR code non valido.", "error")
         return render_template("prenotazioni/verifica.html", prenotazione=None)

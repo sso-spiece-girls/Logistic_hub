@@ -287,7 +287,7 @@ class Movimento(db.Model):
     riferimento_id = db.Column(db.Integer, nullable=True, index=True)
     riferimento_tipo = db.Column(db.String(50), nullable=True, index=True)
     note = db.Column(db.String(500), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship("User", foreign_keys=[user_id])
@@ -367,9 +367,9 @@ class Prenotazione(db.Model):
     __tablename__ = "prenotazioni"
 
     id = db.Column(db.Integer, primary_key=True)
-    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    slot_orario_id = db.Column(db.Integer, db.ForeignKey("slot_orari.id"), nullable=False)
-    data = db.Column(db.Date, nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    slot_orario_id = db.Column(db.Integer, db.ForeignKey("slot_orari.id"), nullable=False, index=True)
+    data = db.Column(db.Date, nullable=False, index=True)
     ora_inizio = db.Column(db.Time, nullable=False)
     ora_fine = db.Column(db.Time, nullable=False)
     tipo = db.Column(db.String(10), nullable=False, default="scarico")  # carico / scarico

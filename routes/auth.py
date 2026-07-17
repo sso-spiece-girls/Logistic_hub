@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, after_this_request
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Activity, Notification, db
 from forms import LoginForm
@@ -28,8 +28,11 @@ def login():
             user.last_login = datetime.now(timezone.utc)
             db.session.commit()
 
-            log_activity(user.id, "login", f"{user.username} ha effettuato l'accesso")
-            notifica_operatori("Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
+            @after_this_request
+            def _post_login(response):
+                log_activity(user.id, "login", f"{user.username} ha effettuato l'accesso")
+                notifica_operatori("Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
+                return response
 
             next_page = request.args.get("next")
             if user.role == "cliente":
