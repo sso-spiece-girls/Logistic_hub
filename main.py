@@ -183,27 +183,28 @@ if __name__ == "__main__":
         seed_slot_orari(app)
         # Aggiungi colonne mancanti se necessario
         from sqlalchemy import text
-        migrazioni = [
-            "ALTER TABLE giacenze ADD COLUMN pallet INTEGER DEFAULT 0",
-            "ALTER TABLE giacenze ADD COLUMN peso_kg FLOAT DEFAULT 0.0",
-            "ALTER TABLE giacenze ADD COLUMN id_bobina VARCHAR(100)",
-            "ALTER TABLE giacenze ADD COLUMN qualita VARCHAR(50)",
-            "ALTER TABLE giacenze ADD COLUMN provenienza VARCHAR(100)",
-            "ALTER TABLE giacenze ADD COLUMN magazzino VARCHAR(50)",
-            "ALTER TABLE ddt ADD COLUMN filename_pdf VARCHAR(500)",
-            "ALTER TABLE ddt ADD COLUMN provenienza VARCHAR(300)",
-            "ALTER TABLE ddt ADD COLUMN vettore VARCHAR(200)",
-            "ALTER TABLE ddt ADD COLUMN causale_trasporto VARCHAR(200)",
-            "ALTER TABLE prenotazioni ADD COLUMN tipo VARCHAR(10) DEFAULT 'scarico'",
-            "ALTER TABLE prenotazioni ADD COLUMN magazzino VARCHAR(50)",
-            "ALTER TABLE prenotazioni ADD COLUMN tipologia_materiale_id INTEGER REFERENCES tipologie_materiale(id)",
-        ]
+    migrazioni = [
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS pallet INTEGER DEFAULT 0",
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS peso_kg FLOAT DEFAULT 0.0",
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS id_bobina VARCHAR(100)",
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS qualita VARCHAR(50)",
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS provenienza VARCHAR(100)",
+        "ALTER TABLE giacenze ADD COLUMN IF NOT EXISTS magazzino VARCHAR(50)",
+        "ALTER TABLE ddt ADD COLUMN IF NOT EXISTS filename_pdf VARCHAR(500)",
+        "ALTER TABLE ddt ADD COLUMN IF NOT EXISTS provenienza VARCHAR(300)",
+        "ALTER TABLE ddt ADD COLUMN IF NOT EXISTS vettore VARCHAR(200)",
+        "ALTER TABLE ddt ADD COLUMN IF NOT EXISTS causale_trasporto VARCHAR(200)",
+        "ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS tipo VARCHAR(10) DEFAULT 'scarico'",
+        "ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS magazzino VARCHAR(50)",
+        "ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS tipologia_materiale_id INTEGER REFERENCES tipologie_materiale(id)",
+    ]
+    with app.app_context():
         for sql in migrazioni:
             try:
                 db.session.execute(text(sql))
                 db.session.commit()
             except Exception:
-                pass
+                db.session.rollback()
         # Allinea griglia slot a 15 min per durate variabili
         try:
             updated = SlotOrario.query.filter(SlotOrario.durata_minuti == 60).update({"durata_minuti": 15})
