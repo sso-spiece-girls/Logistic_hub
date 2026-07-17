@@ -30,7 +30,7 @@ class User(UserMixin, db.Model):
 
     @property
     def role_label(self):
-        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin"}
+        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin", "cliente": "Cliente"}
         return labels.get(self.role, self.role)
 
     def __repr__(self):
@@ -311,3 +311,74 @@ class PickingRiga(db.Model):
 
     def __repr__(self):
         return f"<PickingRiga {self.articolo_codice}>"
+
+
+class SlotOrario(db.Model):
+    __tablename__ = "slot_orari"
+
+    id = db.Column(db.Integer, primary_key=True)
+    giorno_settimana = db.Column(db.Integer, nullable=False)  # 0=lunedì … 6=domenica
+    ora_inizio = db.Column(db.Time, nullable=False)
+    ora_fine = db.Column(db.Time, nullable=False)
+    durata_minuti = db.Column(db.Integer, nullable=False, default=60)
+    capienza = db.Column(db.Integer, nullable=False, default=1)
+    attivo = db.Column(db.Boolean, default=True)
+    creato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    creato_da = db.relationship("User", foreign_keys=[creato_da_id])
+
+    def __repr__(self):
+        return f"<SlotOrario giorno={self.giorno_settimana} {self.ora_inizio}-{self.ora_fine}>"
+
+
+class Prenotazione(db.Model):
+    __tablename__ = "prenotazioni"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    slot_orario_id = db.Column(db.Integer, db.ForeignKey("slot_orari.id"), nullable=False)
+    data = db.Column(db.Date, nullable=False)
+    ora_inizio = db.Column(db.Time, nullable=False)
+    ora_fine = db.Column(db.Time, nullable=False)
+    stato = db.Column(db.String(20), nullable=False, default="in_attesa", index=True)
+    token_qr = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    note_operatore = db.Column(db.Text, nullable=True)
+    approvato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    approvato_at = db.Column(db.DateTime, nullable=True)
+    ingresso_verificato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    ingresso_verificato_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    cliente = db.relationship("User", foreign_keys=[cliente_id], backref="prenotazioni")
+    slot_orario = db.relationship("SlotOrario", foreign_keys=[slot_orario_id])
+    approvato_da = db.relationship("User", foreign_keys=[approvato_da_id])
+    ingresso_verificato_da = db.relationship("User", foreign_keys=[ingresso_verificato_da_id])
+
+    STATI_ATTIVI = ("in_attesa", "confermata")
+
+    @property
+    def stato_label(self):
+        labels = {
+            "in_attesa": "In attesa",
+            "confermata": "Confermata",
+            "rifiutata": "Rifiutata",
+            "ingresso_registrato": "Ingresso registrato",
+            "ingresso_rifiutato": "Ingresso rifiutato",
+            "annullata": "Annullata",
+            "scaduta": "Scaduta",
+        }
+        return labels.get(self.stato, self.stato)
+
+    __table_args__ = (
+        db.Index(
+            "uq_slot_booking_attivo",
+            "slot_orario_id", "data", "ora_inizio",
+            unique=True,
+            postgresql_where=db.text("stato IN ('in_attesa', 'confermata')"),
+        ),
+        db.Index("ix_prenotazioni_data_ora", "data", "ora_inizio"),
+    )
+
+    def __repr__(self):
+        return f"<Prenotazione {self.id} cliente={self.cliente_id} {self.data} {self.ora_inizio}>"

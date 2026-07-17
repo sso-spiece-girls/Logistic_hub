@@ -32,6 +32,7 @@ class UserForm(FlaskForm):
         ("operatore", "Operatore"),
         ("ufficio", "Ufficio"),
         ("admin", "Admin"),
+        ("cliente", "Cliente"),
     ], validators=[DataRequired()])
 
 
@@ -109,3 +110,31 @@ class MovimentoFiltroForm(FlaskForm):
     magazzino = SelectField("Magazzino", choices=[("", "Tutti")] + MAGAZZINI[1:], validators=[Optional()])
     data_da = DateField("Da", validators=[Optional()])
     data_a = DateField("A", validators=[Optional()])
+
+
+class PrenotazioneForm(FlaskForm):
+    slot_orario_id = HiddenField(validators=[DataRequired()])
+    data_prenotazione = DateField("Data", validators=[DataRequired()])
+    ora_inizio = StringField("Ora inizio", validators=[DataRequired()])
+    ora_fine = StringField("Ora fine", validators=[DataRequired()])
+
+
+class SlotOrarioForm(FlaskForm):
+    giorno_settimana = SelectField("Giorno della settimana", choices=[
+        ("0", "Lunedì"),
+        ("1", "Martedì"),
+        ("2", "Mercoledì"),
+        ("3", "Giovedì"),
+        ("4", "Venerdì"),
+        ("5", "Sabato"),
+        ("6", "Domenica"),
+    ], validators=[DataRequired()])
+    ora_inizio = StringField("Ora inizio (HH:MM)", validators=[DataRequired()])
+    ora_fine = StringField("Ora fine (HH:MM)", validators=[DataRequired()])
+    durata_minuti = IntegerField("Durata slot (minuti)", validators=[DataRequired()], default=60)
+    capienza = IntegerField("Capienza massima", validators=[DataRequired()], default=1)
+    attivo = BooleanField("Attivo", default=True)
+
+
+class PrenotazioneAdminForm(FlaskForm):
+    motivo = StringField("Motivo (opzionale per rifiuto)", validators=[Optional()])

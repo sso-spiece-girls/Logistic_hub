@@ -9,6 +9,7 @@ from extensions import db, login_manager
 from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
+    SlotOrario, Prenotazione,
 )
 from routes.auth import auth
 from routes.dashboard import dashboard
@@ -24,6 +25,7 @@ from routes.documenti import documenti
 from routes.movimenti import movimenti
 from routes.api import api
 from routes.clienti import clienti
+from routes.prenotazioni import bp as prenotazioni
 from config import Config
 
 
@@ -75,6 +77,7 @@ def create_app():
     app.register_blueprint(movimenti)
     app.register_blueprint(api)
     app.register_blueprint(clienti)
+    app.register_blueprint(prenotazioni)
 
     @login_manager.user_loader
     def load_user(user_id):
