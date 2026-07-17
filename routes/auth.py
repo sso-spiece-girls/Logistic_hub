@@ -109,5 +109,3 @@ def notifica_operatori(title, message, type="info"):
     operatori = User.query.filter(User.role.in_(["admin", "operatore"])).all()
     for op in operatori:
         create_notification(op.id, title, message, type)
-    from main import _NOTIF_CACHE
-    _NOTIF_CACHE.pop(user_id, None)
