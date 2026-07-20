@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Uscite{% endblock %}
+{% block breadcrumb_title %}Uscite{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Uscite</h1>
+        <p class="page-subtitle">Gestione DDT in uscita</p>
+    </div>
+    <div class="header-actions">
+        <a href="/uscite/nuovo" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuovo DDT
+        </a>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <a href="/uscite" class="filter-chip {% if not filtro_stato %}active{% endif %}">Tutti</a>
+    <a href="/uscite?stato=bozza" class="filter-chip {% if filtro_stato == 'bozza' %}active{% endif %}">Bozza</a>
+    <a href="/uscite?stato=pronto" class="filter-chip {% if filtro_stato == 'pronto' %}active{% endif %}">Pronto</a>
+    <a href="/uscite?stato=spedito" class="filter-chip {% if filtro_stato == 'spedito' %}active{% endif %}">Spediti</a>
+    <a href="/uscite?stato=annullato" class="filter-chip {% if filtro_stato == 'annullato' %}active{% endif %}">Annullati</a>
+</div>
+
+{% if ddt_list %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Numero DDT</th>
+                <th>Cliente</th>
+                <th>Destinatario</th>
+                <th>Data Creazione</th>
+                <th>Stato</th>
+                <th>Operatore</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in ddt_list %}
+            <tr>
+                <td><a href="/uscite/ddt/{{ d.id }}" class="table-link">{{ d.numero_ddt }}</a></td>
+                <td>{{ d.cliente }}</td>
+                <td>{{ d.destinatario or '-' }}</td>
+                <td>{{ d.data_creazione.strftime('%d/%m/%Y') }}</td>
+                <td><span class="status-badge status-{{ d.stato }} status-inline" data-entity="ddt" data-id="{{ d.id }}" data-stato="{{ d.stato }}" role="button" tabindex="0">{{ d.stato_label }}</span></td>
+                <td>{{ d.operatore.username if d.operatore else '-' }}</td>
+                <td class="actions-cell">
+                    <a href="/uscite/ddt/{{ d.id }}" class="btn btn-sm btn-ghost">Dettaglio</a>
+                    <a href="/uscite/ddt/{{ d.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include "components/pagination.html" %}
+{% else %}
+<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.3">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    <p>{% if filtro_stato %}Nessun DDT con stato "{{ filtro_stato }}"{% else %}Nessun DDT creato{% endif %}</p>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">Crea un nuovo DDT per iniziare la spedizione</p>
+    <a href="/uscite/nuovo" class="btn btn-primary" style="margin-top:1rem">Nuovo DDT</a>
+</div>
+{% endif %}
+{% endblock %}

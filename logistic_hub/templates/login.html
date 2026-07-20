@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" type="image/png" href="/static/img/icon-192.png">
+    <title>Logistic Hub - Accesso</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+                <h1>Logistic Hub</h1>
+                <p class="login-sub">Gestionale Centralizzato</p>
+            </div>
+            <form method="POST" action="{{ url_for('auth.login') }}" class="login-form">
+                {{ form.hidden_tag() }}
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    {{ form.username(class="form-input" + (" is-invalid" if form.username.errors else ""), placeholder="Inserisci username") }}
+                    {% if form.username.errors %}<div class="form-error">{% for e in form.username.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    {{ form.password(class="form-input" + (" is-invalid" if form.password.errors else ""), placeholder="Inserisci password") }}
+                    {% if form.password.errors %}<div class="form-error">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                </div>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+                <button type="submit" class="btn btn-primary login-btn">Accedi</button>
+            </form>
+        </div>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

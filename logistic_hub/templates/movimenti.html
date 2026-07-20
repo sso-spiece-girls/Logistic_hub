@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Movimenti{% endblock %}
+{% block breadcrumb_title %}Movimenti{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Movimenti</h1>
+        <p class="page-subtitle">Storico ingressi e uscite merce</p>
+    </div>
+</div>
+
+<div class="search-bar">
+    <form method="GET" action="/movimenti" class="search-form">
+        <select name="tipo" class="form-input" style="max-width:140px">
+            <option value="">Tutti i tipi</option>
+            <option value="ingresso" {% if filtro_tipo == 'ingresso' %}selected{% endif %}>Ingresso</option>
+            <option value="uscita" {% if filtro_tipo == 'uscita' %}selected{% endif %}>Uscita</option>
+        </select>
+        <input type="text" name="articolo" class="form-input" placeholder="Codice articolo..." value="{{ filtro_articolo }}" style="max-width:200px">
+        <select name="magazzino" class="form-input" style="max-width:150px">
+            <option value="">Tutti magazzini</option>
+            <option value="Colle 1" {% if filtro_magazzino == 'Colle 1' %}selected{% endif %}>Colle 1</option>
+            <option value="Colle 2" {% if filtro_magazzino == 'Colle 2' %}selected{% endif %}>Colle 2</option>
+            <option value="Colle 3" {% if filtro_magazzino == 'Colle 3' %}selected{% endif %}>Colle 3</option>
+            <option value="Colle 4" {% if filtro_magazzino == 'Colle 4' %}selected{% endif %}>Colle 4</option>
+            <option value="Colle 5" {% if filtro_magazzino == 'Colle 5' %}selected{% endif %}>Colle 5</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filtra</button>
+        {% if filtro_tipo or filtro_articolo or filtro_magazzino %}
+        <a href="/movimenti" class="btn btn-ghost">Annulla</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if pagination.items %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Data/Ora</th>
+                <th>Tipo</th>
+                <th>Codice Articolo</th>
+                <th>Descrizione</th>
+                <th>Colli</th>
+                <th>Pallet</th>
+                <th>Peso kg</th>
+                <th>Rif.</th>
+                <th>Utente</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in pagination.items %}
+            <tr>
+                <td>{{ m.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>
+                    {% if m.tipo == 'ingresso' %}
+                    <span class="status-badge status-completata">Ingresso</span>
+                    {% else %}
+                    <span class="status-badge status-spedito">Uscita</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ m.articolo_codice }}</strong></td>
+                <td>{{ m.descrizione or '-' }}</td>
+                <td>{{ m.colli }}</td>
+                <td>{{ m.pallet }}</td>
+                <td>{{ '%.1f'|format(m.peso_kg) if m.peso_kg else '-' }}</td>
+                <td>
+                    {% if m.riferimento_tipo == 'ddt' and m.riferimento_id %}
+                    <a href="/uscite/ddt/{{ m.riferimento_id }}" class="table-link">DDT #{{ m.riferimento_id }}</a>
+                    {% elif m.riferimento_tipo == 'bolla' and m.riferimento_id %}
+                    <a href="/entrate/bolla/{{ m.riferimento_id }}" class="table-link">Bolla #{{ m.riferimento_id }}</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>{{ m.user.username if m.user else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include '_pagination.html' %}
+{% else %}
+<div class="empty-state">
+    <p>Nessun movimento registrato</p>
+</div>
+{% endif %}
+{% endblock %}

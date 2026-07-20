@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Dettaglio - {{ plugin.nome }}{% endblock %}
+{% block breadcrumbs %}
+<a href="/dashboard" class="breadcrumb-link">Home</a>
+<span class="breadcrumb-sep">/</span>
+<a href="/clienti" class="breadcrumb-link">Clienti</a>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-current">{{ plugin.nome }}</span>
+{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem">
+    <div>
+        <h1 class="page-title">{{ plugin.nome }}</h1>
+        <p class="page-subtitle">ID: {{ plugin.id }} — {{ ddt_importati|length }} DDT importati</p>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+        <a href="{{ url_for('clienti.upload_ddt', id_cliente=plugin.id) }}" class="btn btn-primary">+ Carica DDT</a>
+        <a href="{{ url_for('clienti.scarica_excel', id_cliente=plugin.id) }}" class="btn btn-secondary">Scarica Excel</a>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span>DDT Importati ({{ ddt_importati|length }})</span>
+        {% if header_row %}
+        <button type="button" class="btn btn-sm btn-outline" onclick="apriModaleAggiungi()">+ Aggiungi riga</button>
+        {% endif %}
+    </div>
+    <div class="card-body" style="padding:0;overflow-x:auto">
+        {% if ddt_importati %}
+        <table class="table" style="width:100%;border-collapse:collapse;font-size:0.875rem" id="tabella-ddt">
+            <thead>
+                <tr>
+                    <th style="padding:0.75rem 1rem;text-align:left;white-space:nowrap">#</th>
+                    {% for col in range(ddt_importati[0]|length) %}
+                    <th style="padding:0.75rem 1rem;text-align:left;white-space:nowrap">{{ header_row[col] if col < header_row|length else 'Campo ' ~ (col+1) }}</th>
+                    {% endfor %}
+                    <th style="padding:0.75rem 1rem;text-align:center;white-space:nowrap">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in ddt_importati %}
+                <tr data-row-index="{{ loop.index0 }}">
+                    <td style="padding:0.625rem 1rem;color:var(--text-muted)">{{ loop.index }}</td>
+                    {% for cell in row %}
+                    <td style="padding:0.625rem 1rem" class="cell-{{ loop.index0 }}">{{ cell if cell is not none else '' }}</td>
+                    {% endfor %}
+                    <td style="padding:0.625rem 0.5rem;text-align:center;white-space:nowrap">
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="apriModaleModifica({{ loop.index0 }})" title="Modifica">&#9998;</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="eliminaRiga({{ loop.index0 }})" title="Elimina">&#10005;</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:3rem 1.5rem">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.4">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>Nessun DDT importato per questo cliente.</p>
+            <a href="{{ url_for('clienti.upload_ddt', id_cliente=plugin.id) }}" style="color:var(--primary-light);text-decoration:none;font-weight:500">
+                Carica il primo DDT →
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modale modifica/aggiungi -->
+<div id="modale-riga" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:1000;background:var(--overlay);align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:12px;padding:1.5rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <h3 id="modale-titolo" style="margin:0">Modifica Riga</h3>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="chiudiModale()" style="font-size:1.2rem">&times;</button>
+        </div>
+        <form id="form-modale" onsubmit="return salvaModale()">
+            <div id="modale-campi"></div>
+            <div class="form-actions" style="margin-top:1rem">
+                <button type="button" class="btn btn-ghost" onclick="chiudiModale()">Annulla</button>
+                <button type="submit" class="btn btn-primary">Salva</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+var headerRow = {{ header_row|tojson }};
+var clienteId = '{{ plugin.id }}';
+
+function apriModaleModifica(rowIndex) {
+    var tr = document.querySelector('#tabella-ddt tbody tr[data-row-index="' + rowIndex + '"]');
+    if (!tr) return;
+    document.getElementById('modale-titolo').textContent = 'Modifica Riga #' + (rowIndex + 1);
+    var campi = document.getElementById('modale-campi');
+    campi.innerHTML = '';
+    var cells = tr.querySelectorAll('td:not(:first-child):not(:last-child)');
+    cells.forEach(function(td, i) {
+        var label = headerRow[i] || 'Campo ' + (i + 1);
+        var val = td.textContent.trim();
+        campi.innerHTML +=
+            '<div class="form-group">' +
+            '<label>' + label + '</label>' +
+            '<input type="text" class="form-input" name="val_' + i + '" value="' + val.replace(/"/g, '&quot;') + '">' +
+            '</div>';
+    });
+    document.getElementById('form-modale').setAttribute('data-row', rowIndex);
+    document.getElementById('modale-riga').style.display = 'flex';
+}
+
+function apriModaleAggiungi() {
+    document.getElementById('modale-titolo').textContent = 'Aggiungi DDT Manuale';
+    var campi = document.getElementById('modale-campi');
+    campi.innerHTML = '';
+    headerRow.forEach(function(label, i) {
+        campi.innerHTML +=
+            '<div class="form-group">' +
+            '<label>' + label + '</label>' +
+            '<input type="text" class="form-input" name="val_' + i + '" value="">' +
+            '</div>';
+    });
+    document.getElementById('form-modale').removeAttribute('data-row');
+    document.getElementById('modale-riga').style.display = 'flex';
+}
+
+function chiudiModale() {
+    document.getElementById('modale-riga').style.display = 'none';
+}
+
+function salvaModale() {
+    var form = document.getElementById('form-modale');
+    var inputs = form.querySelectorAll('input[name^="val_"]');
+    var valori = [];
+    inputs.forEach(function(inp) { valori.push(inp.value); });
+    var rowIndex = form.getAttribute('data-row');
+
+    var url, metodo;
+    if (rowIndex !== null) {
+        url = '/clienti/' + clienteId + '/modifica-riga';
+        var body = JSON.stringify({ row_index: parseInt(rowIndex), valori: valori });
+    } else {
+        url = '/clienti/' + clienteId + '/aggiungi-riga';
+        var body = JSON.stringify({ valori: valori });
+    }
+
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                window.showToast('Riga salvata', 'success');
+                chiudiModale();
+                setTimeout(function() { location.reload(); }, 600);
+            } else {
+                window.showToast(data.error || 'Errore', 'error');
+            }
+        })
+        .catch(function() { window.showToast('Errore di rete', 'error'); });
+    return false;
+}
+
+function eliminaRiga(rowIndex) {
+    if (!confirm('Eliminare questa riga definitivamente?')) return;
+    fetch('/clienti/' + clienteId + '/elimina-riga', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_index: rowIndex }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            window.showToast('Riga eliminata', 'success');
+            setTimeout(function() { location.reload(); }, 600);
+        } else {
+            window.showToast(data.error || 'Errore', 'error');
+        }
+    })
+    .catch(function() { window.showToast('Errore di rete', 'error'); });
+}
+
+document.getElementById('modale-riga').addEventListener('click', function(e) {
+    if (e.target === this) chiudiModale();
+});
+</script>
+{% endblock %}

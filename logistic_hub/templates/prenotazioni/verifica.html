@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Verifica QR Code{% endblock %}
+{% block breadcrumb_title %}Verifica QR Code{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Verifica Prenotazione</h1>
+        <p class="page-subtitle">Scannerizza il QR code o visualizza i dettagli della prenotazione</p>
+    </div>
+</div>
+
+{% if not prenotazione %}
+<div class="empty-state">
+    <p>QR code non valido o prenotazione non trovata.</p>
+</div>
+{% else %}
+{% set p = prenotazione %}
+<div class="verifica-card">
+    <div class="verifica-dettagli">
+        <div class="verifica-row">
+            <span class="verifica-label">Cliente</span>
+            <span class="verifica-value">{{ p.cliente.username }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Data</span>
+            <span class="verifica-value">{{ p.data.strftime('%d/%m/%Y') }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Orario</span>
+            <span class="verifica-value">{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Tipo</span>
+            <span class="verifica-value">{{ p.tipo|capitalize }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Tipologia</span>
+            <span class="verifica-value">{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Magazzino</span>
+            <span class="verifica-value">{{ p.magazzino or '-' }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Stato</span>
+            <span class="verifica-value">
+                <span class="status-badge status-{{ p.stato }}">{{ p.stato }}</span>
+            </span>
+        </div>
+        {% if p.note_operatore %}
+        <div class="verifica-row">
+            <span class="verifica-label">Note</span>
+            <span class="verifica-value">{{ p.note_operatore }}</span>
+        </div>
+        {% endif %}
+        {% if p.ingresso_verificato_da %}
+        <div class="verifica-row">
+            <span class="verifica-label">Verificato da</span>
+            <span class="verifica-value">{{ p.ingresso_verificato_da.username }} il {{ p.ingresso_verificato_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if p.stato == 'confermata' %}
+    <div class="verifica-azioni">
+        <form method="POST" action="/prenotazioni/verifica/{{ p.token_qr }}/conferma-ingresso" style="display:inline">
+            <button type="submit" class="btn btn-primary" style="font-size:1.1rem;padding:12px 32px">
+                Conferma Ingresso
+            </button>
+        </form>
+        <form method="POST" action="/prenotazioni/verifica/{{ p.token_qr }}/rifiuta-ingresso" style="display:inline">
+            {{ form.hidden_tag() }}
+            <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+                <input type="text" name="motivo" placeholder="Motivo del rifiuto" class="form-input" style="max-width:300px">
+                <button type="submit" class="btn btn-ghost" style="color:#ef4444">Rifiuta Ingresso</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="scanner-section">
+    <h3>Scannerizza QR Code</h3>
+    <div id="qr-reader" style="width:300px;margin:16px auto"></div>
+    <div id="qr-reader-results" style="text-align:center;margin-top:8px;color:var(--text-muted)"></div>
+</div>
+{% endif %}
+
+<style>
+.verifica-card { max-width:600px; margin-top:16px; border:1px solid var(--border); border-radius:8px; padding:24px }
+.verifica-dettagli { display:flex; flex-direction:column; gap:12px }
+.verifica-row { display:flex; gap:16px; align-items:center }
+.verifica-label { min-width:120px; font-size:.85rem; color:var(--text-muted); font-weight:500 }
+.verifica-value { font-size:.95rem; font-weight:500; color:var(--text) }
+.verifica-azioni { margin-top:24px; padding-top:16px; border-top:1px solid var(--border); text-align:center }
+.scanner-section { max-width:600px; margin-top:32px; text-align:center }
+.scanner-section h3 { font-size:1rem; color:var(--text); margin-bottom:16px }
+</style>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var reader = document.getElementById('qr-reader');
+    if (reader && typeof Html5Qrcode !== 'undefined') {
+        var html5QrCode = new Html5Qrcode("qr-reader");
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            function(decodedText) {
+                window.location.href = decodedText;
+            }
+        ).catch(function(err) {
+            document.getElementById('qr-reader-results').textContent = 'Fotocamera non disponibile: ' + err;
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Backup{% endblock %}
+{% block breadcrumb_title %}Backup{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Backup</h1>
+        <p class="page-subtitle">Gestione backup e ripristino del database</p>
+    </div>
+    <div class="header-actions">
+        <form method="POST" action="/backup/crea" style="display:inline">
+            <button type="submit" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+                Crea Backup
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if ultimo_backup %}
+<div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">
+        <h3>Ultimo Backup</h3>
+    </div>
+    <div class="card-body">
+        <div class="backup-info">
+            <div class="backup-info-item">
+                <span class="backup-label">Data</span>
+                <span class="backup-value">{{ ultimo_backup.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            </div>
+            <div class="backup-info-item">
+                <span class="backup-label">Dimensione</span>
+                <span class="backup-value">{{ (ultimo_backup.size / 1024)|round(1) }} KB</span>
+            </div>
+            <div class="backup-info-item">
+                <span class="backup-label">Tipo</span>
+                <span class="backup-value">{{ ultimo_backup.tipo }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if backups %}
+<div class="card">
+    <div class="card-header">
+        <h3>Storico Backup</h3>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Dimensione</th>
+                    <th>Tipo</th>
+                    <th>Eseguito da</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr>
+                    <td>{{ b.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ (b.size / 1024)|round(1) }} KB</td>
+                    <td>{{ b.tipo }}</td>
+                    <td>{{ b.eseguito_da }}</td>
+                    <td class="actions-cell">
+                        <a href="/backup/scarica/{{ b.id }}" class="btn btn-sm btn-ghost">Scarica</a>
+                        <form method="POST" action="/backup/ripristina/{{ b.id }}" style="display:inline" onsubmit="return confirm('Ripristinare questo backup? Il database corrente verrà sovrascritto.')">
+                            <button type="submit" class="btn btn-sm btn-ghost" style="color:#d97706">Ripristina</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.3">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+    </svg>
+    <p>Nessun backup disponibile</p>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">Crea il primo backup per proteggere i dati del database</p>
+    <form method="POST" action="/backup/crea" style="margin-top:1rem">
+        <button type="submit" class="btn btn-primary">Crea Backup</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
+

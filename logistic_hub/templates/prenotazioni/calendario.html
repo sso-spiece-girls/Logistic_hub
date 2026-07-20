@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Calendario Prenotazioni{% endblock %}
+{% block breadcrumb_title %}Calendario Prenotazioni{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Calendario Prenotazioni</h1>
+        <p class="page-subtitle">Seleziona uno slot disponibile per prenotare</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/mie" class="btn btn-ghost">
+            Le mie prenotazioni
+        </a>
+    </div>
+</div>
+
+{% if not tipologie_attive %}
+<div class="empty-state">
+    <p>Non hai ancora tipologie di materiale configurate.</p>
+    <p class="text-muted" style="font-size:.85rem">Contatta l'ufficio per configurare le tipologie di materiale prima di prenotare.</p>
+</div>
+{% else %}
+
+<div class="calendario-container">
+    {% if not slots_per_giorno %}
+    <div class="empty-state">
+        <p>Nessuno slot disponibile nei prossimi 14 giorni.</p>
+    </div>
+    {% endif %}
+
+    {% for giorno_key, giorno_data in slots_per_giorno.items() %}
+    <details class="calendario-giorno" {% if loop.first %}open{% endif %}>
+        <summary class="calendario-giorno-header">
+            <span class="calendario-giorno-nome">{{ giorno_data.giorno_nome }}</span>
+            <span class="calendario-giorno-data">{{ giorno_data.giorno.strftime('%d/%m/%Y') }}</span>
+        </summary>
+        <div class="calendario-slots">
+            {% for slot in giorno_data.slots %}
+            <div class="calendario-slot {% if not slot.disponibile %}occupato{% endif %}">
+                <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
+                {% if slot.disponibile %}
+                <form method="POST" action="/prenotazioni/prenota" class="slot-form">
+                    {{ form.csrf_token }}
+                    <input type="hidden" name="slot_orario_id" value="{{ slot.slot_orario_id }}">
+                    <input type="hidden" name="data_prenotazione" value="{{ giorno_key }}">
+                    <input type="hidden" name="ora_inizio" value="{{ slot.ora_inizio }}">
+                    <input type="hidden" name="ora_fine" value="{{ slot.ora_fine }}">
+                    <select name="tipo" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px">
+                        <option value="scarico">Scarico</option>
+                        <option value="carico">Carico</option>
+                    </select>
+                    <select name="tipologia_materiale_id" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px" required>
+                        <option value="">Tipologia...</option>
+                        {% for t in tipologie_attive %}
+                        <option value="{{ t.id }}">{{ t.nome }} ({{ t.durata_minuti }} min)</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Prenota</button>
+                </form>
+                {% else %}
+                <span class="slot-occupato-label">Occupato</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endfor %}
+</div>
+{% endif %}
+
+<style>
+.calendario-container { max-width:800px }
+.calendario-giorno { margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden }
+.calendario-giorno-header { padding:12px 16px; cursor:pointer; background:var(--surface-hover); display:flex; gap:8px; align-items:center; font-weight:600 }
+.calendario-giorno-header:hover { background:var(--surface-hover) }
+.calendario-giorno-nome { color:var(--primary-light); font-size:.9rem }
+.calendario-giorno-data { color:var(--text-muted); font-size:.85rem; font-weight:400 }
+.calendario-slots { padding:12px; display:flex; flex-wrap:wrap; gap:8px }
+.calendario-slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; min-width:220px }
+.calendario-slot.occupato { background:var(--surface-hover); opacity:.6 }
+.slot-orario { font-size:.85rem; font-weight:500; color:var(--text) }
+.slot-occupato-label { font-size:.8rem; color:var(--text-muted); font-style:italic }
+.slot-form { margin:0 }
+</style>
+{% endblock %}

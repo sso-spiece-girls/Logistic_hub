@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="numero_picking">Numero Picking</label>
+                {{ form.numero_picking(class="form-input" + (" is-invalid" if form.numero_picking.errors else ""), placeholder="Es. PK-2024-001") }}
+                {% if form.numero_picking.errors %}<div class="form-error">{% for e in form.numero_picking.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="cliente">Cliente</label>
+                {{ form.cliente(class="form-input" + (" is-invalid" if form.cliente.errors else ""), placeholder="Nome cliente") }}
+                {% if form.cliente.errors %}<div class="form-error">{% for e in form.cliente.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="stato">Stato</label>
+            {{ form.stato(class="form-input" + (" is-invalid" if form.stato.errors else "")) }}
+            {% if form.stato.errors %}<div class="form-error">{% for e in form.stato.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-actions">
+            <a href="/pianificazione" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

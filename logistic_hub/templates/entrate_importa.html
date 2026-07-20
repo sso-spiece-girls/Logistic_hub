@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Importa Bolle{% endblock %}
+{% block breadcrumb_title %}Importa Bolle{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Importa Bolle</h1>
+        <p class="page-subtitle">Carica uno o più PDF — i dati verranno estratti automaticamente</p>
+    </div>
+</div>
+
+<!-- STEP 1: Upload -->
+<div class="form-card" id="step-upload">
+    <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+        </div>
+        <div class="upload-zone-title">Trascina i PDF qui oppure clicca per selezionare</div>
+        <div class="upload-zone-hint">Seleziona più file tenendo premuto Ctrl — Solo PDF — max 10MB ciascuno</div>
+        <input type="file" id="file-input" accept=".pdf,application/pdf" style="display:none" multiple>
+    </div>
+
+    <div id="ocr-loading" class="loading-card" style="display:none">
+        <div class="loading-card-header">
+            <div class="loading-card-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+            </div>
+            <div class="loading-card-info">
+                <div class="loading-filename" id="ocr-filename"></div>
+                <div class="loading-filesize" id="ocr-filesize"></div>
+            </div>
+        </div>
+        <div class="progress-indeterminate"></div>
+        <div class="loading-card-footer">
+            <span class="loading-status" id="ocr-status-text">Elaborazione documenti in corso...</span>
+            <span class="loading-timer" id="ocr-timer"></span>
+        </div>
+    </div>
+
+    <div id="ocr-error" class="alert-card alert-error" style="display:none">
+        <div class="alert-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="alert-card-title">Errore di elaborazione</div>
+            <div class="alert-card-msg" id="ocr-error-text"></div>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 2: Review results table -->
+<div class="form-card" id="step-review" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span style="font-weight:600;color:var(--success)" id="review-title">Dati estratti — rivedi e conferma</span>
+    </div>
+
+    <form id="form-conferma-multi" method="POST" action="/entrate/conferma-importa-multi">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="bolle_json" id="hidden-bolle-json">
+
+        <div class="table-responsive">
+            <table id="table-risultati">
+                <thead>
+                    <tr>
+                        <th style="width:5%">#</th>
+                        <th style="width:22%">Fornitore</th>
+                        <th style="width:15%">N. Bolla</th>
+                        <th style="width:12%">Data</th>
+                        <th style="width:10%">Articoli</th>
+                        <th style="width:18%">File</th>
+                        <th style="width:18%">Stato</th>
+                    </tr>
+                </thead>
+                <tbody id="risultati-body"></tbody>
+            </table>
+        </div>
+
+        <div id="no-risultati" style="text-align:center;color:var(--text-muted);padding:24px;font-size:.9rem;display:none">
+            Nessun dato estratto dai PDF caricati
+        </div>
+
+        <div class="form-actions" style="margin-top:20px">
+            <button type="button" class="btn btn-ghost" id="btn-back-upload">Indietro</button>
+            <button type="submit" class="btn btn-primary" id="btn-importa-tutto">Importa Tutte</button>
+        </div>
+    </form>
+</div>
+
+<style>
+.badge-ok { display:inline-block;background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-err { display:inline-block;background:var(--error-bg);color:var(--error);padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600 }
+.badge-0 { display:inline-block;background:var(--warning-bg);color:var(--warning);padding:2px 8px;border-radius:10px;font-size:.75rem }
+.badge-doppione { display:inline-block;background:var(--error-bg);color:var(--error);padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;margin-right:4px }
+.btn-danger { background:var(--error);color:#fff;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:600 }
+.btn-danger:hover { opacity:.85 }
+input.row-edit { border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:.8rem;width:100%;box-sizing:border-box;background:var(--surface);color:var(--text) }
+input.row-edit:focus { border-color:var(--primary-light);outline:none;box-shadow:0 0 0 2px rgba(59,130,246,.15) }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var uploadZone = document.getElementById('upload-zone');
+    var fileInput = document.getElementById('file-input');
+    var ocrLoading = document.getElementById('ocr-loading');
+    var ocrError = document.getElementById('ocr-error');
+    var stepUpload = document.getElementById('step-upload');
+    var stepReview = document.getElementById('step-review');
+    var risultatiBody = document.getElementById('risultati-body');
+    var noRisultati = document.getElementById('no-risultati');
+    var ocrTimer = null;
+    var ocrStartTime = null;
+    var bolleResults = [];
+
+    uploadZone.addEventListener('click', function() { fileInput.click(); });
+    uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', function(e) { e.preventDefault(); this.classList.remove('drag-over'); });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        var files = e.dataTransfer.files;
+        if (files.length) handleFiles(files);
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) handleFiles(this.files);
+    });
+
+    document.getElementById('btn-back-upload').addEventListener('click', function() {
+        stopOcrProgress();
+        stepReview.style.display = 'none';
+        stepUpload.style.display = '';
+        resetUpload();
+    });
+
+    document.getElementById('form-conferma-multi').addEventListener('submit', function(e) {
+        var data = [];
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            var inputs = rows[i].querySelectorAll('input.row-edit');
+            if (inputs.length < 3) continue;
+            var fornitore = inputs[0].value.trim();
+            var nBolla = inputs[1].value.trim();
+            if (!fornitore || !nBolla) continue;
+            var idx = parseInt(rows[i].dataset.idx);
+            var bd = bolleResults[idx];
+            if (!bd) continue;
+            if (bd._skippato) continue;
+            data.push({
+                fornitore: fornitore,
+                numero_bolla: nBolla,
+                data_arrivo: inputs[2].value || '',
+                stato: 'completata',
+                note: '',
+                _temp_id: bd._temp_id || '',
+                righe: bd.righe || []
+            });
+        }
+        if (!data.length) {
+            e.preventDefault();
+            alert('Nessuna bolla con fornitore e numero validi.');
+            return;
+        }
+        document.getElementById('hidden-bolle-json').value = JSON.stringify(data);
+    });
+
+    window.rimuoviRiga = function(idx) {
+        var bd = bolleResults[idx];
+        if (!bd) return;
+        bd._skippato = true;
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            if (parseInt(rows[i].dataset.idx) === idx) {
+                rows[i].style.display = 'none';
+                var detail = document.getElementById('detail-' + idx);
+                if (detail) detail.style.display = 'none';
+                break;
+            }
+        }
+        aggiornaConteggio();
+    };
+
+    function aggiornaConteggio() {
+        var visibili = 0;
+        var rows = risultatiBody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].style.display !== 'none' && rows[i].querySelectorAll('input.row-edit').length > 0) {
+                visibili++;
+            }
+        }
+        document.getElementById('review-title').textContent = visibili + ' documenti elaborati — rivedi e conferma';
+    }
+
+    function stopOcrProgress() {
+        if (ocrTimer) { clearInterval(ocrTimer); ocrTimer = null; }
+    }
+
+    function resetUpload() {
+        stopOcrProgress();
+        fileInput.value = '';
+        ocrLoading.style.display = 'none';
+        ocrError.style.display = 'none';
+        uploadZone.style.display = '';
+    }
+
+    function handleFiles(files) {
+        var pdfs = [];
+        for (var i = 0; i < files.length; i++) {
+            if (files[i].type === 'application/pdf') pdfs.push(files[i]);
+        }
+        if (!pdfs.length) {
+            showOcrError('Nessun file PDF valido tra quelli selezionati.');
+            return;
+        }
+        showOcrLoading(pdfs.length);
+
+        var fd = new FormData();
+        for (var j = 0; j < pdfs.length; j++) {
+            fd.append('file_pdf', pdfs[j]);
+        }
+        fetch('/entrate/upload-ocr', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                hideOcrLoading();
+                if (data.error) {
+                    showOcrError(data.error);
+                    return;
+                }
+                var risultati = data.risultati || [];
+                if (risultati.length === 0) {
+                    showOcrError('Nessun risultato ricevuto dal server.');
+                    return;
+                }
+                if (data.async) {
+                    pollOcrResults(risultati, 0, pdfs.length, []);
+                } else {
+                    bolleResults = risultati;
+                    showReviewTable(risultati);
+                }
+            })
+            .catch(function() {
+                showOcrError('Errore di connessione durante l\'elaborazione.');
+            });
+    }
+
+    function pollOcrResults(tasks, doneCount, totalCount, accResults) {
+        if (doneCount >= tasks.length) {
+            hideOcrLoading();
+            bolleResults = accResults;
+            showReviewTable(accResults);
+            return;
+        }
+        var task = tasks[doneCount];
+        document.getElementById('ocr-filename').textContent = 'Elaborazione ' + (doneCount + 1) + '/' + totalCount + ': ' + task.filename;
+        (function(idx) {
+            var poll = function() {
+                fetch('/entrate/ocr-status/' + task.task_id)
+                    .then(function(r) { return r.json(); })
+                    .then(function(status) {
+                        if (status.status === 'completed') {
+                            accResults.push(status);
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        } else if (status.status === 'error') {
+                            accResults.push({filename: task.filename, error: status.error});
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        } else {
+                            setTimeout(poll, 500);
+                        }
+                    })
+                    .catch(function() {
+                        setTimeout(poll, 1000);
+                    });
+            };
+            poll();
+        })(doneCount);
+    }
+
+    function showOcrLoading(count) {
+        uploadZone.style.display = 'none';
+        ocrError.style.display = 'none';
+        document.getElementById('ocr-filename').textContent = count + ' file selezionati';
+        document.getElementById('ocr-filesize').textContent = '';
+        document.getElementById('ocr-status-text').textContent = 'Elaborazione in corso...';
+        document.getElementById('ocr-timer').textContent = '';
+        ocrLoading.style.display = 'block';
+        ocrStartTime = Date.now();
+        ocrTimer = setInterval(function() {
+            var elapsed = ((Date.now() - ocrStartTime) / 1000).toFixed(1);
+            document.getElementById('ocr-timer').textContent = '\u23F1 ' + elapsed + 's';
+        }, 100);
+    }
+
+    function hideOcrLoading() {
+        stopOcrProgress();
+        ocrLoading.style.display = 'none';
+    }
+
+    function showOcrError(message) {
+        hideOcrLoading();
+        document.getElementById('ocr-error-text').textContent = message;
+        ocrError.style.display = 'flex';
+    }
+
+    function showReviewTable(risultati) {
+        risultatiBody.innerHTML = '';
+        var count = 0;
+        for (var i = 0; i < risultati.length; i++) {
+            var r = risultati[i];
+            if (r.error) continue;
+            count++;
+            var tr = document.createElement('tr');
+            tr.dataset.idx = i;
+            var nRighe = (r.righe && r.righe.length) || 0;
+            var badgeClass = nRighe > 0 ? 'badge-ok' : 'badge-0';
+            var badgeText = nRighe > 0 ? nRighe + ' righe' : '0';
+            var dataVal = r.data_arrivo || '';
+            var duplicatoHtml = '';
+            if (r.duplicato) {
+                duplicatoHtml = '<span class="badge-doppione" title="Bolla gi\u00e0 presente">\u26A0\uFE0F DOPPIONE</span> ' +
+                    '<button type="button" class="btn btn-sm btn-danger" onclick="rimuoviRiga(' + i + ')" title="Elimina questa bolla">\u2716</button>';
+            }
+            tr.innerHTML =
+                '<td style="text-align:center;font-weight:600;color:var(--text-muted)">' + (i + 1) + '</td>' +
+                '<td><input type="text" class="row-edit" value="' + (r.fornitore || '').replace(/"/g,'&quot;') + '" placeholder="Fornitore"></td>' +
+                '<td><input type="text" class="row-edit" value="' + (r.numero_bolla || '').replace(/"/g,'&quot;') + '" placeholder="N. bolla"></td>' +
+                '<td><input type="date" class="row-edit" value="' + dataVal + '"></td>' +
+                '<td style="text-align:center"><span class="' + badgeClass + '">' + badgeText + '</span></td>' +
+                '<td style="font-size:.75rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.filename || '') + '</td>' +
+                '<td style="text-align:center;white-space:nowrap">' + duplicatoHtml + ' <button type="button" class="btn btn-sm btn-outline" onclick="toggleRighe(' + i + ')">Dettaglio</button></td>';
+            risultatiBody.appendChild(tr);
+
+            // Hidden details row
+            var detailTr = document.createElement('tr');
+            detailTr.id = 'detail-' + i;
+            detailTr.style.display = 'none';
+            var detailTd = document.createElement('td');
+            detailTd.colSpan = 7;
+            detailTd.style.padding = '8px 12px';
+            detailTd.style.background = 'var(--surface-hover)';
+            if (nRighe > 0) {
+                var html = '<table style="width:100%;font-size:.75rem"><thead><tr style="color:#64748b">' +
+                    '<th style="text-align:left;padding:2px 6px;color:var(--text-muted)">Descrizione</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">Q.tà</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">Pallet</th>' +
+                    '<th style="text-align:center;padding:2px 6px;color:var(--text-muted)">UM</th>' +
+                    '<th style="text-align:right;padding:2px 6px;color:var(--text-muted)">Peso</th></tr></thead><tbody>';
+                for (var j = 0; j < r.righe.length; j++) {
+                    var art = r.righe[j];
+                    html += '<tr><td style="padding:1px 6px">' + (art.descrizione || '') + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.quantita || 0) + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.pallet || 0) + '</td>' +
+                        '<td style="text-align:center;padding:1px 6px">' + (art.unita_misura || 'colli') + '</td>' +
+                        '<td style="text-align:right;padding:1px 6px">' + (art.peso_kg || 0) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+                detailTd.innerHTML = html;
+            } else {
+                detailTd.innerHTML = '<span style="color:var(--text-muted);font-size:.8rem">Nessun articolo estratto</span>';
+            }
+            detailTr.appendChild(detailTd);
+            risultatiBody.appendChild(detailTr);
+        }
+
+        if (count === 0) {
+            noRisultati.style.display = '';
+            document.getElementById('btn-importa-tutto').disabled = true;
+        } else {
+            noRisultati.style.display = 'none';
+            document.getElementById('btn-importa-tutto').disabled = false;
+        }
+
+        document.getElementById('review-title').textContent = count + ' documenti elaborati — rivedi e conferma';
+        stepUpload.style.display = 'none';
+        stepReview.style.display = '';
+    }
+
+    window.toggleRighe = function(idx) {
+        var tr = document.getElementById('detail-' + idx);
+        if (tr) tr.style.display = tr.style.display === 'none' ? '' : 'none';
+    };
+
+    // Ctrl+Enter to submit
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            var form = document.getElementById('form-conferma-multi');
+            if (form && form.style.display !== 'none') {
+                form.querySelector('button[type="submit"]').click();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Prenotazioni da approvare{% endblock %}
+{% block breadcrumb_title %}Prenotazioni da approvare{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Prenotazioni in attesa</h1>
+        <p class="page-subtitle">{{ richieste|length }} richiesta/e da approvare</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/admin/calendario" class="btn btn-ghost">Calendario</a>
+    </div>
+</div>
+
+{% if not richieste %}
+<div class="empty-state">
+    <p>Nessuna richiesta di prenotazione in attesa.</p>
+</div>
+{% else %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Tipologia</th>
+                <th>Data</th>
+                <th>Ora</th>
+                <th>Richiesto il</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in richieste %}
+            <tr>
+                <td><strong>{{ p.cliente.username }}</strong></td>
+                <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
+                <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
+                <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
+                <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td class="actions-cell" style="min-width:300px">
+                    <form method="POST" action="/prenotazioni/admin/{{ p.id }}/approva" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">
+                        {{ form.hidden_tag() }}
+                        <select name="magazzino" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px">
+                            <option value="">Magazzino...</option>
+                            <option value="Colle 1">Colle 1</option>
+                            <option value="Colle 2">Colle 2</option>
+                            <option value="Colle 3">Colle 3</option>
+                            <option value="Colle 4">Colle 4</option>
+                            <option value="Colle 5">Colle 5</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Approva</button>
+                    </form>
+                    <form method="POST" action="/prenotazioni/admin/{{ p.id }}/rifiuta" style="display:inline-flex;gap:4px;align-items:center">
+                        {{ form.hidden_tag() }}
+                        <input type="text" name="motivo" placeholder="Motivo" class="form-input" style="width:auto;display:inline;max-width:120px;font-size:.8rem;padding:4px 8px">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Rifiuta</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

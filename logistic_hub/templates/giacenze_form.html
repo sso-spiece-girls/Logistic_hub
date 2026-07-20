@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="codice_articolo">Codice Articolo</label>
+                {{ form.codice_articolo(class="form-input" + (" is-invalid" if form.codice_articolo.errors else ""), placeholder="Es. PL060", id="codice_articolo") }}
+                {% if form.codice_articolo.errors %}<div class="form-error">{% for e in form.codice_articolo.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                <div id="duplicato-avviso" style="display:none;margin-top:6px"></div>
+            </div>
+            <div class="form-group">
+                <label for="descrizione">Descrizione</label>
+                {{ form.descrizione(class="form-input" + (" is-invalid" if form.descrizione.errors else ""), placeholder="Descrizione articolo") }}
+                {% if form.descrizione.errors %}<div class="form-error">{% for e in form.descrizione.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="quantita">Quantità</label>
+                {{ form.quantita(class="form-input" + (" is-invalid" if form.quantita.errors else ""), type="number", step="0.01") }}
+                {% if form.quantita.errors %}<div class="form-error">{% for e in form.quantita.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="colli">Colli</label>
+                {{ form.colli(class="form-input" + (" is-invalid" if form.colli.errors else ""), type="number") }}
+                {% if form.colli.errors %}<div class="form-error">{% for e in form.colli.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="pallet">Pallet</label>
+                {{ form.pallet(class="form-input" + (" is-invalid" if form.pallet.errors else ""), type="number") }}
+                {% if form.pallet.errors %}<div class="form-error">{% for e in form.pallet.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="peso_kg">Peso (kg)</label>
+                {{ form.peso_kg(class="form-input" + (" is-invalid" if form.peso_kg.errors else ""), type="number", step="0.01") }}
+                {% if form.peso_kg.errors %}<div class="form-error">{% for e in form.peso_kg.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="id_bobina">ID Bobina</label>
+                {{ form.id_bobina(class="form-input" + (" is-invalid" if form.id_bobina.errors else ""), placeholder="Es. BOB-2024-001") }}
+                {% if form.id_bobina.errors %}<div class="form-error">{% for e in form.id_bobina.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="qualita">Qualità</label>
+                {{ form.qualita(class="form-input" + (" is-invalid" if form.qualita.errors else ""), placeholder="Es. Prima scelta") }}
+                {% if form.qualita.errors %}<div class="form-error">{% for e in form.qualita.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="provenienza">Provenienza</label>
+                {{ form.provenienza(class="form-input" + (" is-invalid" if form.provenienza.errors else ""), placeholder="Es. Essity") }}
+                {% if form.provenienza.errors %}<div class="form-error">{% for e in form.provenienza.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="magazzino">Magazzino</label>
+                {{ form.magazzino(class="form-input" + (" is-invalid" if form.magazzino.errors else "")) }}
+                {% if form.magazzino.errors %}<div class="form-error">{% for e in form.magazzino.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="ubicazione">Ubicazione</label>
+            {{ form.ubicazione(class="form-input" + (" is-invalid" if form.ubicazione.errors else ""), placeholder="Es. Scaffale A - Rack 3") }}
+            {% if form.ubicazione.errors %}<div class="form-error">{% for e in form.ubicazione.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-actions">
+            <a href="/giacenze" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+</form>
+</div>
+
+<style>
+.badge-doppione { display:inline-block;background:var(--error-bg);color:var(--error);padding:4px 10px;border-radius:10px;font-size:.75rem;font-weight:700 }
+.badge-doppione a { color:var(--error);text-decoration:underline;font-weight:600 }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('codice_articolo');
+    var avviso = document.getElementById('duplicato-avviso');
+    var timer = null;
+
+    if (!input) return;
+
+    // Solo in modalita' creazione (non modifica)
+    if ({{ 'true' if not giacenza else 'false' }}) {
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            var codice = this.value.trim();
+            if (codice.length < 3) {
+                avviso.style.display = 'none';
+                return;
+            }
+            timer = setTimeout(function() {
+                fetch('/giacenze/api/check-duplicato?codice=' + encodeURIComponent(codice))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.esiste) {
+                            avviso.innerHTML = '<span class="badge-doppione">&#9888;&#65039; DOPPIONE: <a href="/giacenze/' + data.id + '">' + data.codice_articolo + '</a> (' + (data.colli || 0) + ' colli, ' + (data.pallet || 0) + ' pallet)</span>';
+                            avviso.style.display = '';
+                        } else {
+                            avviso.style.display = 'none';
+                        }
+                    });
+            }, 400);
+        });
+    }
+});
+</script>
+{% endblock %}

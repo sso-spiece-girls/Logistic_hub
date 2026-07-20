@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Entrate{% endblock %}
+{% block breadcrumb_title %}Bolle{% endblock %}
+{% block content %}
+<style>
+.badge-doppione { display:inline-block;background:var(--error-bg);color:var(--error);padding:1px 6px;border-radius:8px;font-size:.65rem;font-weight:700;vertical-align:middle;margin-left:4px }
+</style>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Entrate</h1>
+        <p class="page-subtitle">Gestione bolle in arrivo</p>
+    </div>
+    <div class="header-actions">
+        <a href="/entrate/importa" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importa PDF
+        </a>
+        <a href="/entrate/nuova" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuova Bolla
+        </a>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <a href="/entrate" class="filter-chip {% if not filtro_stato %}active{% endif %}">Tutte</a>
+    <a href="/entrate?stato=da_elaborare" class="filter-chip {% if filtro_stato == 'da_elaborare' %}active{% endif %}">Da elaborare</a>
+    <a href="/entrate?stato=in_lavorazione" class="filter-chip {% if filtro_stato == 'in_lavorazione' %}active{% endif %}">In lavorazione</a>
+    <a href="/entrate?stato=completata" class="filter-chip {% if filtro_stato == 'completata' %}active{% endif %}">Completate</a>
+</div>
+
+{% if bolle %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Numero Bolla</th>
+                <th>Fornitore</th>
+                <th>Data Arrivo</th>
+                <th>Stato</th>
+                <th>Operatore</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in bolle %}
+            <tr>
+                <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a>{% if b.id in ids_duplicati %} <span class="badge-doppione">DOPPIONE</span>{% endif %}</td>
+                <td>{{ b.fornitore }}</td>
+                <td>{{ b.data_arrivo.strftime('%d/%m/%Y') if b.data_arrivo else '-' }}</td>
+                <td><span class="status-badge status-{{ b.stato }} status-inline" data-entity="bolle" data-id="{{ b.id }}" data-stato="{{ b.stato }}" role="button" tabindex="0">{{ b.stato_label }}</span></td>
+                <td>{{ b.operatore.username if b.operatore else '-' }}</td>
+                <td class="actions-cell">
+                    <a href="/entrate/bolla/{{ b.id }}" class="btn btn-sm btn-ghost">Dettaglio</a>
+                    <a href="/entrate/bolla/{{ b.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    {% if b.id in ids_duplicati %}
+                    <form method="POST" action="/entrate/bolla/{{ b.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare bolla duplicata?')">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include "components/pagination.html" %}
+{% else %}
+<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.3">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    <p>{% if filtro_stato %}Nessuna bolla con stato "{{ filtro_stato }}"{% else %}Nessuna bolla in arrivo{% endif %}</p>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">Importa il primo PDF per iniziare</p>
+    <a href="/entrate/importa" class="btn btn-primary" style="margin-top:1rem">Importa PDF</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Carica DDT - {{ plugin.nome }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ plugin.nome }}</h1>
+    <p class="page-subtitle">Carica uno o più DDT PDF per estrarre i dati e aggiornare l'Excel mensile</p>
+</div>
+
+<div class="card" style="max-width:640px">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label class="form-label">Seleziona file PDF</label>
+                <input type="file" name="pdf_files" id="pdf-files" accept=".pdf" multiple required style="display:none">
+                <div style="display:flex;align-items:center;gap:.75rem">
+                    <label for="pdf-files" class="btn btn-secondary" style="cursor:pointer">Scegli file</label>
+                    <span id="file-names" class="text-muted" style="font-size:.85rem"></span>
+                </div>
+                <small class="text-muted" style="margin-top:0.5rem;display:block">
+                    Puoi selezionare più file contemporaneamente (Ctrl+click / Cmd+click)
+                </small>
+            </div>
+            <div class="form-actions">
+                <a href="{{ url_for('clienti.elenco') }}" class="btn btn-secondary">← Indietro</a>
+                <button type="submit" class="btn btn-primary">
+                    Carica ed Estrai
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="margin-top:1.5rem;max-width:640px">
+    <div class="card-header">
+        Formati DDT riconosciuti
+    </div>
+    <div class="card-body" style="padding:1.5rem;font-size:0.9rem;line-height:1.6;color:var(--text-secondary)">
+        <p>Il parser riconosce automaticamente i DDT di <strong>{{ plugin.nome }}</strong>
+        in base al pattern di testo presente nel PDF.</p>
+        <p>I dati estratti verranno scritti nel file Excel mensile.
+        Se il file Excel non esiste, verrà creato automaticamente.</p>
+    </div>
+</div>
+{% endblock %}
+<script>
+document.getElementById('pdf-files').addEventListener('change', function() {
+    var names = [];
+    for (var i = 0; i < this.files.length; i++) names.push(this.files[i].name);
+    document.getElementById('file-names').textContent = names.join(', ');
+});
+</script>

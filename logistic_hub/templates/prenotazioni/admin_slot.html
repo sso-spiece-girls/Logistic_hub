@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Gestione slot orari{% endblock %}
+{% block breadcrumb_title %}Gestione slot orari{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Regole slot orari</h1>
+        <p class="page-subtitle">Definisci le fasce orarie prenotabili dai clienti</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/admin/magazzini" class="btn btn-ghost">Capienza magazzini</a>
+        <a href="/prenotazioni/admin/slot/nuovo" class="btn btn-primary">
+            Nuova regola
+        </a>
+    </div>
+</div>
+
+{% if not regole %}
+<div class="empty-state">
+    <p>Nessuna regola slot definita.</p>
+    <a href="/prenotazioni/admin/slot/nuovo" class="btn btn-primary" style="margin-top:12px">Crea prima regola</a>
+</div>
+{% else %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Giorno</th>
+                <th>Orario</th>
+                <th>Durata slot</th>
+                <th>Capienza</th>
+                <th>Attivo</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in regole %}
+            <tr>
+                <td><strong>{{ giorni[r.giorno_settimana] }}</strong></td>
+                <td>{{ r.ora_inizio.strftime('%H:%M') }} - {{ r.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ r.durata_minuti }} min</td>
+                <td>{{ r.capienza }}</td>
+                <td>
+                    <span class="status-badge status-{{ 'completata' if r.attivo else 'bozza' }}">
+                        {{ 'Attivo' if r.attivo else 'Inattivo' }}
+                    </span>
+                </td>
+                <td class="actions-cell">
+                    <a href="/prenotazioni/admin/slot/{{ r.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    <form method="POST" action="/prenotazioni/admin/slot/{{ r.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa regola? Le prenotazioni attive saranno bloccate.')">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

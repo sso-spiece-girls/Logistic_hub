@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}Giacenze{% endblock %}
+{% block breadcrumb_title %}Giacenze{% endblock %}
+{% block content %}
+<style>
+.gruppo-header-row td { border-bottom:2px solid var(--primary-light) }
+.gruppo-header-row + tr td { border-top:none }
+</style>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Giacenze</h1>
+        <p class="page-subtitle">Inventario e stock di magazzino</p>
+    </div>
+    <div class="header-actions">
+        <a href="/giacenze/nuovo" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuova Giacenza
+        </a>
+    </div>
+</div>
+
+<div class="search-bar">
+    <form method="GET" action="/giacenze" class="search-form" id="giacenze-search-form">
+        <input type="text" name="q" class="form-input" id="giacenze-q" placeholder="Cerca per codice articolo, descrizione, ubicazione..." value="{{ search }}" autocomplete="off">
+        <select name="magazzino" class="form-input" id="giacenze-magazzino" style="max-width:150px">
+            <option value="">Tutti i magazzini</option>
+            <option value="Colle 1" {% if filtro_magazzino == 'Colle 1' %}selected{% endif %}>Colle 1</option>
+            <option value="Colle 2" {% if filtro_magazzino == 'Colle 2' %}selected{% endif %}>Colle 2</option>
+            <option value="Colle 3" {% if filtro_magazzino == 'Colle 3' %}selected{% endif %}>Colle 3</option>
+            <option value="Colle 4" {% if filtro_magazzino == 'Colle 4' %}selected{% endif %}>Colle 4</option>
+            <option value="Colle 5" {% if filtro_magazzino == 'Colle 5' %}selected{% endif %}>Colle 5</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem;color:var(--text-muted);white-space:nowrap">
+            <input type="checkbox" name="gruppi" value="1" {% if gruppi %}checked{% endif %} id="giacenze-gruppi" style="width:auto">
+            Raggruppa
+        </label>
+        <button type="submit" class="btn btn-primary" id="giacenze-search-btn">Cerca</button>
+        {% if search or filtro_magazzino %}<a href="/giacenze" class="btn btn-ghost">Annulla filtro</a>{% endif %}
+    </form>
+</div>
+
+<div id="giacenze-table-container">
+    <div id="giacenze-loading" style="display:none;text-align:center;padding:2rem;color:var(--text-muted)">Caricamento...</div>
+    <div id="giacenze-content">
+        {% if giacenze and not gruppi %}
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Codice</th>
+                        <th>Descrizione</th>
+                        <th>Q.tà</th>
+                        <th>Colli</th>
+                        <th>Pallet</th>
+                        <th>Peso kg</th>
+                        <th>Magazzino</th>
+                        <th>Ubicazione</th>
+                        <th>Bobina</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="giacenze-tbody">
+                    {% for g in giacenze %}
+                    <tr>
+                        <td><strong>{{ g.codice_articolo }}</strong></td>
+                        <td>{{ g.descrizione }}</td>
+                        <td>{{ g.quantita }}</td>
+                        <td>{{ g.colli }}</td>
+                        <td>{{ g.pallet or '-' }}</td>
+                        <td>{{ g.peso_kg or '-' }}</td>
+                        <td>{{ g.magazzino or '-' }}</td>
+                        <td>{{ g.ubicazione or '-' }}</td>
+                        <td>{{ g.id_bobina or '-' }}</td>
+                        <td class="actions-cell">
+                            <a href="/giacenze/{{ g.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                            <form method="POST" action="/giacenze/{{ g.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare?')">
+                                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif giacenze and gruppi %}
+        {# Raggruppa per prefisso del codice articolo (prima del _) #}
+        {% set gruppi_dict = {} %}
+        {% for g in giacenze %}
+            {% set prefisso = g.codice_articolo.split('_')[0] if '_' in g.codice_articolo else 'ALTRO' %}
+            {% if prefisso not in gruppi_dict %}
+                {% set _ = gruppi_dict.update({prefisso: {'items': [], 'totale_colli': 0, 'totale_pallet': 0}}) %}
+            {% endif %}
+            {% set _ = gruppi_dict[prefisso].items.append(g) %}
+            {% set _ = gruppi_dict[prefisso].update({'totale_colli': gruppi_dict[prefisso].totale_colli + (g.colli or 0)}) %}
+            {% set _ = gruppi_dict[prefisso].update({'totale_pallet': gruppi_dict[prefisso].totale_pallet + (g.pallet or 0)}) %}
+        {% endfor %}
+        {% for prefisso, info in gruppi_dict.items()|sort %}
+        <div class="gruppo-giacenze" style="margin-bottom:24px">
+            <div class="gruppo-header" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface-hover);border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none">
+                <strong style="font-size:.95rem;color:var(--primary-light)">{{ prefisso }}</strong>
+                <span style="font-size:.8rem;color:var(--text-muted)">{{ info.items|length }} articoli | {{ info.totale_colli }} colli | {{ info.totale_pallet }} pallet</span>
+            </div>
+            <table class="data-table" style="border-radius:0 0 8px 8px">
+                <thead>
+                    <tr>
+                        <th>Codice</th>
+                        <th>Descrizione</th>
+                        <th>Q.tà</th>
+                        <th>Colli</th>
+                        <th>Pallet</th>
+                        <th>Peso kg</th>
+                        <th>Magazzino</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in info.items %}
+                    <tr>
+                        <td><strong>{{ g.codice_articolo }}</strong></td>
+                        <td>{{ g.descrizione }}</td>
+                        <td>{{ g.quantita }}</td>
+                        <td>{{ g.colli }}</td>
+                        <td>{{ g.pallet or '-' }}</td>
+                        <td>{{ g.peso_kg or '-' }}</td>
+                        <td>{{ g.magazzino or '-' }}</td>
+                        <td class="actions-cell">
+                            <a href="/giacenze/{{ g.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                            <form method="POST" action="/giacenze/{{ g.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare?')">
+                                <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" id="giacenze-empty">
+            <p>{% if search or filtro_magazzino %}Nessuna giacenza trovata{% else %}Nessuna giacenza registrata{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = document.getElementById('giacenze-q');
+    var magazzinoSelect = document.getElementById('giacenze-magazzino');
+    var searchBtn = document.getElementById('giacenze-search-btn');
+    var tbody = document.getElementById('giacenze-tbody');
+    var content = document.getElementById('giacenze-content');
+    var loading = document.getElementById('giacenze-loading');
+    var empty = document.getElementById('giacenze-empty');
+    var searchTimeout = null;
+    var currentPage = 1;
+
+    window.goToPage = function(page) {
+        currentPage = page;
+        doSearch();
+    };
+
+function doSearch() {
+        var q = searchInput.value.trim();
+        var magazzino = magazzinoSelect.value;
+        var gruppi = document.getElementById('giacenze-gruppi').checked;
+        var page = currentPage;
+        loading.style.display = 'block';
+        content.style.display = 'none';
+
+        var url = '/api/v1/giacenze?q=' + encodeURIComponent(q) + '&magazzino=' + encodeURIComponent(magazzino) + '&page=' + page + '&per_page=100';
+        fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loading.style.display = 'none';
+                content.style.display = 'block';
+                currentPage = data.page || 1;
+                renderResults(data, q, magazzino, gruppi);
+            })
+            .catch(function() {
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            });
+    }
+
+    function renderResults(data, q, magazzino, gruppi) {
+        if (!tbody) return;
+        var items = data.items || data;
+        var total = data.total || items.length;
+        var pages = data.pages || 1;
+        tbody.innerHTML = '';
+        if (items.length === 0) {
+            if (!empty) {
+                var parent = document.getElementById('giacenze-table-container');
+                var newEmpty = document.createElement('div');
+                newEmpty.className = 'empty-state';
+                newEmpty.id = 'giacenze-empty';
+                newEmpty.innerHTML = '<p>' + (q || magazzino ? 'Nessuna giacenza trovata' : 'Nessuna giacenza registrata') + '</p>';
+                parent.appendChild(newEmpty);
+            } else {
+                empty.style.display = '';
+                empty.innerHTML = '<p>' + (q || magazzino ? 'Nessuna giacenza trovata' : 'Nessuna giacenza registrata') + '</p>';
+            }
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        if (gruppi) {
+            // Group by prefix before first underscore
+            var groups = {};
+            items.forEach(function(g) {
+                var pref = (g.codice_articolo || '').split('_')[0] || 'ALTRO';
+                if (!groups[pref]) groups[pref] = {items: [], totColli: 0, totPallet: 0};
+                groups[pref].items.push(g);
+                groups[pref].totColli += (g.colli || 0);
+                groups[pref].totPallet += (g.pallet || 0);
+            });
+            var sortedGroups = Object.keys(groups).sort();
+            for (var gi = 0; gi < sortedGroups.length; gi++) {
+                var pref = sortedGroups[gi];
+                var grp = groups[pref];
+                // Group header row
+                var headerTr = document.createElement('tr');
+                headerTr.className = 'gruppo-header-row';
+                headerTr.innerHTML = '<td colspan="10" style="padding:8px 12px;background:var(--surface-hover);border-radius:6px;font-weight:700;color:var(--primary-light);font-size:.9rem">' +
+                    esc(pref) + ' <span style="font-weight:400;color:var(--text-muted);font-size:.8rem">' + grp.items.length + ' articoli | ' + grp.totColli + ' colli | ' + grp.totPallet + ' pallet</span></td>';
+                tbody.appendChild(headerTr);
+                grp.items.forEach(function(g) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td><strong>' + esc(g.codice_articolo) + '</strong></td>' +
+                        '<td>' + esc(g.descrizione || '') + '</td>' +
+                        '<td>' + g.quantita + '</td>' +
+                        '<td>' + g.colli + '</td>' +
+                        '<td>' + (g.pallet || '-') + '</td>' +
+                        '<td>' + (g.peso_kg || '-') + '</td>' +
+                        '<td>' + esc(g.magazzino || '-') + '</td>' +
+                        '<td>' + esc(g.ubicazione || '-') + '</td>' +
+                        '<td>' + esc(g.id_bobina || '-') + '</td>' +
+                        '<td class="actions-cell">' +
+                        '<a href="/giacenze/' + g.id + '/modifica" class="btn btn-sm btn-ghost">Modifica</a> ' +
+                        '<form method="POST" action="/giacenze/' + g.id + '/elimina" style="display:inline" onsubmit="return confirm(\'Eliminare?\')">' +
+                        '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
+                    tbody.appendChild(tr);
+                });
+            }
+} else {
+            items.forEach(function(g) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><strong>' + esc(g.codice_articolo) + '</strong></td>' +
+                    '<td>' + esc(g.descrizione || '') + '</td>' +
+                    '<td>' + g.quantita + '</td>' +
+                    '<td>' + g.colli + '</td>' +
+                    '<td>' + (g.pallet || '-') + '</td>' +
+                    '<td>' + (g.peso_kg || '-') + '</td>' +
+                    '<td>' + esc(g.magazzino || '-') + '</td>' +
+                    '<td>' + esc(g.ubicazione || '-') + '</td>' +
+                    '<td>' + esc(g.id_bobina || '-') + '</td>' +
+                    '<td class="actions-cell">' +
+                    '<a href="/giacenze/' + g.id + '/modifica" class="btn btn-sm btn-ghost">Modifica</a> ' +
+                    '<form method="POST" action="/giacenze/' + g.id + '/elimina" style="display:inline" onsubmit="return confirm(\'Eliminare?\')">' +
+                    '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
+                tbody.appendChild(tr);
+            });
+        }
+        // Pagination controls
+        if (pages > 1) {
+            var pagRow = document.createElement('tr');
+            pagRow.innerHTML = '<td colspan="10" style="padding:8px 12px;text-align:center">' +
+                '<div style="display:inline-flex;gap:6px;align-items:center">' +
+                (currentPage > 1 ? '<button class="btn btn-sm btn-ghost" onclick="goToPage(' + (currentPage - 1) + ')">Precedente</button>' : '') +
+                '<span style="font-size:.85rem;color:var(--text-muted)">Pagina ' + currentPage + ' di ' + pages + ' (' + total + ' risultati)</span>' +
+                (currentPage < pages ? '<button class="btn btn-sm btn-ghost" onclick="goToPage(' + (currentPage + 1) + ')">Successiva</button>' : '') +
+                '</div></td>';
+            tbody.appendChild(pagRow);
+        }
+// Update URL without reload
+        var params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (magazzino) params.set('magazzino', magazzino);
+        if (gruppi) params.set('gruppi', '1');
+        var newUrl = '/giacenze' + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', newUrl);
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Debounced search on input
+    searchInput.addEventListener('input', function() {
+        if (searchTimeout) clearTimeout(searchTimeout);
+        var val = this.value.trim();
+        if (val.length === 0 || val.length >= 2) {
+            searchTimeout = setTimeout(doSearch, 300);
+        }
+    });
+
+    // Search on warehouse change
+    magazzinoSelect.addEventListener('change', doSearch);
+
+    // Search on checkbox change
+    document.getElementById('giacenze-gruppi').addEventListener('change', doSearch);
+
+    // Prevent form submission (we use AJAX)
+    document.getElementById('giacenze-search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        doSearch();
+    });
+});
+</script>
+{% endblock %}

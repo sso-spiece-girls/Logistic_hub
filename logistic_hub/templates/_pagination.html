@@ -1,0 +1,22 @@
+<div class="pagination">
+    <div class="pagination-info">
+        Pagina {{ pagination.page }} di {{ pagination.pages }}
+        ({{ pagination.total }} risultati)
+    </div>
+    <div class="pagination-links">
+        {% if pagination.has_prev %}
+        <a href="?page={{ pagination.prev_num }}{% for k, v in request.args.items() if k != 'page' %}&{{ k }}={{ v }}{% endfor %}" class="btn btn-ghost">&larr; Precedente</a>
+        {% endif %}
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+            <a href="?page={{ p }}{% for k, v in request.args.items() if k != 'page' %}&{{ k }}={{ v }}{% endfor %}"
+               class="btn {% if p == pagination.page %}btn-primary{% else %}btn-ghost{% endif %}">{{ p }}</a>
+            {% else %}
+            <span class="pagination-dots">&hellip;</span>
+            {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+        <a href="?page={{ pagination.next_num }}{% for k, v in request.args.items() if k != 'page' %}&{{ k }}={{ v }}{% endfor %}" class="btn btn-ghost">Successiva &rarr;</a>
+        {% endif %}
+    </div>
+</div>

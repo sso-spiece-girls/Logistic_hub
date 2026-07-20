@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Panoramica operativa del magazzino</p>
+    </div>
+    <div class="header-actions">
+        <a href="/entrate/nuova" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Nuova Bolla
+        </a>
+        <a href="/uscite/nuovo" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Nuovo DDT
+        </a>
+    </div>
+</div>
+
+{% if notifiche_non_lette %}
+<div class="notif-strip">
+    {% for n in notifiche_non_lette[:3] %}
+    <div class="notif-strip-item notif-{{ n.type }}">
+        <span>{{ n.message }}</span>
+        <a href="/notifiche/marca/{{ n.id }}" class="notif-dismiss">&times;</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="kpi-grid">
+    <div class="kpi-card kpi-warning">
+        <div class="kpi-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="kpi-body">
+            <div class="kpi-value">{{ bolle_da_elaborare }}</div>
+            <div class="kpi-label">Bolle da elaborare</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-info">
+        <div class="kpi-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="kpi-body">
+            <div class="kpi-value">{{ ddt_oggi }}</div>
+            <div class="kpi-label">DDT creati oggi</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-success">
+        <div class="kpi-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <div class="kpi-body">
+            <div class="kpi-value">{{ giacenze_totali }}</div>
+            <div class="kpi-label">Giacenze totali</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-primary">
+        <div class="kpi-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="kpi-body">
+            <div class="kpi-value">{{ colli_totali }}</div>
+            <div class="kpi-label">Colli totali</div>
+        </div>
+    </div>
+    <div class="kpi-card kpi-purple">
+        <div class="kpi-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="kpi-body">
+            <div class="kpi-value">{{ picking_attivi }}</div>
+            <div class="kpi-label">Picking attivi</div>
+        </div>
+    </div>
+</div>
+
+<div class="action-grid">
+    <a href="/entrate/nuova" class="action-card">
+        <div class="action-icon" style="background:var(--info-bg);color:var(--info)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <span>Nuova Bolla</span>
+    </a>
+    <a href="/uscite/nuovo" class="action-card">
+        <div class="action-icon" style="background:var(--purple-bg);color:var(--purple)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <span>Nuovo DDT</span>
+    </a>
+    <a href="/pianificazione" class="action-card">
+        <div class="action-icon" style="background:var(--warning-bg);color:var(--warning)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span>Pianificazione</span>
+    </a>
+    <a href="/giacenze" class="action-card">
+        <div class="action-icon" style="background:var(--success-bg);color:var(--success)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <span>Giacenze</span>
+    </a>
+    <a href="/movimenti" class="action-card">
+        <div class="action-icon" style="background:var(--primary-bg);color:var(--primary)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <span>Movimenti</span>
+    </a>
+    {% if current_user.role in ("admin", "operatore") %}
+    <a href="{{ url_for('prenotazioni.admin_calendario') }}" class="action-card">
+        <div class="action-icon" style="background:var(--info-bg);color:var(--info)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span>Calendario Prenotazioni</span>
+    </a>
+    {% endif %}
+</div>
+
+<div class="content-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>Ultime Attività</h3>
+            <a href="/attivita" class="card-link">Vedi tutte</a>
+        </div>
+        <div class="card-body">
+            {% if ultime_attivita %}
+            <div class="activity-feed">
+                {% for a in ultime_attivita %}
+                <div class="activity-item">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">
+                        <div class="activity-text">{{ a.description }}</div>
+                        <div class="activity-time">{{ a.created_at.strftime('%H:%M') }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">Nessuna attività recente</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h3>Ultimi Documenti</h3>
+            <a href="/documenti" class="card-link">Vedi tutti</a>
+        </div>
+        <div class="card-body">
+            {% if ultimi_documenti %}
+            <div class="doc-list">
+                {% for d in ultimi_documenti %}
+                <a href="/documenti/download/{{ d.id }}" class="doc-item">
+                    <div class="doc-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div class="doc-info">
+                        <div class="doc-name">{{ d.nome }}</div>
+                        <div class="doc-meta">{{ d.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">Nessun documento caricato</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

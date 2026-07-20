@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Calendario completo{% endblock %}
+{% block breadcrumb_title %}Calendario completo{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Calendario Prenotazioni</h1>
+        <p class="page-subtitle">Vista completa di tutte le prenotazioni</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/admin/in-attesa" class="btn btn-ghost">Da approvare</a>
+        <a href="/prenotazioni/admin/slot" class="btn btn-ghost">Gestione slot</a>
+        <a href="/prenotazioni/admin/magazzini" class="btn btn-ghost">Capienza magazzini</a>
+    </div>
+</div>
+
+{% if not slots_per_giorno %}
+<div class="empty-state">
+    <p>Nessuna prenotazione nei prossimi 14 giorni.</p>
+</div>
+{% endif %}
+
+{% for giorno_key, giorno_data in slots_per_giorno.items() %}
+<details class="calendario-giorno" {% if loop.first %}open{% endif %}>
+    <summary class="calendario-giorno-header">
+        <span class="calendario-giorno-nome">{{ giorno_data.giorno_nome }}</span>
+        <span class="calendario-giorno-data">{{ giorno_data.giorno.strftime('%d/%m/%Y') }}</span>
+        <span class="calendario-slot-count">{{ giorno_data.slots|length }} slot</span>
+    </summary>
+    <div class="calendario-slots">
+        {% for slot in giorno_data.slots %}
+        <div class="calendario-slot {% if slot.prenotazione %}prenotato{% endif %}">
+            <div class="slot-info">
+                <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
+                {% if slot.prenotazione %}
+                <span class="slot-cliente">{{ slot.prenotazione.cliente.username }}</span>
+                <span class="status-badge status-{{ slot.prenotazione.tipo }}" style="font-size:.75rem">{{ slot.prenotazione.tipo|capitalize }}</span>
+                <span class="status-badge status-{{ slot.prenotazione.stato }}">
+                    {{ slot.prenotazione.stato }}
+                </span>
+                {% if slot.prenotazione.magazzino %}
+                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.magazzino }}</span>
+                {% endif %}
+                {% if slot.prenotazione.tipologia_materiale %}
+                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.tipologia_materiale.nome }}</span>
+                {% endif %}
+                {% else %}
+                <span class="slot-libero">Libero</span>
+                {% endif %}
+            </div>
+            {% if slot.prenotazione %}
+            <div class="slot-actions">
+                <a href="/prenotazioni/verifica/{{ slot.prenotazione.token_qr }}" class="btn btn-sm btn-ghost">Dettaglio</a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</details>
+{% endfor %}
+
+<style>
+.calendario-container { max-width:900px }
+.calendario-giorno { margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden }
+.calendario-giorno-header { padding:12px 16px; cursor:pointer; background:var(--surface-hover); display:flex; gap:12px; align-items:center; font-weight:600 }
+.calendario-giorno-header:hover { background:var(--surface-hover) }
+.calendario-giorno-nome { color:var(--primary-light); font-size:.9rem }
+.calendario-giorno-data { color:var(--text-muted); font-size:.85rem; font-weight:400 }
+.calendario-slot-count { margin-left:auto; color:var(--text-muted); font-size:.8rem; font-weight:400 }
+.calendario-slots { padding:12px; display:flex; flex-direction:column; gap:6px }
+.calendario-slot { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border:1px solid var(--border); border-radius:6px }
+.calendario-slot.prenotato { background:var(--surface-hover); border-left:3px solid var(--primary) }
+.slot-info { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+.slot-orario { font-size:.85rem; font-weight:600; color:var(--text); min-width:100px }
+.slot-cliente { font-size:.85rem; color:var(--text); font-weight:500 }
+.slot-libero { font-size:.8rem; color:var(--text-muted); font-style:italic }
+.slot-actions { margin-left:auto }
+</style>
+{% endblock %}

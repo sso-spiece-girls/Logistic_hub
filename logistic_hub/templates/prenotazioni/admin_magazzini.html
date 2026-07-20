@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Capienza magazzini{% endblock %}
+{% block breadcrumb_title %}Capienza magazzini{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Capienza magazzini</h1>
+        <p class="page-subtitle">Configura la capienza contemporanea per ogni magazzino</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/admin/magazzini/nuovo" class="btn btn-primary">
+            Nuova configurazione
+        </a>
+    </div>
+</div>
+
+{% if not magazzini %}
+<div class="empty-state">
+    <p>Nessuna configurazione di capienza definita.</p>
+    <p class="text-muted" style="font-size:.85rem">I magazzini senza configurazione sono considerati senza limite.</p>
+    <a href="/prenotazioni/admin/magazzini/nuovo" class="btn btn-primary" style="margin-top:12px">Configura primo magazzino</a>
+</div>
+{% else %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Magazzino</th>
+                <th>Capienza contemporanea</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in magazzini %}
+            <tr>
+                <td><strong>{{ m.magazzino }}</strong></td>
+                <td>{{ m.capienza_contemporanea }}</td>
+                <td class="actions-cell">
+                    <a href="/prenotazioni/admin/magazzini/{{ m.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    <form method="POST" action="/prenotazioni/admin/magazzini/{{ m.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa configurazione? Le prenotazioni attive su questo magazzino lo impediranno.')">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

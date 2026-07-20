@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card" style="max-width:800px">
+    <form method="POST" class="form" id="form-bolla" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="numero_bolla">Numero Bolla</label>
+                {{ form.numero_bolla(class="form-input" + (" is-invalid" if form.numero_bolla.errors else ""), placeholder="Es. BL-2024-001", id="campo-numero-bolla") }}
+                {% if form.numero_bolla.errors %}<div class="form-error">{% for e in form.numero_bolla.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="fornitore">Fornitore</label>
+                {{ form.fornitore(class="form-input" + (" is-invalid" if form.fornitore.errors else ""), placeholder="Nome fornitore", id="campo-fornitore") }}
+                {% if form.fornitore.errors %}<div class="form-error">{% for e in form.fornitore.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="data_arrivo">Data Arrivo</label>
+                {{ form.data_arrivo(class="form-input" + (" is-invalid" if form.data_arrivo.errors else ""), type="date", id="campo-data") }}
+                {% if form.data_arrivo.errors %}<div class="form-error">{% for e in form.data_arrivo.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="stato">Stato</label>
+                {{ form.stato(class="form-input" + (" is-invalid" if form.stato.errors else "")) }}
+                {% if form.stato.errors %}<div class="form-error">{% for e in form.stato.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="note">Note</label>
+            {{ form.note(class="form-input form-textarea" + (" is-invalid" if form.note.errors else ""), rows="3", placeholder="Note opzionali...") }}
+            {% if form.note.errors %}<div class="form-error">{% for e in form.note.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-group">
+            <label for="file_pdf">File PDF (OCR automatico)</label>
+            {{ form.file_pdf(class="form-input" + (" is-invalid" if form.file_pdf.errors else ""), accept=".pdf", id="campo-pdf") }}
+            {% if form.file_pdf.errors %}<div class="form-error">{% for e in form.file_pdf.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            <small class="form-help">Carica un PDF — fornitore, numero bolla, data e articoli verranno compilati automaticamente</small>
+        </div>
+        <div id="ocr-status" style="display:none;margin:8px 0;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:20px;height:20px;border:2px solid var(--primary-light);border-top-color:transparent;border-radius:50%;animation:spinner 0.6s linear infinite;flex-shrink:0"></div>
+                <div style="flex:1;font-size:0.85rem;font-weight:500;color:var(--text-secondary)">
+                    Elaborazione OCR in corso...
+                </div>
+            </div>
+            <div class="progress-indeterminate" style="margin-top:8px"></div>
+        </div>
+        <div id="ocr-result" style="display:none;margin:8px 0;padding:10px 14px;border-radius:8px;font-size:.85rem">
+        </div>
+
+        <input type="hidden" name="righe_json" id="righe-json">
+        {% if righe_json %}<script id="righe-json-initial" type="application/json">{{ righe_json|safe }}</script>{% endif %}
+
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <label style="font-weight:700;font-size:0.9rem">Articoli</label>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-add-riga">+ Aggiungi riga</button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-righe" class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:25%">Codice/Descrizione</th>
+                            <th style="width:12%">Pallet</th>
+                            <th style="width:12%">Colli</th>
+                            <th style="width:12%">U.M.</th>
+                            <th style="width:14%">Peso (kg)</th>
+                            <th style="width:10%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="righe-body">
+                    </tbody>
+                </table>
+            </div>
+            <div id="no-righe" style="text-align:center;color:#64748b;padding:12px;font-size:.85rem">
+                Nessun articolo. Carica un PDF per l'estrazione automatica o aggiungi manualmente.
+            </div>
+        </div>
+
+        <div class="form-actions" style="margin-top:12px">
+            <a href="/entrate" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva Bolla</button>
+        </div>
+    </form>
+</div>
+
+<script>
+window.syncRigheJson = function() {
+    var righeBody = document.getElementById('righe-body');
+    var righeJson = document.getElementById('righe-json');
+    var noRighe = document.getElementById('no-righe');
+    var righe = [];
+    righeBody.querySelectorAll('tr').forEach(function(tr) {
+        var inputs = tr.querySelectorAll('input, select');
+        righe.push({
+            descrizione: inputs[0] ? inputs[0].value : '',
+            pallet: inputs[1] ? parseInt(inputs[1].value) || 0 : 0,
+            quantita: inputs[2] ? parseInt(inputs[2].value) || 0 : 0,
+            unita_misura: inputs[3] ? inputs[3].value : 'colli',
+            peso_kg: inputs[4] ? parseFloat(inputs[4].value) || 0 : 0,
+        });
+    });
+    righeJson.value = JSON.stringify(righe);
+    noRighe.style.display = righe.length === 0 ? '' : 'none';
+};
+
+function addRiga(riga) {
+    var righeBody = document.getElementById('righe-body');
+    var noRighe = document.getElementById('no-righe');
+    noRighe.style.display = 'none';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+        '<td><input type="text" class="form-input" value="' + (riga.descrizione || '').replace(/"/g, '&quot;') + '" placeholder="Codice articolo" style="width:100%" onchange="syncRigheJson()"></td>' +
+        '<td><input type="number" class="form-input" value="' + (riga.pallet || 0) + '" min="0" style="width:60px" onchange="syncRigheJson()"></td>' +
+        '<td><input type="number" class="form-input" value="' + (riga.quantita || 1) + '" min="1" style="width:60px" onchange="syncRigheJson()"></td>' +
+        '<td><select class="form-input" onchange="syncRigheJson()"><option value="colli"' + (riga.unita_misura === 'colli' ? ' selected' : '') + '>Colli</option><option value="pezzi"' + (riga.unita_misura === 'pezzi' ? ' selected' : '') + '>Pezzi</option><option value="kg"' + (riga.unita_misura === 'kg' ? ' selected' : '') + '>Kg</option></select></td>' +
+        '<td><input type="number" class="form-input" value="' + (riga.peso_kg || 0) + '" step="0.01" min="0" style="width:80px" onchange="syncRigheJson()"></td>' +
+        '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove(); syncRigheJson()">✕</button></td>';
+    righeBody.appendChild(tr);
+    syncRigheJson();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btn-add-riga').addEventListener('click', function() {
+        addRiga({descrizione: '', pallet: 0, quantita: 1, unita_misura: 'colli', peso_kg: 0});
+    });
+
+    // Pre-carica righe esistenti in modifica
+    var righeJsonEl = document.getElementById('righe-json-initial');
+    if (righeJsonEl) {
+        try {
+            var righe = JSON.parse(righeJsonEl.textContent);
+            righe.forEach(function(r) { addRiga(r); });
+        } catch(e) {}
+    }
+
+    var fileInput = document.getElementById('campo-pdf');
+    if (!fileInput) return;
+
+    fileInput.addEventListener('change', function() {
+        var file = this.files[0];
+        if (!file || !file.name.toLowerCase().endsWith('.pdf')) return;
+
+        var statusEl = document.getElementById('ocr-status');
+        var resultEl = document.getElementById('ocr-result');
+        statusEl.style.display = 'block';
+        resultEl.style.display = 'none';
+
+        var fd = new FormData();
+        fd.append('file_pdf', file);
+
+        fetch('/entrate/upload-ocr', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                statusEl.style.display = 'none';
+                if (data.error) {
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-error';
+                    resultEl.textContent = 'Errore OCR: ' + data.error;
+                    return;
+                }
+
+                var compilati = [];
+                if (data.fornitore) {
+                    document.getElementById('campo-fornitore').value = data.fornitore;
+                    compilati.push('Fornitore: ' + data.fornitore);
+                }
+                if (data.numero_bolla) {
+                    document.getElementById('campo-numero-bolla').value = data.numero_bolla;
+                    compilati.push('N. Bolla: ' + data.numero_bolla);
+                }
+                if (data.data_arrivo) {
+                    document.getElementById('campo-data').value = data.data_arrivo;
+                    compilati.push('Data: ' + data.data_arrivo);
+                }
+
+                var righe = data.righe || [];
+                if (righe.length > 0) {
+                    document.getElementById('righe-body').innerHTML = '';
+                    righe.forEach(function(r) { addRiga(r); });
+                    compilati.push('Articoli: ' + righe.length + ' righe trovate');
+                }
+
+                if (compilati.length > 0) {
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-success';
+                    resultEl.innerHTML = '<strong>Campi compilati automaticamente:</strong><br>' + compilati.join('<br>');
+                } else {
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-warning';
+                    resultEl.textContent = 'Nessun campo estratto dal PDF. Compila manualmente.';
+                }
+            })
+            .catch(function(err) {
+                statusEl.style.display = 'none';
+                resultEl.style.display = 'block';
+                resultEl.className = 'notif-strip-item notif-error';
+                resultEl.textContent = 'Errore di connessione durante OCR.';
+            });
+    });
+});
+</script>
+{% endblock %}

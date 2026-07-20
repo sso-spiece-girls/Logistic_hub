@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="username">Username</label>
+                {{ form.username(class="form-input" + (" is-invalid" if form.username.errors else ""), placeholder="Nome utente") }}
+                {% if form.username.errors %}<div class="form-error">{% for e in form.username.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                {{ form.email(class="form-input" + (" is-invalid" if form.email.errors else ""), placeholder="email@esempio.com") }}
+                {% if form.email.errors %}<div class="form-error">{% for e in form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="password">Password</label>
+                {{ form.password(class="form-input" + (" is-invalid" if form.password.errors else ""), placeholder="Password") }}
+                {% if form.password.errors %}<div class="form-error">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                {% if user %}<small class="form-hint">Lascia vuoto per mantenere la password attuale</small>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="role">Ruolo</label>
+                {{ form.role(class="form-input" + (" is-invalid" if form.role.errors else "")) }}
+                {% if form.role.errors %}<div class="form-error">{% for e in form.role.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-actions">
+            <a href="/users" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+    </form>
+</div>
+
+{% if user and user.role == "cliente" %}
+<div class="card" style="margin-top:24px" id="tipologie-section">
+    <div class="card-header">
+        <h3>Tipologie materiale</h3>
+        <span class="card-link"> Configura le tipologie di materiale che il cliente può prenotare</span>
+    </div>
+    <div class="card-body">
+        {% if tipologie %}
+        <table class="data-table" style="margin-bottom:16px">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Durata (min)</th>
+                    <th>Stato</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tipologie %}
+                <tr>
+                    <td>{{ t.nome }}</td>
+                    <td>{{ t.durata_minuti }}</td>
+                    <td>
+                        <span class="status-badge status-{{ 'completata' if t.attivo else 'bozza' }}">
+                            {{ 'Attivo' if t.attivo else 'Disattivo' }}
+                        </span>
+                    </td>
+                    <td class="actions-cell">
+                        <form method="POST" action="/users/{{ user.id }}/tipologie/{{ t.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa tipologia?{% if t.attivo and tipologie|selectattr('id','equalto',t.id)|first %} Sarà disattivata se ci sono prenotazioni attive collegate.{% endif %}')">
+                            <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">
+                                {{ 'Elimina' if t.attivo else 'Rimuovi' }}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="margin-bottom:16px">
+            <p>Nessuna tipologia configurata per questo cliente.</p>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/users/{{ user.id }}/tipologie/nuova" class="form" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border)">
+            {{ tipologia_form.hidden_tag() }}
+            <div class="form-group" style="margin:0;flex:1;min-width:160px">
+                <label for="nome" class="form-label" style="font-size:.8rem">Nome tipologia</label>
+                {{ tipologia_form.nome(class="form-input", placeholder="es. Bancali, Acciaio...", style="font-size:.85rem") }}
+            </div>
+            <div class="form-group" style="margin:0;min-width:100px">
+                <label for="durata_minuti" class="form-label" style="font-size:.8rem">Durata (min)</label>
+                {{ tipologia_form.durata_minuti(class="form-input", type="number", min=15, step=15, value=60, style="font-size:.85rem") }}
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Aggiungi</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if user and user.role == "cliente" %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var roleSelect = document.getElementById('role');
+    if (roleSelect) {
+        roleSelect.addEventListener('change', function() {
+            var section = document.getElementById('tipologie-section');
+            if (section) {
+                section.style.display = this.value === 'cliente' ? '' : 'none';
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

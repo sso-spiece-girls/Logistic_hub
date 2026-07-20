@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Importa Excel Clienti{% endblock %}
+{% block breadcrumb_title %}Importa Excel{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Importa Excel Clienti</h1>
+    <p class="page-subtitle">Carica un file Excel esistente per aggiornare le giacenze nel database</p>
+</div>
+
+<div class="clienti-grid">
+{% for p in plugins %}
+    <div class="card cliente-card">
+        <div class="card-body">
+            <div class="cliente-header">
+                <div class="cliente-avatar">{{ p.nome[:2] }}</div>
+                <div>
+                    <h3 class="cliente-nome">{{ p.nome }}</h3>
+                    <span class="cliente-id">ID: {{ p.id }}</span>
+                </div>
+            </div>
+            <div class="cliente-actions">
+                <form method="POST" action="{{ url_for('clienti.esegui_import_excel', id_cliente=p.id) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.5rem;width:100%">
+                    <input type="file" name="excel_file" id="file-{{ p.id }}" accept=".xlsx" required style="display:none">
+                    <label for="file-{{ p.id }}" class="btn btn-secondary cliente-btn" style="text-align:center;cursor:pointer">Scegli file</label>
+                    <span id="name-{{ p.id }}" class="text-muted" style="font-size:.8rem"></span>
+                    <button type="submit" class="btn btn-primary cliente-btn">Importa Excel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+</div>
+<script>
+document.querySelectorAll('[id^="file-"]').forEach(function(input) {
+    input.addEventListener('change', function() {
+        var name = this.files && this.files[0] ? this.files[0].name : '';
+        document.getElementById('name-' + this.id.split('-')[1]).textContent = name;
+    });
+});
+</script>
+{% endblock %}

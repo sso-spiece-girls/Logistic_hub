@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Data (generated at runtime)
+data/
+!data/.gitkeep
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test files
+*.test_backup

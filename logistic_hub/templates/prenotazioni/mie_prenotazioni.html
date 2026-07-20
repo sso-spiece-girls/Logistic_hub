@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Le mie prenotazioni{% endblock %}
+{% block breadcrumb_title %}Le mie prenotazioni{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Le mie prenotazioni</h1>
+        <p class="page-subtitle">Storico e stato delle tue richieste</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/calendario" class="btn btn-primary">
+            Nuova Prenotazione
+        </a>
+    </div>
+</div>
+
+{% if not prenotazioni %}
+<div class="empty-state">
+    <p>Nessuna prenotazione effettuata.</p>
+    <a href="/prenotazioni/calendario" class="btn btn-primary" style="margin-top:12px">Prenota ora</a>
+</div>
+{% else %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Tipo</th>
+                <th>Tipologia</th>
+                <th>Data</th>
+                <th>Ora</th>
+                <th>Stato</th>
+                <th>Magazzino</th>
+                <th>QR Code</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in prenotazioni %}
+            <tr>
+                <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
+                <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
+                <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
+                <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
+                <td>
+                    <span class="status-badge status-{{ p.stato }}">{{ p.stato_label if p.stato_label else p.stato }}</span>
+                </td>
+                <td>{{ p.magazzino or '-' }}</td>
+                <td>
+                    {% if p.token_qr %}
+                    <a href="/prenotazioni/qr/{{ p.token_qr }}" class="btn btn-sm btn-ghost" download>
+                        Scarica QR
+                    </a>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

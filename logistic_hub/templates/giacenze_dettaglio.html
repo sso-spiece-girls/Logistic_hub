@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ giacenza.codice_articolo }}{% endblock %}
+{% block breadcrumbs %}
+<a href="/dashboard" class="breadcrumb-link">Home</a>
+<span class="breadcrumb-sep">/</span>
+<a href="/giacenze" class="breadcrumb-link">Giacenze</a>
+<span class="breadcrumb-sep">/</span>
+<span class="breadcrumb-current">{{ giacenza.codice_articolo }}</span>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">{{ giacenza.codice_articolo }}</h1>
+        <p class="page-subtitle">{{ giacenza.descrizione }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="/giacenze/{{ giacenza.id }}/modifica" class="btn btn-secondary">Modifica</a>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="card-header"><h3>Dettaglio Giacenza</h3></div>
+        <div class="card-body">
+            <dl class="detail-list">
+                <dt>Codice Articolo</dt>
+                <dd>{{ giacenza.codice_articolo }}</dd>
+                <dt>Descrizione</dt>
+                <dd>{{ giacenza.descrizione }}</dd>
+                <dt>Quantità</dt>
+                <dd>{{ giacenza.quantita }}</dd>
+                <dt>Colli</dt>
+                <dd>{{ giacenza.colli }}</dd>
+                <dt>Pallet</dt>
+                <dd>{{ giacenza.pallet or '-' }}</dd>
+                <dt>Peso (kg)</dt>
+                <dd>{{ giacenza.peso_kg or '-' }}</dd>
+                <dt>ID Bobina</dt>
+                <dd>{{ giacenza.id_bobina or '-' }}</dd>
+                <dt>Qualità</dt>
+                <dd>{{ giacenza.qualita or '-' }}</dd>
+                <dt>Provenienza</dt>
+                <dd>{{ giacenza.provenienza or '-' }}</dd>
+                <dt>Magazzino</dt>
+                <dd>{{ giacenza.magazzino or '-' }}</dd>
+                <dt>Ubicazione</dt>
+                <dd>{{ giacenza.ubicazione or '-' }}</dd>
+                <dt>Ultimo Aggiornamento</dt>
+                <dd>{{ giacenza.updated_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

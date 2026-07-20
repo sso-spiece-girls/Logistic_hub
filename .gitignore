@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+# logistic_hub/
+LogisticLauncher/settings.json
+LogisticLauncher/logistic_launcher.log
+LogisticLauncher/icons/favicons/
+dist/
+build/
+*.spec
+.backup_magazzino_*/

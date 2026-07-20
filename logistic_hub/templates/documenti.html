@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Documenti{% endblock %}
+{% block breadcrumb_title %}Documenti{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Documenti</h1>
+        <p class="page-subtitle">Archivio documenti e file caricati</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="document.getElementById('uploadModal').classList.add('open')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Carica Documento
+        </button>
+    </div>
+</div>
+
+{% if documenti %}
+<div class="doc-grid">
+    {% for d in documenti %}
+    <a href="/documenti/download/{{ d.id }}" class="doc-card">
+        <div class="doc-card-icon">
+            {% if d.tipo in ('pdf', 'documento') %}
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            {% elif d.tipo in ('xlsx', 'xls') %}
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            {% else %}
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            {% endif %}
+        </div>
+        <div class="doc-card-name">{{ d.nome }}</div>
+        <div class="doc-card-meta">{{ d.caricato.username if d.caricato else '-' }} · {{ d.created_at.strftime('%d/%m/%Y') }}</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 1rem;opacity:0.3">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+    </svg>
+    <p>Nessun documento caricato</p>
+    <p style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">Carica documenti come PDF, fatture o DDT per averli sempre disponibili</p>
+    <button class="btn btn-primary" style="margin-top:1rem" onclick="document.getElementById('uploadModal').classList.add('open')">Carica Documento</button>
+</div>
+{% endif %}
+{% include "components/pagination.html" %}
+
+<div class="modal" id="uploadModal">
+    <div class="modal-backdrop" onclick="this.parentElement.classList.remove('open')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Carica Documento</h3>
+            <button class="modal-close" onclick="document.getElementById('uploadModal').classList.remove('open')">&times;</button>
+        </div>
+        <form method="POST" action="/documenti/carica" enctype="multipart/form-data" class="form">
+            <div class="form-group">
+                <label for="file">File</label>
+                <input type="file" name="file" class="form-input" required accept=".pdf,.png,.jpg,.jpeg,.tiff,.xlsx,.xls,.doc,.docx">
+            </div>
+            <div class="form-group">
+                <label for="tipo">Tipo Documento</label>
+                <select name="tipo" class="form-input">
+                    <option value="documento">Documento</option>
+                    <option value="bolla">Bolla</option>
+                    <option value="ddt">DDT</option>
+                    <option value="fattura">Fattura</option>
+                    <option value="altro">Altro</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('uploadModal').classList.remove('open')">Annulla</button>
+                <button type="submit" class="btn btn-primary">Carica</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

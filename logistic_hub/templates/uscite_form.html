@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card" style="max-width:900px">
+    <form method="POST" class="form" id="form-ddt">
+        {{ form.hidden_tag() }}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="numero_ddt">Numero DDT</label>
+                {{ form.numero_ddt(class="form-input" + (" is-invalid" if form.numero_ddt.errors else ""), placeholder="Es. DDT-2024-001") }}
+                {% if form.numero_ddt.errors %}<div class="form-error">{% for e in form.numero_ddt.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="cliente">Cliente</label>
+                {{ form.cliente(class="form-input" + (" is-invalid" if form.cliente.errors else ""), placeholder="Nome cliente") }}
+                {% if form.cliente.errors %}<div class="form-error">{% for e in form.cliente.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="destinatario">Destinatario</label>
+                {{ form.destinatario(class="form-input" + (" is-invalid" if form.destinatario.errors else ""), placeholder="Nome destinatario (opzionale)") }}
+                {% if form.destinatario.errors %}<div class="form-error">{% for e in form.destinatario.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="data_spedizione">Data Spedizione</label>
+                {{ form.data_spedizione(class="form-input" + (" is-invalid" if form.data_spedizione.errors else ""), type="date") }}
+                {% if form.data_spedizione.errors %}<div class="form-error">{% for e in form.data_spedizione.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="provenienza">Provenienza</label>
+                {{ form.provenienza(class="form-input" + (" is-invalid" if form.provenienza.errors else "")) }}
+                {% if form.provenienza.errors %}<div class="form-error">{% for e in form.provenienza.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="vettore">Vettore</label>
+                {{ form.vettore(class="form-input" + (" is-invalid" if form.vettore.errors else ""), placeholder="Es. CTV, Bartolini, ecc.") }}
+                {% if form.vettore.errors %}<div class="form-error">{% for e in form.vettore.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="causale_trasporto">Causale Trasporto</label>
+                {{ form.causale_trasporto(class="form-input" + (" is-invalid" if form.causale_trasporto.errors else ""), placeholder="Es. Vendita") }}
+                {% if form.causale_trasporto.errors %}<div class="form-error">{% for e in form.causale_trasporto.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label for="stato">Stato</label>
+                {{ form.stato(class="form-input" + (" is-invalid" if form.stato.errors else "")) }}
+                {% if form.stato.errors %}<div class="form-error">{% for e in form.stato.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="note">Note</label>
+            {{ form.note(class="form-input form-textarea" + (" is-invalid" if form.note.errors else ""), rows="2", placeholder="Note opzionali...") }}
+            {% if form.note.errors %}<div class="form-error">{% for e in form.note.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+
+        <input type="hidden" name="righe_json" id="righe-json">
+        {% if righe_json %}<script id="righe-json-initial" type="application/json">{{ righe_json|safe }}</script>{% endif %}
+        <input type="hidden" name="provenienza" id="hidden-provenienza" value="{{ form.provenienza.data or '' }}">
+        <input type="hidden" name="vettore" id="hidden-vettore" value="">
+        <input type="hidden" name="causale_trasporto" id="hidden-causale" value="{{ form.causale_trasporto.data or 'Vendita' }}">
+        <input type="hidden" name="magazzino" id="hidden-magazzino" value="{{ form.magazzino.data or '' }}">
+
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <label style="font-weight:700;font-size:0.9rem">Articoli in uscita</label>
+                <div style="display:flex;gap:6px">
+                    <div class="search-bar" style="margin:0">
+                        <input type="text" id="articolo-search" class="form-input" placeholder="Cerca articolo..." style="width:280px;font-size:0.85rem">
+                        <div id="articolo-results" style="position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto;display:none;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.12)"></div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-add-articolo">+ Aggiungi</button>
+                </div>
+            </div>
+            <div id="duplicato-avviso" style="display:none;padding:8px 12px;margin-bottom:8px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;font-size:0.82rem;color:#92400e"></div>
+            <div class="table-responsive">
+                <table class="data-table" id="tabella-righe">
+                    <thead>
+                        <tr>
+                            <th>Codice</th>
+                            <th>Descrizione</th>
+                            <th>Pallet</th>
+                            <th>Colli</th>
+                            <th>Peso kg</th>
+                            <th>Ubicazione</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="righe-body">
+                    </tbody>
+                </table>
+            </div>
+            <div id="no-righe-msg" style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.85rem">
+                Nessun articolo aggiunto. Cerca e aggiungi gli articoli da scaricare.
+            </div>
+        </div>
+
+        <div class="form-actions" style="margin-top:16px">
+            <a href="/uscite" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Genera DDT e PDF</button>
+        </div>
+    </form>
+</div>
+
+<script>
+var articoliAggiunti = {};
+
+window.aggiornaJson = function() {
+    var righeBody = document.getElementById('righe-body');
+    var righeJson = document.getElementById('righe-json');
+    var noRigheMsg = document.getElementById('no-righe-msg');
+    var righe = [];
+    righeBody.querySelectorAll('tr').forEach(function(tr) {
+        righe.push({
+            articolo_codice: tr.querySelector('.td-codice').textContent.trim(),
+            descrizione: tr.querySelector('.td-descrizione').textContent.trim(),
+            quantita_colli: parseInt(tr.querySelector('.td-colli input').value) || 0,
+            quantita_pallet: parseInt(tr.querySelector('.td-pallet input').value) || 0,
+            peso_kg: parseFloat(tr.querySelector('.td-peso input').value) || 0,
+            ubicazione: tr.querySelector('.td-ubicazione').textContent.trim(),
+        });
+    });
+    righeJson.value = JSON.stringify(righe);
+    noRigheMsg.style.display = righe.length === 0 ? '' : 'none';
+};
+
+function controllaDuplicato(codice) {
+    var duplicatoAvviso = document.getElementById('duplicato-avviso');
+    fetch('/uscite/api/duplicato?codice=' + encodeURIComponent(codice))
+        .then(function(r){ return r.json(); })
+        .then(function(d) {
+            if (d.duplicato) {
+                duplicatoAvviso.style.display = 'block';
+                duplicatoAvviso.innerHTML = 'Attenzione: <b>' + codice + '</b> è già stato scaricato oggi nel DDT <a href="/uscite/ddt/' + d.ddt_id + '">' + d.numero_ddt + '</a>. ' +
+                    '<button type="button" class="btn btn-sm btn-ghost" onclick="this.parentElement.style.display=\'none\'">×</button>';
+            }
+        });
+}
+
+window.aggiungiArticolo = function(codice, descrizione, colli, pallet, peso, ubicazione) {
+    if (articoliAggiunti[codice]) {
+        var input = document.querySelector('#righe-body tr[data-codice="'+codice+'"] .td-colli input');
+        if (input) {
+            input.value = parseInt(input.value) + 1;
+            aggiornaJson();
+        }
+        document.getElementById('articolo-search').value = '';
+        document.getElementById('articolo-results').style.display = 'none';
+        return;
+    }
+    articoliAggiunti[codice] = true;
+    var righeBody = document.getElementById('righe-body');
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-codice', codice);
+    tr.innerHTML =
+        '<td class="td-codice">' + codice + '</td>' +
+        '<td class="td-descrizione">' + (descrizione || codice) + '</td>' +
+        '<td class="td-pallet"><input type="number" class="form-input" value="' + (pallet || 0) + '" min="0" style="width:60px" onchange="aggiornaJson()"></td>' +
+        '<td class="td-colli"><input type="number" class="form-input" value="' + (colli || 1) + '" min="1" style="width:60px" onchange="aggiornaJson()"></td>' +
+        '<td class="td-peso"><input type="number" class="form-input" value="' + (peso || 0) + '" step="0.01" min="0" style="width:80px" onchange="aggiornaJson()"></td>' +
+        '<td class="td-ubicazione">' + (ubicazione || '') + '</td>' +
+        '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove(); aggiornaJson()">✕</button></td>';
+    righeBody.appendChild(tr);
+    aggiornaJson();
+    controllaDuplicato(codice);
+    document.getElementById('articolo-search').value = '';
+    document.getElementById('articolo-results').style.display = 'none';
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Pre-carica righe esistenti in modifica
+    var righeJsonEl = document.getElementById('righe-json-initial');
+    if (righeJsonEl) {
+        try {
+            var righe = JSON.parse(righeJsonEl.textContent);
+            righe.forEach(function(r) {
+                aggiungiArticolo(r.articolo_codice, r.descrizione, r.quantita_colli, r.quantita_pallet, r.peso_kg, r.ubicazione);
+            });
+        } catch(e) {}
+    }
+
+    var searchInput = document.getElementById('articolo-search');
+    var resultsDiv = document.getElementById('articolo-results');
+
+    searchInput.addEventListener('input', function() {
+        var q = this.value.trim();
+        if (q.length < 2) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        fetch('/uscite/api/articoli?q=' + encodeURIComponent(q))
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                if (data.length === 0) {
+                    resultsDiv.style.display = 'none';
+                    return;
+                }
+                resultsDiv.innerHTML = '';
+                data.forEach(function(a) {
+                    var div = document.createElement('div');
+                    div.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
+                    div.innerHTML = '<div><strong>' + a.codice_articolo + '</strong> - ' + (a.descrizione || '') + '<br><small style="color:#64748b">Colli: ' + a.colli + ' | Pallet: ' + a.pallet + ' | ' + (a.ubicazione || '') + '</small></div>' +
+                        '<button type="button" class="btn btn-sm btn-primary" onclick="aggiungiArticolo(\'' + a.codice_articolo + '\',\'' + (a.descrizione || '').replace(/'/g, "\\'") + '\',' + (a.colli || 0) + ',' + (a.pallet || 0) + ',' + (a.peso_kg || 0) + ',\'' + (a.ubicazione || '') + '\')">+</button>';
+                    div.addEventListener('click', function(e) {
+                        if (e.target.tagName !== 'BUTTON') {
+                            aggiungiArticolo(a.codice_articolo, a.descrizione, a.colli, a.pallet, a.peso_kg, a.ubicazione);
+                        }
+                    });
+                    resultsDiv.appendChild(div);
+                });
+                resultsDiv.style.display = 'block';
+            });
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-bar')) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+
+    document.getElementById('btn-add-articolo').addEventListener('click', function() {
+        var q = searchInput.value.trim();
+        if (q.length >= 2) {
+            fetch('/uscite/api/articoli?q=' + encodeURIComponent(q))
+                .then(function(r){ return r.json(); })
+                .then(function(data) {
+                    if (data.length > 0) {
+                        var a = data[0];
+                        aggiungiArticolo(a.codice_articolo, a.descrizione, a.colli, a.pallet, a.peso_kg, a.ubicazione);
+                    }
+                });
+        }
+    });
+
+    document.querySelectorAll('#form-ddt select, #form-ddt input:not([type=hidden])').forEach(function(el) {
+        el.addEventListener('change', function() {
+            var field = this.getAttribute('name') || this.id;
+            var hidden = document.getElementById('hidden-' + field);
+            if (hidden) hidden.value = this.value;
+        });
+    });
+
+    document.getElementById('form-ddt').addEventListener('submit', function() {
+        document.getElementById('hidden-vettore').value = document.querySelector('[name=vettore]').value;
+        document.getElementById('hidden-causale').value = document.querySelector('[name=causale_trasporto]').value;
+        document.getElementById('hidden-provenienza').value = document.querySelector('[name=provenienza]').value;
+    });
+});
+</script>
+{% endblock %}
