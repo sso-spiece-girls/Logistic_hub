@@ -12,13 +12,6 @@ class Config:
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
 
-    _is_pooler = SQLALCHEMY_DATABASE_URI and "pooler.supabase.com" in SQLALCHEMY_DATABASE_URI and ":6543" in SQLALCHEMY_DATABASE_URI
-
-    # Supabase pooler (transaction mode): non supporta prepared statements
-    if _is_pooler and "pgbouncer" not in SQLALCHEMY_DATABASE_URI:
-        sep = "&" if "?" in SQLALCHEMY_DATABASE_URI else "?"
-        SQLALCHEMY_DATABASE_URI += f"{sep}pgbouncer=true"
-
     # Supabase / cloud Postgres richiedono SSL
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith("postgresql://") and "sslmode" not in SQLALCHEMY_DATABASE_URI:
         sep = "&" if "?" in SQLALCHEMY_DATABASE_URI else "?"
