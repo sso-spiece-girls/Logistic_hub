@@ -26,6 +26,9 @@
                 <th>Tipologia</th>
                 <th>Data</th>
                 <th>Ora</th>
+                <th>Magazzino</th>
+                <th>Targa</th>
+                <th>DDT/CMR</th>
                 <th>Richiesto il</th>
                 <th>Azioni</th>
             </tr>
@@ -38,18 +41,13 @@
                 <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
                 <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
                 <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ p.magazzino or '-' }}</td>
+                <td><code style="font-size:.85rem">{{ p.targa or '-' }}</code></td>
+                <td>{{ p.ddt_cmr or '-' }}</td>
                 <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                <td class="actions-cell" style="min-width:300px">
-                    <form method="POST" action="/prenotazioni/admin/{{ p.id }}/approva" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <td class="actions-cell" style="min-width:220px">
+                    <form method="POST" action="/prenotazioni/admin/{{ p.id }}/approva" style="display:inline">
                         {{ form.hidden_tag() }}
-                        <select name="magazzino" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px">
-                            <option value="">Magazzino...</option>
-                            <option value="Colle 1">Colle 1</option>
-                            <option value="Colle 2">Colle 2</option>
-                            <option value="Colle 3">Colle 3</option>
-                            <option value="Colle 4">Colle 4</option>
-                            <option value="Colle 5">Colle 5</option>
-                        </select>
                         <button type="submit" class="btn btn-sm btn-primary">Approva</button>
                     </form>
                     <form method="POST" action="/prenotazioni/admin/{{ p.id }}/rifiuta" style="display:inline-flex;gap:4px;align-items:center">

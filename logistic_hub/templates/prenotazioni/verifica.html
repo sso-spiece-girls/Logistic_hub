@@ -42,6 +42,14 @@
             <span class="verifica-value">{{ p.magazzino or '-' }}</span>
         </div>
         <div class="verifica-row">
+            <span class="verifica-label">Targa</span>
+            <span class="verifica-value"><code>{{ p.targa or '-' }}</code></span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">DDT / CMR</span>
+            <span class="verifica-value">{{ p.ddt_cmr or '-' }}</span>
+        </div>
+        <div class="verifica-row">
             <span class="verifica-label">Stato</span>
             <span class="verifica-value">
                 <span class="status-badge status-{{ p.stato }}">{{ p.stato }}</span>
