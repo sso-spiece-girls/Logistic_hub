@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
@@ -143,6 +144,8 @@ def _processa_un_pdf(percorso):
         dati = plugin_cliente.parse_ddt(testo)
         righe = [{"descrizione": a.get("codice", "") + " " + a.get("descrizione", ""), "quantita": a.get("qta", 0), "pallet": 0, "unita_misura": a.get("unita", "PZ"), "peso_kg": 0} for a in dati.get("articoli", [])]
         data_ddt = dati.get("data", "")
+        # Aggiorna automaticamente il file Excel mensile del cliente (fatturazione)
+        _aggiorna_excel_cliente(plugin_cliente, dati)
         return {
             "testo": testo[:2000],
             "dati": [],
@@ -185,6 +188,25 @@ def _processa_un_pdf(percorso):
 _TEMP_PDF_DIR = None
 _ocr_tasks = {}
 _ocr_tasks_lock = threading.Lock()
+_excel_locks = {}
+_excel_locks_lock = threading.Lock()
+
+
+def _aggiorna_excel_cliente(plugin, dati):
+    """Aggiorna il file Excel mensile del cliente con i dati del DDT appena parsato.
+    Thread-safe: usa un lock per file Excel per evitare race condition."""
+    try:
+        excel_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "docs", "excel_clienti")
+        os.makedirs(excel_dir, exist_ok=True)
+        excel_path = os.path.join(excel_dir, f"{plugin.id}.xlsx")
+        with _excel_locks_lock:
+            if plugin.id not in _excel_locks:
+                _excel_locks[plugin.id] = threading.Lock()
+            lock = _excel_locks[plugin.id]
+        with lock:
+            plugin.genera_excel([dati], excel_path)
+    except Exception:
+        pass  # Non bloccare l'OCR se la generazione Excel fallisce
 
 
 def _pulisci_ocr_task(task_id):
