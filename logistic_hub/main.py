@@ -51,6 +51,17 @@ def _get_cached_notifiche(user_id):
     return unread_count, notifications
 
 
+def _migrate_prenotazioni():
+    """Aggiunge colonne mancanti alla tabella prenotazioni (migrazione senza Alembic)."""
+    from sqlalchemy import text
+    for col, coltype in [("targa", "VARCHAR(20)"), ("ddt_cmr", "VARCHAR(200)")]:
+        try:
+            db.session.execute(text(f"ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS {col} {coltype}"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
 def _seed_slot_orari():
     """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""
     from models import SlotOrario
@@ -88,6 +99,7 @@ def create_app():
     # Seed: crea tabelle e SlotOrario default (8-13 e 14-17, Lun-Ven)
     with app.app_context():
         db.create_all()
+        _migrate_prenotazioni()
         try:
             _seed_slot_orari()
         except Exception:
