@@ -35,8 +35,8 @@ def _slot_disponibili(regola, giorno, capienza=None):
     slots = []
     cur = datetime.combine(giorno, regola.ora_inizio)
     fine = datetime.combine(giorno, regola.ora_fine)
-    # Minimo 30 minuti tra un tick e l'altro — evita griglia troppo fitta
-    step = timedelta(minutes=max(regola.durata_minuti, 30))
+    # Minimo 60 minuti tra un tick e l'altro — evita griglia troppo fitta
+    step = timedelta(minutes=max(regola.durata_minuti, 60))
     prenotazioni_giorno = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == giorno,
@@ -121,8 +121,8 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     if slot_start < inizio_regola or slot_start >= fine_regola:
         return None
     delta = int((slot_start - inizio_regola).total_seconds() // 60)
-    # Allinea al passo effettivo (minimo 30 min, coerente con _slot_disponibili)
-    effective_step = max(regola.durata_minuti, 30)
+    # Allinea al passo effettivo (minimo 60 min, coerente con _slot_disponibili)
+    effective_step = max(regola.durata_minuti, 60)
     if delta % effective_step != 0:
         return None
     slot_end = slot_start + timedelta(minutes=durata_minuti)
