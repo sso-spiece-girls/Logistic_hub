@@ -159,6 +159,11 @@ def calendario():
     tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
+    # Popola il dropdown magazzino con quelli configurati dall'admin
+    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
+    form.magazzino.choices = [(m.magazzino, m.magazzino) for m in magazzini]
+    if not magazzini:
+        form.magazzino.choices = [("", "Nessun magazzino configurato")]
     return render_template(
         "prenotazioni/calendario.html",
         slots_per_giorno=slots_per_giorno,
@@ -175,21 +180,29 @@ def prenota():
         return redirect(url_for("dashboard.index"))
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()]
+    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
+    form.magazzino.choices = [(m.magazzino, m.magazzino) for m in magazzini]
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+    # Blocco prenotazioni: dopo le 16:00 non si può prenotare per domani
+    ora_corrente = datetime.now().time()
+    domani = date.today() + timedelta(days=1)
+    data_prenot = form.data_prenotazione.data
+    if not data_prenot:
+        flash("Data non valida.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+    if data_prenot == domani and ora_corrente >= time(16, 0):
+        flash("Le prenotazioni per domani chiudono alle 16:00. Puoi prenotare per i giorni successivi.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+    if data_prenot < date.today():
+        flash("Non puoi prenotare nel passato.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     regola = db.session.query(SlotOrario).filter(
         SlotOrario.id == form.slot_orario_id.data
     ).with_for_update().first()
     if not regola or not regola.attivo:
         flash("Regola non trovata o non attiva.", "error")
-        return redirect(url_for("prenotazioni.calendario"))
-    data_prenot = form.data_prenotazione.data
-    if not data_prenot:
-        flash("Data non valida.", "error")
-        return redirect(url_for("prenotazioni.calendario"))
-    if data_prenot < date.today():
-        flash("Non puoi prenotare nel passato.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     if data_prenot.weekday() != regola.giorno_settimana:
         flash("Giorno non valido per questa regola.", "error")
@@ -219,7 +232,13 @@ def prenota():
         Prenotazione.ora_inizio < ora_fine,
         Prenotazione.ora_fine > ora_inizio,
     ).count()
-    if occupate >= _capienza_magazzini():
+    # Controllo capienza per il magazzino scelto dal cliente
+    magazzino_scelto = form.magazzino.data
+    capienza_mag = 999
+    if magazzino_scelto:
+        mag = MagazzinoCapienza.query.filter_by(magazzino=magazzino_scelto).first()
+        capienza_mag = mag.capienza_contemporanea if mag else 999
+    if occupate >= capienza_mag:
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     tipo = form.tipo.data
@@ -234,6 +253,9 @@ def prenota():
         ora_fine=ora_fine,
         tipo=tipo,
         tipologia_materiale_id=tipologia.id,
+        magazzino=form.magazzino.data,
+        targa=form.targa.data,
+        ddt_cmr=form.ddt_cmr.data,
         stato="in_attesa",
     )
     db.session.add(p)
@@ -367,14 +389,28 @@ def approva(id):
     if not form.validate_on_submit():
         flash("Errore nei dati inviati.", "error")
         return redirect(url_for("prenotazioni.in_attesa"))
-    if not form.magazzino.data:
-        flash("Seleziona un magazzino per la prenotazione.", "error")
-        return redirect(url_for("prenotazioni.in_attesa"))
     # Lock della regola per race condition
     regola = db.session.query(SlotOrario).filter(SlotOrario.id == p.slot_orario_id).with_for_update().first()
     if not regola:
         flash("Regola non trovata.", "error")
         return redirect(url_for("prenotazioni.in_attesa"))
+    # Controllo capienza usando il magazzino già scelto dal cliente
+    capienza_mag = 999
+    if p.magazzino:
+        mag = db.session.query(MagazzinoCapienza).filter(
+            MagazzinoCapienza.magazzino == p.magazzino
+        ).with_for_update().first()
+        if mag:
+            capienza_mag = mag.capienza_contemporanea
+            occupati = Prenotazione.query.filter(
+                Prenotazione.magazzino == p.magazzino,
+                Prenotazione.data == p.data,
+                Prenotazione.ora_inizio == p.ora_inizio,
+                Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
+            ).count()
+            if occupati >= mag.capienza_contemporanea:
+                flash(f"Magazzino {p.magazzino} già pieno in questa fascia oraria.", "error")
+                return redirect(url_for("prenotazioni.in_attesa"))
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == p.data,
@@ -382,7 +418,7 @@ def approva(id):
         Prenotazione.ora_inizio < p.ora_fine,
         Prenotazione.ora_fine > p.ora_inizio,
     ).count()
-    if occupate > _capienza_magazzini():
+    if occupate > capienza_mag:
         p.stato = "rifiutata"
         p.note_operatore = "Slot non più disponibile al momento dell'approvazione."
         p.approvato_da_id = current_user.id
@@ -406,7 +442,6 @@ def approva(id):
                 return redirect(url_for("prenotazioni.in_attesa"))
     p.stato = "confermata"
     p.token_qr = _genera_token()
-    p.magazzino = form.magazzino.data
     p.approvato_da_id = current_user.id
     p.approvato_at = datetime.now(timezone.utc)
     db.session.commit()

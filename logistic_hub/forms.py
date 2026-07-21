@@ -122,6 +122,9 @@ class PrenotazioneForm(FlaskForm):
         ("carico", "Carico"),
     ], validators=[DataRequired()])
     tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
+    magazzino = SelectField("Magazzino", validators=[DataRequired()])
+    targa = StringField("Targa", validators=[DataRequired()])
+    ddt_cmr = StringField("DDT / CMR", validators=[DataRequired()])
 
 
 class SlotOrarioForm(FlaskForm):

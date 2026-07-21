@@ -51,6 +51,28 @@ def _get_cached_notifiche(user_id):
     return unread_count, notifications
 
 
+def _seed_slot_orari():
+    """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""
+    from models import SlotOrario
+    from datetime import time as dt_time
+    if SlotOrario.query.first() is not None:
+        return
+    giorni = [0, 1, 2, 3, 4]  # Lun-Ven
+    fasce = [
+        (dt_time(8, 0), dt_time(13, 0)),   # 8:00-13:00
+        (dt_time(14, 0), dt_time(17, 0)),  # 14:00-17:00
+    ]
+    admin = User.query.filter_by(role="admin").first()
+    admin_id = admin.id if admin else 1
+    for g in giorni:
+        for oi, of in fasce:
+            db.session.add(SlotOrario(
+                giorno_settimana=g, ora_inizio=oi, ora_fine=of,
+                durata_minuti=60, capienza=1, attivo=True, creato_da_id=admin_id,
+            ))
+    db.session.commit()
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -62,6 +84,14 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     limiter.init_app(app)
+
+    # Seed: crea tabelle e SlotOrario default (8-13 e 14-17, Lun-Ven)
+    with app.app_context():
+        db.create_all()
+        try:
+            _seed_slot_orari()
+        except Exception:
+            pass  # Non bloccare l'avvio se il seed fallisce
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 

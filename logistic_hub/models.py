@@ -375,6 +375,8 @@ class Prenotazione(db.Model):
     tipo = db.Column(db.String(10), nullable=False, default="scarico")  # carico / scarico
     magazzino = db.Column(db.String(50), nullable=True)
     tipologia_materiale_id = db.Column(db.Integer, db.ForeignKey("tipologie_materiale.id"), nullable=True)
+    targa = db.Column(db.String(20), nullable=True)
+    ddt_cmr = db.Column(db.String(200), nullable=True)
     stato = db.Column(db.String(20), nullable=False, default="in_attesa", index=True)
     token_qr = db.Column(db.String(64), unique=True, nullable=True, index=True)
     note_operatore = db.Column(db.Text, nullable=True)
