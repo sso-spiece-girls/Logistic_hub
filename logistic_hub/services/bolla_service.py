@@ -7,7 +7,7 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models import Bolla, DettaglioBolla, Giacenza, Movimento
-from core.normalize import normalizza_codice_articolo
+from core.normalize import normalizza_codice_articolo, parse_italian_number
 
 
 def calcola_hash_pdf(file_storage):
@@ -261,7 +261,7 @@ def importa_bolla_da_pdf(form_data, operatore_id):
         if art_codice:
             colli = int(righe_qta[i]) if i < len(righe_qta) else 0
             pallet = int(righe_pallet[i]) if i < len(righe_pallet) else 0
-            peso = float(righe_peso[i]) if i < len(righe_peso) else 0
+            peso = parse_italian_number(righe_peso[i]) if i < len(righe_peso) else 0
 
             riga = DettaglioBolla(
                 bolla_id=bolla.id,

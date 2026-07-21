@@ -1,5 +1,6 @@
 import re
 from .base import FornitorePlugin
+from core.normalize import parse_italian_number
 
 
 class SaleriParser(FornitorePlugin):
@@ -30,7 +31,7 @@ class SaleriParser(FornitorePlugin):
                     "quantita": int(m.group(2)),
                     "pallet": int(m.group(2)),
                     "unita_misura": "pallet",
-                    "peso_kg": float(m.group(3).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(3)),
                 })
 
         # Only use numeric code pattern if no SPLO pattern matched
@@ -47,7 +48,7 @@ class SaleriParser(FornitorePlugin):
                         "quantita": 0,
                         "pallet": 0,
                         "unita_misura": "pallet",
-                        "peso_kg": float(m.group(2).replace(",", ".")),
+                        "peso_kg": parse_italian_number(m.group(2)),
                     })
 
         return righe

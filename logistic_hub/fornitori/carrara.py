@@ -1,5 +1,6 @@
 import re
 from .base import FornitorePlugin
+from core.normalize import parse_italian_number
 
 
 class CarraraParser(FornitorePlugin):
@@ -44,7 +45,7 @@ class CarraraParser(FornitorePlugin):
                     "quantita": int(m.group(1)),
                     "pallet": 0,
                     "unita_misura": "colli",
-                    "peso_kg": float(m.group(2).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(2)),
                 })
 
         return righe
