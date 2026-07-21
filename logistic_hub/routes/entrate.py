@@ -87,7 +87,7 @@ def modifica(id):
 
     import json
     righe_json = json.dumps([{
-        "descrizione": r.articolo_codice or r.descrizione or "",
+        "descrizione": r.descrizione or r.articolo_codice or "",
         "pallet": r.quantita_pallet or 0,
         "quantita": r.quantita_colli or 1,
         "unita_misura": "colli",
@@ -101,13 +101,13 @@ def modifica(id):
 @login_required
 @staff_required
 def elimina(id):
-    from models import DettaglioBolla, Movimento
+    from services.bolla_service import annulla_giacenza_movimento
     bolla = Bolla.query.get_or_404(id)
     try:
-        # Elimina righe bolla
-        DettaglioBolla.query.filter_by(bolla_id=bolla.id).delete()
-        # Elimina movimenti collegati
-        Movimento.query.filter_by(riferimento_id=bolla.id, riferimento_tipo="bolla").delete()
+        # Ripristina inventario per ogni riga, poi elimina righe e movimenti
+        for riga in list(bolla.righe):
+            annulla_giacenza_movimento(riga, bolla.id)
+            db.session.delete(riga)
         db.session.delete(bolla)
         db.session.commit()
     except Exception:

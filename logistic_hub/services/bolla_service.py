@@ -61,26 +61,30 @@ def crea_righe_bolla(bolla_id, righe_data, operatore_id):
             peso_kg=float(r.get("peso_kg", 0)),
         )
         db.session.add(riga)
-        _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, bolla_id, None, giacenze_esistenti)
+        _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, bolla_id, "bolla", giacenze_esistenti)
 
 
 def _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, riferimento_id, riferimento_tipo, giacenze_cache=None):
     colli = int(r.get("quantita", 1))
     pallet = int(r.get("pallet", 0))
     peso = float(r.get("peso_kg", 0))
+    descrizione = r.get("descrizione", "") or art_codice
 
     giac = giacenze_cache.get(art_codice) if giacenze_cache is not None else Giacenza.query.filter_by(codice_articolo=art_codice).first()
     if giac:
         giac.colli = (giac.colli or 0) + colli
+        giac.pallet = (giac.pallet or 0) + pallet
         giac.peso_kg = (giac.peso_kg or 0) + peso
+        giac.quantita = (giac.quantita or 0) + colli
         giac.updated_by = operatore_id
     else:
         giac = Giacenza(
             codice_articolo=art_codice,
-            descrizione=art_codice,
+            descrizione=descrizione,
             colli=colli,
             pallet=pallet,
             peso_kg=peso,
+            quantita=colli,
             updated_by=operatore_id,
         )
         db.session.add(giac)
@@ -159,16 +163,13 @@ def modifica_bolla(bolla, form, request_form, operatore_id):
 
 
 def _sostituisci_righe_bolla(bolla, righe_data, operatore_id):
-    nuovi_codici = {
-        normalizza_codice_articolo(r.get("descrizione", ""))
-        for r in righe_data if r.get("descrizione", "").strip()
-    }
-
+    # Phase 1: Revert ALL old rows — no set-membership filtering.
+    # This avoids double-counting when an article code exists in both old and new data.
     for vecchia in list(bolla.righe):
-        if vecchia.articolo_codice not in nuovi_codici:
-            _annulla_giacenza_movimento(vecchia, bolla.id)
-            db.session.delete(vecchia)
+        annulla_giacenza_movimento(vecchia, bolla.id)
+        db.session.delete(vecchia)
 
+    # Phase 2: Create ALL new rows
     for r in righe_data:
         art_codice = normalizza_codice_articolo(r.get("descrizione", ""))
         if not art_codice:
@@ -185,11 +186,14 @@ def _sostituisci_righe_bolla(bolla, righe_data, operatore_id):
         _aggiorna_giacenza_ingresso(art_codice, r, operatore_id, bolla.id, "bolla")
 
 
-def _annulla_giacenza_movimento(riga, riferimento_id):
+def annulla_giacenza_movimento(riga, riferimento_id):
+    """Revert inventory changes for a single DettaglioBolla line and delete its Movimento records."""
     giac = Giacenza.query.filter_by(codice_articolo=riga.articolo_codice).first()
     if giac:
         giac.colli = max(0, (giac.colli or 0) - (riga.quantita_colli or 0))
+        giac.pallet = max(0, (giac.pallet or 0) - (riga.quantita_pallet or 0))
         giac.peso_kg = max(0, (giac.peso_kg or 0) - (riga.peso_kg or 0))
+        giac.quantita = max(0, (giac.quantita or 0) - (riga.quantita_colli or 0))
     Movimento.query.filter_by(
         riferimento_id=riferimento_id,
         riferimento_tipo="bolla",
@@ -274,7 +278,8 @@ def importa_bolla_da_pdf(form_data, operatore_id):
             db.session.add(riga)
 
             _aggiorna_giacenza_ingresso(art_codice, {
-                "quantita": colli, "pallet": pallet, "peso_kg": peso
+                "quantita": colli, "pallet": pallet, "peso_kg": peso,
+                "descrizione": righe_desc[i].strip()
             }, operatore_id, bolla.id, "bolla")
 
     try:
