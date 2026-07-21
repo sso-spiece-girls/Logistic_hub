@@ -134,22 +134,9 @@ def _processa_un_pdf(percorso):
     from core.pdf_extractor import leggi_pdf as pdf_leggi_pdf
     testo = pdf_leggi_pdf(percorso)
 
-    # 1) Fornitore specifico (Base SPA, Saleri, Carrara)
-    from fornitori import riconosci_fornitore as riconosci_fornitore_plugin
-    p = riconosci_fornitore_plugin(testo)
-    if p and p.id != "gen":
-        dati = p.parse_bolla(testo)
-        fornitore = p.estrai_fornitore(testo)
-        return {
-            "testo": testo[:2000],
-            "dati": [{"picking": r.get("descrizione", ""), "pallet": r.get("pallet", 0), "colli": r.get("quantita", 0), "peso_kg": r.get("peso_kg", 0)} for r in dati.get("righe", [])],
-            "fornitore": fornitore,
-            "numero_bolla": dati.get("numero_bolla", ""),
-            "data_arrivo": _converti_data(dati.get("data_arrivo", "")),
-            "righe": dati.get("righe", []),
-        }
-
-    # 2) Plugin cliente (Enegan, Elle Group, Soffas, Magis, DAS, La Leccia)
+    # 1) Plugin cliente (La Leccia, Enegan, Elle Group, Soffas, Magis, DAS)
+    #    Deve andare PRIMA dei fornitori perché alcuni PDF cliente (es. La Leccia)
+    #    contengono testo che potrebbe matchare pattern generici fornitore.
     from clients import riconosci_cliente
     plugin_cliente = riconosci_cliente(testo)
     if plugin_cliente:
@@ -163,6 +150,21 @@ def _processa_un_pdf(percorso):
             "numero_bolla": dati.get("ddt", ""),
             "data_arrivo": _converti_data(data_ddt),
             "righe": righe,
+        }
+
+    # 2) Fornitore specifico (Base SPA, Saleri, Carrara)
+    from fornitori import riconosci_fornitore as riconosci_fornitore_plugin
+    p = riconosci_fornitore_plugin(testo)
+    if p and p.id != "gen":
+        dati = p.parse_bolla(testo)
+        fornitore = p.estrai_fornitore(testo)
+        return {
+            "testo": testo[:2000],
+            "dati": [{"picking": r.get("descrizione", ""), "pallet": r.get("pallet", 0), "colli": r.get("quantita", 0), "peso_kg": r.get("peso_kg", 0)} for r in dati.get("righe", [])],
+            "fornitore": fornitore,
+            "numero_bolla": dati.get("numero_bolla", ""),
+            "data_arrivo": _converti_data(dati.get("data_arrivo", "")),
+            "righe": dati.get("righe", []),
         }
 
     # 3) Fallback generico
