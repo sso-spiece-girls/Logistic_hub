@@ -23,13 +23,20 @@ def _capienza_magazzini():
 
 
 def _slot_disponibili(regola, giorno, capienza=None):
-    """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno."""
+    """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno.
+
+    Usa un passo minimo di 60 minuti per evitare micro-slot: se la regola ha
+    durata_minuti < 60, si usa comunque 60 come granularità dei tick.
+    I tick adiacenti con lo stesso stato (disponibile/occupato) vengono consolidati
+    in blocchi più grandi per una vista calendario più pulita.
+    """
     if capienza is None:
         capienza = _capienza_magazzini()
     slots = []
     cur = datetime.combine(giorno, regola.ora_inizio)
     fine = datetime.combine(giorno, regola.ora_fine)
-    step = timedelta(minutes=regola.durata_minuti)
+    # Minimo 60 minuti tra un tick e l'altro — evita griglia troppo fitta
+    step = timedelta(minutes=max(regola.durata_minuti, 60))
     prenotazioni_giorno = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == giorno,
@@ -38,16 +45,33 @@ def _slot_disponibili(regola, giorno, capienza=None):
     while cur + step <= fine:
         oi = cur.time()
         of = (cur + step).time()
-        stesso_orario = any(p.ora_inizio == oi for p in prenotazioni_giorno)
+        # Conta quante prenotazioni si sovrappongono a questo tick.
+        # Con durate variabili (tipologia), una prenotazione può occupare più tick.
         occupate = sum(1 for p in prenotazioni_giorno if p.ora_inizio < of and p.ora_fine > oi)
         slots.append({
             "slot_orario_id": regola.id,
             "ora_inizio": oi.strftime("%H:%M"),
             "ora_fine": of.strftime("%H:%M"),
-            "disponibile": (not stesso_orario) and occupate < capienza,
+            "disponibile": occupate < capienza,
         })
         cur += step
-    return slots
+    return _consolida_slots(slots)
+
+
+def _consolida_slots(slots):
+    """Unisce tick adiacenti con lo stesso stato disponibile/occupato in blocchi più grandi."""
+    if not slots:
+        return []
+    result = []
+    current = dict(slots[0])
+    for s in slots[1:]:
+        if s["disponibile"] == current["disponibile"]:
+            current["ora_fine"] = s["ora_fine"]
+        else:
+            result.append(current)
+            current = dict(s)
+    result.append(current)
+    return result
 
 
 def _notifica_operatori(titolo, messaggio):
@@ -61,7 +85,10 @@ def _genera_token():
 
 
 def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
-    """Verifica che ora_inizio sia valida per la regola e restituisce (ora_inizio, ora_fine) o None."""
+    """Verifica che ora_inizio sia valida per la regola e restituisce (ora_inizio, ora_fine) o None.
+
+    L'allineamento usa max(regola.durata_minuti, 60) come passo effettivo,
+    coerente con _slot_disponibili()."""
     if durata_minuti is None:
         durata_minuti = regola.durata_minuti
     try:
@@ -74,7 +101,9 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     if slot_start < inizio_regola or slot_start >= fine_regola:
         return None
     delta = int((slot_start - inizio_regola).total_seconds() // 60)
-    if delta % regola.durata_minuti != 0:
+    # Allinea al passo effettivo (minimo 60 min, coerente con _slot_disponibili)
+    effective_step = max(regola.durata_minuti, 60)
+    if delta % effective_step != 0:
         return None
     slot_end = slot_start + timedelta(minutes=durata_minuti)
     if slot_end > fine_regola:
