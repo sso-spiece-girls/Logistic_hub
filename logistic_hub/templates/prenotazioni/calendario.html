@@ -39,24 +39,10 @@
             <div class="calendario-slot {% if not slot.disponibile %}occupato{% endif %}">
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
                 {% if slot.disponibile %}
-                <form method="POST" action="/prenotazioni/prenota" class="slot-form">
-                    {{ form.csrf_token }}
-                    <input type="hidden" name="slot_orario_id" value="{{ slot.slot_orario_id }}">
-                    <input type="hidden" name="data_prenotazione" value="{{ giorno_key }}">
-                    <input type="hidden" name="ora_inizio" value="{{ slot.ora_inizio }}">
-                    <input type="hidden" name="ora_fine" value="{{ slot.ora_fine }}">
-                    <select name="tipo" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px">
-                        <option value="scarico">Scarico</option>
-                        <option value="carico">Carico</option>
-                    </select>
-                    <select name="tipologia_materiale_id" class="form-input" style="width:auto;font-size:.8rem;padding:4px 8px" required>
-                        <option value="">Tipologia...</option>
-                        {% for t in tipologie_attive %}
-                        <option value="{{ t.id }}">{{ t.nome }} ({{ t.durata_minuti }} min)</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-sm btn-primary">Prenota</button>
-                </form>
+                <button type="button" class="btn btn-sm btn-primary"
+                        onclick="apriPrenotaModal('{{ giorno_key }}', '{{ slot.ora_inizio }}', '{{ slot.ora_fine }}', '{{ slot.slot_orario_id }}', '{{ giorno_data.giorno_nome }} {{ giorno_data.giorno.strftime('%d/%m/%Y') }}')">
+                    Prenota
+                </button>
                 {% else %}
                 <span class="slot-occupato-label">Occupato</span>
                 {% endif %}
@@ -66,7 +52,77 @@
     </details>
     {% endfor %}
 </div>
+
+<!-- Modal di prenotazione: appare dopo aver scelto lo slot -->
+<div id="prenota-modal" class="modal-overlay" style="display:none">
+    <div class="modal-card" style="max-width:420px">
+        <h3 style="margin-top:0">Conferma Prenotazione</h3>
+        <p id="modal-slot-info" style="color:var(--primary-light);font-weight:500;margin-bottom:16px"></p>
+        <form method="POST" action="/prenotazioni/prenota" id="prenota-form">
+            {{ form.csrf_token }}
+            <input type="hidden" name="slot_orario_id" id="modal_slot_orario_id">
+            <input type="hidden" name="data_prenotazione" id="modal_data">
+            <input type="hidden" name="ora_inizio" id="modal_ora_inizio">
+            <input type="hidden" name="ora_fine" id="modal_ora_fine">
+            <div class="form-group">
+                <label>Tipo operazione</label>
+                <select name="tipo" required class="form-input">
+                    <option value="scarico">Scarico</option>
+                    <option value="carico">Carico</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tipologia materiale</label>
+                <select name="tipologia_materiale_id" required class="form-input">
+                    <option value="">-- Seleziona --</option>
+                    {% for t in tipologie_attive %}
+                    <option value="{{ t.id }}">{{ t.nome }} ({{ t.durata_minuti }} min)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Magazzino</label>
+                <select name="magazzino" required class="form-input">
+                    <option value="">-- Seleziona --</option>
+                    {% for val, label in form.magazzino.choices %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Targa</label>
+                <input type="text" name="targa" required class="form-input" placeholder="Es. AB123CD" maxlength="20" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+                <label>DDT / CMR</label>
+                <input type="text" name="ddt_cmr" required class="form-input" placeholder="Numero documento" maxlength="200">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:20px">
+                <button type="submit" class="btn btn-primary" style="flex:1">Conferma Prenotazione</button>
+                <button type="button" class="btn btn-ghost" onclick="chiudiPrenotaModal()">Annulla</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endif %}
+
+<script>
+function apriPrenotaModal(data, oi, of, slotId, giornoLabel) {
+    document.getElementById('modal_slot_orario_id').value = slotId;
+    document.getElementById('modal_data').value = data;
+    document.getElementById('modal_ora_inizio').value = oi;
+    document.getElementById('modal_ora_fine').value = of;
+    document.getElementById('modal-slot-info').textContent = giornoLabel + ' — ' + oi + ' - ' + of;
+    document.getElementById('prenota-modal').style.display = 'flex';
+}
+function chiudiPrenotaModal() {
+    document.getElementById('prenota-modal').style.display = 'none';
+}
+// Chiudi cliccando fuori dal modal
+document.getElementById('prenota-modal').addEventListener('click', function(e) {
+    if (e.target === this) chiudiPrenotaModal();
+});
+</script>
 
 <style>
 .calendario-container { max-width:800px }
@@ -80,6 +136,9 @@
 .calendario-slot.occupato { background:var(--surface-hover); opacity:.6 }
 .slot-orario { font-size:.85rem; font-weight:500; color:var(--text) }
 .slot-occupato-label { font-size:.8rem; color:var(--text-muted); font-style:italic }
-.slot-form { margin:0 }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:1000 }
+.modal-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.3); width:100% }
+.form-group { margin-bottom:12px }
+.form-group label { display:block; margin-bottom:4px; font-size:.85rem; font-weight:500; color:var(--text-muted) }
 </style>
 {% endblock %}
