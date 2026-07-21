@@ -27,8 +27,8 @@ def _slot_disponibili(regola, giorno, capienza=None):
 
     Usa un passo minimo di 30 minuti per evitare micro-slot: se la regola ha
     durata_minuti < 30, si usa comunque 30 come granularità dei tick.
-    I tick adiacenti con lo stesso stato (disponibile/occupato) vengono consolidati
-    in blocchi più grandi per una vista calendario più pulita.
+    NON consolida i tick — ogni slot rimane individuale così il cliente può
+    selezionare un orario di inizio preciso.
     """
     if capienza is None:
         capienza = _capienza_magazzini()
@@ -55,7 +55,7 @@ def _slot_disponibili(regola, giorno, capienza=None):
             "disponibile": occupate < capienza,
         })
         cur += step
-    return _consolida_slots(slots)
+    return slots
 
 
 def _consolida_slots(slots):
@@ -66,6 +66,26 @@ def _consolida_slots(slots):
     current = dict(slots[0])
     for s in slots[1:]:
         if s["disponibile"] == current["disponibile"]:
+            current["ora_fine"] = s["ora_fine"]
+        else:
+            result.append(current)
+            current = dict(s)
+    result.append(current)
+    return result
+
+
+def _consolida_admin(slots):
+    """Unisce tick adiacenti per la vista admin: stesso stato E (se occupato) stessa prenotazione.
+    Due prenotazioni diverse non vengono mai unite insieme."""
+    if not slots:
+        return []
+    result = []
+    current = dict(slots[0])
+    for s in slots[1:]:
+        same_available = s["disponibile"] and current["disponibile"]
+        same_booking = (not s["disponibile"] and not current["disponibile"]
+                        and s.get("prenotazione") is current.get("prenotazione"))
+        if same_available or same_booking:
             current["ora_fine"] = s["ora_fine"]
         else:
             result.append(current)
@@ -310,6 +330,9 @@ def admin_calendario():
                     "slot_orario_id": r.id,
                     "prenotazione": prenotazione,
                 })
+            # Consolidamento solo per vista admin: unisce tick adiacenti
+            # con lo stesso stato e la stessa prenotazione
+            chiavi = _consolida_admin(chiavi)
         if chiavi:
             slots_per_giorno[g.isoformat()] = {
                 "giorno": g,
