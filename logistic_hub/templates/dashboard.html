@@ -16,22 +16,34 @@
 
 <!-- Cosa devo fare adesso -->
 <div class="task-priority-bar">
-    <div class="task-priority task-priority-red {% if bolle_da_elaborare == 0 %}task-priority-done{% endif %}">
+    <div class="task-priority task-priority-red {% if bolle_da_elaborare == 0 %}task-priority-clear{% endif %}">
+        {% if bolle_da_elaborare == 0 %}
+        <div class="task-priority-check">✔</div>
+        {% else %}
         <div class="task-priority-dot"></div>
+        {% endif %}
         <a href="/entrate/" class="task-priority-body">
             <span class="task-priority-value">{{ bolle_da_elaborare }}</span>
             <span class="task-priority-label">Bolle da elaborare</span>
         </a>
     </div>
-    <div class="task-priority task-priority-orange {% if prenotazioni_in_attesa == 0 %}task-priority-done{% endif %}">
+    <div class="task-priority task-priority-orange {% if prenotazioni_in_attesa == 0 %}task-priority-clear{% endif %}">
+        {% if prenotazioni_in_attesa == 0 %}
+        <div class="task-priority-check">✔</div>
+        {% else %}
         <div class="task-priority-dot"></div>
+        {% endif %}
         <a href="/prenotazioni/admin/calendario" class="task-priority-body">
             <span class="task-priority-value">{{ prenotazioni_in_attesa }}</span>
             <span class="task-priority-label">Prenotazioni in attesa</span>
         </a>
     </div>
-    <div class="task-priority task-priority-yellow {% if ddt_pronti == 0 %}task-priority-done{% endif %}">
+    <div class="task-priority task-priority-yellow {% if ddt_pronti == 0 %}task-priority-clear{% endif %}">
+        {% if ddt_pronti == 0 %}
+        <div class="task-priority-check">✔</div>
+        {% else %}
         <div class="task-priority-dot"></div>
+        {% endif %}
         <a href="/uscite/?stato=pronto" class="task-priority-body">
             <span class="task-priority-value">{{ ddt_pronti }}</span>
             <span class="task-priority-label">DDT da spedire</span>

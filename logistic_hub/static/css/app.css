@@ -719,9 +719,14 @@ select.form-input { appearance: auto; }
 .task-priority-orange .task-priority-value { color: #f97316; }
 .task-priority-yellow .task-priority-value { color: #eab308; }
 .task-priority-label { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.1rem; }
-.task-priority-done { opacity: 0.5; }
-.task-priority-done .task-priority-value,
-.task-priority-done .task-priority-dot { color: var(--text-muted); background: var(--text-muted); box-shadow: none; }
+.task-priority-clear { opacity: 0.55; }
+.task-priority-clear .task-priority-value { color: var(--text-muted); }
+.task-priority-check {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 700;
+  background: var(--success); color: #fff;
+}
 
 /* ACTION BAR */
 .action-bar { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
