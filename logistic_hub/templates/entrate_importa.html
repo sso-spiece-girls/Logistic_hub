@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var ocrTimer = null;
     var ocrStartTime = null;
     var bolleResults = [];
+    var _pollCancelled = false;
 
     uploadZone.addEventListener('click', function() { fileInput.click(); });
     uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('drag-over'); });
@@ -206,6 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function resetUpload() {
         stopOcrProgress();
+        _pollCancelled = true;
         fileInput.value = '';
         ocrLoading.style.display = 'none';
         ocrError.style.display = 'none';
@@ -213,6 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleFiles(files) {
+        _pollCancelled = false;
         var pdfs = [];
         for (var i = 0; i < files.length; i++) {
             if (files[i].type === 'application/pdf') pdfs.push(files[i]);
@@ -259,25 +262,53 @@ document.addEventListener('DOMContentLoaded', function() {
             showReviewTable(accResults);
             return;
         }
+        if (_pollCancelled) return;
         var task = tasks[doneCount];
+        var retries = 0;
+        var MAX_RETRIES = 120;
         document.getElementById('ocr-filename').textContent = 'Elaborazione ' + (doneCount + 1) + '/' + totalCount + ': ' + task.filename;
         (function(idx) {
             var poll = function() {
+                if (_pollCancelled) return;
+                if (retries >= MAX_RETRIES) {
+                    accResults.push({filename: task.filename, error: 'Timeout: elaborazione troppo lunga per ' + task.filename});
+                    pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                    return;
+                }
+                retries++;
                 fetch('/entrate/ocr-status/' + task.task_id)
-                    .then(function(r) { return r.json(); })
+                    .then(function(r) {
+                        if (r.status === 404) {
+                            accResults.push({filename: task.filename, error: 'Task OCR non trovato (ID: ' + task.task_id + ')'});
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                            return null;
+                        }
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
                     .then(function(status) {
+                        if (_pollCancelled) return;
+                        if (status === null) return;
                         if (status.status === 'completed') {
                             accResults.push(status);
                             pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
                         } else if (status.status === 'error') {
                             accResults.push({filename: task.filename, error: status.error});
                             pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        } else if (status.status === 'not_found') {
+                            accResults.push({filename: task.filename, error: 'Task OCR non trovato'});
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
                         } else {
                             setTimeout(poll, 500);
                         }
                     })
                     .catch(function() {
-                        setTimeout(poll, 1000);
+                        if (retries < MAX_RETRIES && !_pollCancelled) {
+                            setTimeout(poll, 1000);
+                        } else if (!_pollCancelled) {
+                            accResults.push({filename: task.filename, error: 'Errore di connessione per ' + task.filename});
+                            pollOcrResults(tasks, doneCount + 1, totalCount, accResults);
+                        }
                     });
             };
             poll();
