@@ -36,8 +36,8 @@
                 <td>{{ u.email or '-' }}</td>
                 <td><span class="role-badge role-{{ u.role }}">{{ u.role_label }}</span></td>
                 <td>{% if u.is_active %}<span class="status-dot active"></span> Attivo{% else %}<span class="status-dot inactive"></span> Disabilitato{% endif %}</td>
-                <td>{{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Mai' }}</td>
-                <td>{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+                <td>{{ u.last_login|roma_time if u.last_login else 'Mai' }}</td>
+                <td>{{ u.created_at|roma_time('%d/%m/%Y') }}</td>
                 <td class="actions-cell">
                     <a href="/users/{{ u.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                     <form method="POST" action="/users/{{ u.id }}/toggle" style="display:inline">

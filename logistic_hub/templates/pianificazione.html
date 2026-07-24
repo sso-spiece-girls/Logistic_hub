@@ -35,7 +35,7 @@
                 <td>{{ p.cliente or '-' }}</td>
                 <td><span class="status-badge status-{{ p.stato }}">{{ p.stato_label }}</span></td>
                 <td>{{ p.operatore.username if p.operatore else '-' }}</td>
-                <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>{{ p.created_at|roma_time }}</td>
                 <td class="actions-cell">
                     {% if p.stato != 'completato' %}
                     <form method="POST" action="/pianificazione/{{ p.id }}/completa" style="display:inline">

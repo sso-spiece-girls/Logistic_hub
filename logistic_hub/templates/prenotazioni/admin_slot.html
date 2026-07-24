@@ -37,7 +37,7 @@
             {% for r in regole %}
             <tr>
                 <td><strong>{{ giorni[r.giorno_settimana] }}</strong></td>
-                <td>{{ r.ora_inizio.strftime('%H:%M') }} - {{ r.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ r.ora_inizio|roma_time('%H:%M') }} - {{ r.ora_fine|roma_time('%H:%M') }}</td>
                 <td>{{ r.durata_minuti }} min</td>
                 <td>{{ r.capienza }}</td>
                 <td>

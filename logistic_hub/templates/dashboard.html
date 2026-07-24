@@ -151,7 +151,7 @@
                     <div class="activity-dot"></div>
                     <div class="activity-content">
                         <div class="activity-text">{{ a.description }}</div>
-                        <div class="activity-time">{{ a.created_at.strftime('%H:%M') }}</div>
+                        <div class="activity-time">{{ a.created_at|roma_time('%H:%M') }}</div>
                     </div>
                 </div>
                 {% endfor %}
@@ -176,7 +176,7 @@
                     </div>
                     <div class="doc-info">
                         <div class="doc-name">{{ d.nome }}</div>
-                        <div class="doc-meta">{{ d.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                        <div class="doc-meta">{{ d.created_at|roma_time }}</div>
                     </div>
                 </a>
                 {% endfor %}

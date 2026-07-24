@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+from datetime import date, datetime, time as dt_time
+import zoneinfo
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask
@@ -143,6 +145,21 @@ def create_app():
             "unread_count": unread_count,
             "css_mtime": css_mtime,
         }
+
+    @app.template_filter("roma_time")
+    def roma_time_filter(dt, fmt="%d/%m/%Y %H:%M"):
+        """Converte UTC → Europe/Rome e formatta. Gestisce date, time, None e datetime."""
+        if dt is None:
+            return "-"
+        if isinstance(dt, datetime):
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(zoneinfo.ZoneInfo("Europe/Rome"))
+            return dt.strftime(fmt)
+        if isinstance(dt, date):
+            return dt.strftime(fmt)
+        if isinstance(dt, dt_time):
+            return dt.strftime(fmt)
+        return str(dt)
 
     @app.route("/ping")
     def ping():

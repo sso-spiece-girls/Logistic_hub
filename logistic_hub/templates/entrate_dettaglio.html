@@ -31,13 +31,13 @@
                 <dt>Fornitore</dt>
                 <dd>{{ bolla.fornitore }}</dd>
                 <dt>Data Arrivo</dt>
-                <dd>{{ bolla.data_arrivo.strftime('%d/%m/%Y') if bolla.data_arrivo else '-' }}</dd>
+                <dd>{{ bolla.data_arrivo|roma_time('%d/%m/%Y') if bolla.data_arrivo else '-' }}</dd>
                 <dt>Stato</dt>
                 <dd><span class="status-badge status-{{ bolla.stato }}">{{ bolla.stato_label }}</span></dd>
                 <dt>Operatore</dt>
                 <dd>{{ bolla.operatore.username if bolla.operatore else '-' }}</dd>
                 <dt>Data Caricamento</dt>
-                <dd>{{ bolla.data_caricamento.strftime('%d/%m/%Y %H:%M') if bolla.data_caricamento else '-' }}</dd>
+                <dd>{{ bolla.data_caricamento|roma_time if bolla.data_caricamento else '-' }}</dd>
                 <dt>Note</dt>
                 <dd>{{ bolla.note or '-' }}</dd>
             </dl>

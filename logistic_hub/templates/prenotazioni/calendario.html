@@ -32,7 +32,7 @@
     <details class="calendario-giorno" {% if loop.first %}open{% endif %}>
         <summary class="calendario-giorno-header">
             <span class="calendario-giorno-nome">{{ giorno_data.giorno_nome }}</span>
-            <span class="calendario-giorno-data">{{ giorno_data.giorno.strftime('%d/%m/%Y') }}</span>
+            <span class="calendario-giorno-data">{{ giorno_data.giorno|roma_time('%d/%m/%Y') }}</span>
         </summary>
         <div class="calendario-slots">
             {% for slot in giorno_data.slots %}
@@ -40,7 +40,7 @@
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
                 {% if slot.disponibile %}
                 <button type="button" class="btn btn-sm btn-primary"
-                        onclick="apriPrenotaModal('{{ giorno_key }}', '{{ slot.ora_inizio }}', '{{ slot.ora_fine }}', '{{ slot.slot_orario_id }}', '{{ giorno_data.giorno_nome }} {{ giorno_data.giorno.strftime('%d/%m/%Y') }}')">
+                        onclick="apriPrenotaModal('{{ giorno_key }}', '{{ slot.ora_inizio }}', '{{ slot.ora_fine }}', '{{ slot.slot_orario_id }}', '{{ giorno_data.giorno_nome }} {{ giorno_data.giorno|roma_time('%d/%m/%Y') }}')">
                     Prenota
                 </button>
                 {% else %}

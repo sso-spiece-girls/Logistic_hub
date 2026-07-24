@@ -47,7 +47,7 @@
             <tr>
                 <td><a href="/entrate/bolla/{{ b.id }}" class="table-link">{{ b.numero_bolla }}</a>{% if b.id in ids_duplicati %} <span class="badge-doppione">DOPPIONE</span>{% endif %}</td>
                 <td>{{ b.fornitore }}</td>
-                <td>{{ b.data_arrivo.strftime('%d/%m/%Y') if b.data_arrivo else '-' }}</td>
+                <td>{{ b.data_arrivo|roma_time('%d/%m/%Y') if b.data_arrivo else '-' }}</td>
                 <td><span class="status-badge status-{{ b.stato }} status-inline" data-entity="bolle" data-id="{{ b.id }}" data-stato="{{ b.stato }}" role="button" tabindex="0">{{ b.stato_label }}</span></td>
                 <td>{{ b.operatore.username if b.operatore else '-' }}</td>
                 <td class="actions-cell">

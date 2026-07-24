@@ -43,7 +43,7 @@
                 <td><a href="/uscite/ddt/{{ d.id }}" class="table-link">{{ d.numero_ddt }}</a></td>
                 <td>{{ d.cliente }}</td>
                 <td>{{ d.destinatario or '-' }}</td>
-                <td>{{ d.data_creazione.strftime('%d/%m/%Y') }}</td>
+                <td>{{ d.data_creazione|roma_time('%d/%m/%Y') }}</td>
                 <td><span class="status-badge status-{{ d.stato }} status-inline" data-entity="ddt" data-id="{{ d.id }}" data-stato="{{ d.stato }}" role="button" tabindex="0">{{ d.stato_label }}</span></td>
                 <td>{{ d.operatore.username if d.operatore else '-' }}</td>
                 <td class="actions-cell">

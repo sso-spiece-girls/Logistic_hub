@@ -37,9 +37,9 @@
                 <dt>Destinatario</dt>
                 <dd>{{ ddt.destinatario or '-' }}</dd>
                 <dt>Data Creazione</dt>
-                <dd>{{ ddt.data_creazione.strftime('%d/%m/%Y %H:%M') }}</dd>
+                <dd>{{ ddt.data_creazione|roma_time }}</dd>
                 <dt>Data Spedizione</dt>
-                <dd>{{ ddt.data_spedizione.strftime('%d/%m/%Y') if ddt.data_spedizione else '-' }}</dd>
+                <dd>{{ ddt.data_spedizione|roma_time('%d/%m/%Y') if ddt.data_spedizione else '-' }}</dd>
                 <dt>Stato</dt>
                 <dd><span class="status-badge status-{{ ddt.stato }}">{{ ddt.stato_label }}</span></dd>
                 <dt>Operatore</dt>

@@ -23,11 +23,11 @@
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Data</span>
-            <span class="verifica-value">{{ p.data.strftime('%d/%m/%Y') }}</span>
+            <span class="verifica-value">{{ p.data|roma_time('%d/%m/%Y') }}</span>
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Orario</span>
-            <span class="verifica-value">{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</span>
+            <span class="verifica-value">{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</span>
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Tipo</span>
@@ -64,7 +64,7 @@
         {% if p.ingresso_verificato_da %}
         <div class="verifica-row">
             <span class="verifica-label">Verificato da</span>
-            <span class="verifica-value">{{ p.ingresso_verificato_da.username }} il {{ p.ingresso_verificato_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            <span class="verifica-value">{{ p.ingresso_verificato_da.username }} il {{ p.ingresso_verificato_at|roma_time }}</span>
         </div>
         {% endif %}
     </div>

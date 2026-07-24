@@ -39,12 +39,12 @@
                 <td><strong>{{ p.cliente.username }}</strong></td>
                 <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
                 <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
-                <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
-                <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ p.data|roma_time('%d/%m/%Y') }}</td>
+                <td>{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</td>
                 <td>{{ p.magazzino or '-' }}</td>
                 <td><code style="font-size:.85rem">{{ p.targa or '-' }}</code></td>
                 <td>{{ p.ddt_cmr or '-' }}</td>
-                <td>{{ p.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>{{ p.created_at|roma_time }}</td>
                 <td class="actions-cell" style="min-width:220px">
                     <form method="POST" action="/prenotazioni/admin/{{ p.id }}/approva" style="display:inline">
                         {{ form.hidden_tag() }}

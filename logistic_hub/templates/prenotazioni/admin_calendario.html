@@ -24,7 +24,7 @@
 <details class="calendario-giorno" {% if loop.first %}open{% endif %}>
     <summary class="calendario-giorno-header">
         <span class="calendario-giorno-nome">{{ giorno_data.giorno_nome }}</span>
-        <span class="calendario-giorno-data">{{ giorno_data.giorno.strftime('%d/%m/%Y') }}</span>
+        <span class="calendario-giorno-data">{{ giorno_data.giorno|roma_time('%d/%m/%Y') }}</span>
         <span class="calendario-slot-count">{{ giorno_data.slots|length }} slot</span>
     </summary>
     <div class="calendario-slots">

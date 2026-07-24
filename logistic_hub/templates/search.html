@@ -19,7 +19,7 @@
                     <div class="search-item-title">{{ b.numero_bolla }}</div>
                     <div class="search-item-sub">{{ b.fornitore }} - {{ b.stato_label }}</div>
                 </div>
-                <span class="search-item-date">{{ b.created_at.strftime('%d/%m/%Y') }}</span>
+                <span class="search-item-date">{{ b.created_at|roma_time('%d/%m/%Y') }}</span>
             </a>
             {% endfor %}
         </div>
@@ -37,7 +37,7 @@
                     <div class="search-item-title">{{ d.numero_ddt }}</div>
                     <div class="search-item-sub">{{ d.cliente }} - {{ d.stato_label }}</div>
                 </div>
-                <span class="search-item-date">{{ d.created_at.strftime('%d/%m/%Y') }}</span>
+                <span class="search-item-date">{{ d.created_at|roma_time('%d/%m/%Y') }}</span>
             </a>
             {% endfor %}
         </div>

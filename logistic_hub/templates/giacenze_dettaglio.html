@@ -46,7 +46,7 @@
                 <dt>Ubicazione</dt>
                 <dd>{{ giacenza.ubicazione or '-' }}</dd>
                 <dt>Ultimo Aggiornamento</dt>
-                <dd>{{ giacenza.updated_at.strftime('%d/%m/%Y %H:%M') }}</dd>
+                <dd>{{ giacenza.updated_at|roma_time }}</dd>
             </dl>
         </div>
     </div>

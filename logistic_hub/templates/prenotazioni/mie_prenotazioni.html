@@ -38,8 +38,8 @@
             <tr>
                 <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
                 <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
-                <td>{{ p.data.strftime('%d/%m/%Y') }}</td>
-                <td>{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</td>
+                <td>{{ p.data|roma_time('%d/%m/%Y') }}</td>
+                <td>{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</td>
                 <td>
                     <span class="status-badge status-{{ p.stato }}">{{ p.stato_label if p.stato_label else p.stato }}</span>
                 </td>

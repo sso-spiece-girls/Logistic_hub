@@ -29,7 +29,7 @@
             {% endif %}
         </div>
         <div class="doc-card-name">{{ d.nome }}</div>
-        <div class="doc-card-meta">{{ d.caricato.username if d.caricato else '-' }} · {{ d.created_at.strftime('%d/%m/%Y') }}</div>
+        <div class="doc-card-meta">{{ d.caricato.username if d.caricato else '-' }} · {{ d.created_at|roma_time('%d/%m/%Y') }}</div>
     </a>
     {% endfor %}
 </div>
