@@ -1,6 +1,7 @@
 import io
 import secrets
 from datetime import datetime, timezone, date, timedelta, time
+import zoneinfo
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file
 from flask_login import login_required, current_user
 from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale
@@ -185,8 +186,8 @@ def prenota():
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    # Blocco prenotazioni: dopo le 16:00 non si può prenotare per domani
-    ora_corrente = datetime.now().time()
+    # Blocco prenotazioni: dopo le 16:00 ora di Roma non si può prenotare per domani
+    ora_corrente = datetime.now(zoneinfo.ZoneInfo("Europe/Rome")).time()
     domani = date.today() + timedelta(days=1)
     data_prenot = form.data_prenotazione.data
     if not data_prenot:
