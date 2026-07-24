@@ -43,17 +43,23 @@
                 <div class="notif-panel" id="notifPanel">
                     <div class="notif-header">
                         <strong>Notifiche</strong>
-                        <a href="/notifiche/marca-tutte" class="notif-mark-all">Segna tutte lette</a>
+                        <form method="POST" action="/notifiche/marca-tutte" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="notif-mark-all" style="background:none;border:none;cursor:pointer;font:inherit;padding:0">Segna tutte lette</button>
+                        </form>
                     </div>
                     <div class="notif-list">
                         {% for n in unread_notifications %}
-                        <a href="/notifiche/marca/{{ n.id }}" class="notif-item notif-{{ n.type }}">
-                            <div class="notif-dot"></div>
-                            <div class="notif-content">
-                                <div class="notif-title">{{ n.title }}</div>
-                                <div class="notif-msg">{{ n.message }}</div>
-                            </div>
-                        </a>
+                        <form method="POST" action="/notifiche/marca/{{ n.id }}" style="display:block;margin:0;padding:0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="notif-item notif-{{ n.type }}" style="display:flex;gap:0.75rem;padding:0.75rem 1rem;width:100%;background:none;border:none;border-left:3px solid transparent;cursor:pointer;font:inherit;text-align:left;color:inherit">
+                                <div class="notif-dot"></div>
+                                <div class="notif-content">
+                                    <div class="notif-title">{{ n.title }}</div>
+                                    <div class="notif-msg">{{ n.message }}</div>
+                                </div>
+                            </button>
+                        </form>
                         {% else %}
                         <div class="notif-empty">Nessuna notifica</div>
                         {% endfor %}

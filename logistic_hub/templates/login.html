@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="icon" type="image/png" href="/static/img/icon-192.png">
     <title>Logistic Hub - Accesso</title>
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v={{ css_mtime }}">
 </head>
 <body class="login-page">
     <div class="login-container">
@@ -29,7 +29,20 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    {{ form.password(class="form-input" + (" is-invalid" if form.password.errors else ""), placeholder="Inserisci password") }}
+                    <div style="position:relative">
+                        {{ form.password(class="form-input" + (" is-invalid" if form.password.errors else ""), placeholder="Inserisci password", id="password") }}
+                        <button type="button" class="password-toggle" aria-label="Mostra password" tabindex="-1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:#94a3b8;display:flex;align-items:center">
+                            <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <svg class="eye-off-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+                                <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                                <line x1="1" y1="1" x2="23" y2="23"/>
+                            </svg>
+                        </button>
+                    </div>
                     {% if form.password.errors %}<div class="form-error">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>{% endif %}
                 </div>
                 {% with messages = get_flashed_messages(with_categories=true) %}

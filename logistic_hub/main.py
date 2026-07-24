@@ -5,7 +5,7 @@ from datetime import date, datetime, time as dt_time
 import zoneinfo
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask
+from flask import Flask, request
 from flask_compress import Compress
 from werkzeug.middleware.proxy_fix import ProxyFix
 from extensions import db, login_manager, limiter
@@ -176,6 +176,16 @@ def create_app():
         if response.content_type and ("text/css" in response.content_type or "application/javascript" in response.content_type or "image/" in response.content_type):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             response.headers["Expires"] = "Thu, 31 Dec 2037 23:55:55 GMT"
+
+        # Security headers (su tutte le risposte)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'",
+        )
+        if request.is_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     return app

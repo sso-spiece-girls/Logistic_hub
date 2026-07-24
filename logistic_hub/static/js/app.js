@@ -223,6 +223,19 @@ document.addEventListener('DOMContentLoaded', function () {
   handleMobileSidebar();
   window.addEventListener('resize', handleMobileSidebar);
 
+  /* PASSWORD VISIBILITY TOGGLE */
+  document.querySelectorAll('.password-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = this.parentElement.querySelector('.form-input');
+      if (!input) return;
+      var isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      this.setAttribute('aria-label', isPassword ? 'Nascondi password' : 'Mostra password');
+      this.querySelector('.eye-icon').style.display = isPassword ? 'none' : '';
+      this.querySelector('.eye-off-icon').style.display = isPassword ? '' : 'none';
+    });
+  });
+
   /* INLINE STATUS CHANGE */
   var STATUS_OPTIONS = {
     bolle: ['da_elaborare', 'in_lavorazione', 'completata'],

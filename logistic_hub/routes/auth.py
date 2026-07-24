@@ -49,7 +49,7 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
-@auth.route("/notifiche/marca/<int:notifica_id>")
+@auth.route("/notifiche/marca/<int:notifica_id>", methods=["POST"])
 @login_required
 def mark_notification(notifica_id):
     notifica = Notification.query.get_or_404(notifica_id)
@@ -65,7 +65,7 @@ def mark_notification(notifica_id):
     return redirect(request.referrer or url_for("dashboard.index"))
 
 
-@auth.route("/notifiche/marca-tutte")
+@auth.route("/notifiche/marca-tutte", methods=["POST"])
 @login_required
 def mark_all_notifications():
     notifications = Notification.query.filter(
