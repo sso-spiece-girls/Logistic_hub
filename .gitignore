@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
+.env
+package.json
 # logistic_hub/
 LogisticLauncher/settings.json
 LogisticLauncher/logistic_launcher.log

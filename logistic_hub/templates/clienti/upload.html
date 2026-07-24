@@ -9,6 +9,7 @@
 <div class="card" style="max-width:640px">
     <div class="card-body">
         <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label">Seleziona file PDF</label>
                 <input type="file" name="pdf_files" id="pdf-files" accept=".pdf" multiple required style="display:none">

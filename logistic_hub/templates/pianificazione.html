@@ -39,6 +39,7 @@
                 <td class="actions-cell">
                     {% if p.stato != 'completato' %}
                     <form method="POST" action="/pianificazione/{{ p.id }}/completa" style="display:inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-success">Completa</button>
                     </form>
                     {% endif %}

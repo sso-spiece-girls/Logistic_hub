@@ -20,6 +20,7 @@
         </a>
         <a href="/uscite/ddt/{{ ddt.id }}/modifica" class="btn btn-secondary">Modifica</a>
         <form method="POST" action="/uscite/ddt/{{ ddt.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questo DDT?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger">Elimina</button>
         </form>
     </div>

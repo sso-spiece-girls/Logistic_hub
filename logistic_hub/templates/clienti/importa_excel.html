@@ -20,6 +20,7 @@
             </div>
             <div class="cliente-actions">
                 <form method="POST" action="{{ url_for('clienti.esegui_import_excel', id_cliente=p.id) }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:0.5rem;width:100%">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="file" name="excel_file" id="file-{{ p.id }}" accept=".xlsx" required style="display:none">
                     <label for="file-{{ p.id }}" class="btn btn-secondary cliente-btn" style="text-align:center;cursor:pointer">Scegli file</label>
                     <span id="name-{{ p.id }}" class="text-muted" style="font-size:.8rem"></span>

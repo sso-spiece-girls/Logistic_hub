@@ -55,6 +55,7 @@
                     <a href="/entrate/bolla/{{ b.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                     {% if b.id in ids_duplicati %}
                     <form method="POST" action="/entrate/bolla/{{ b.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare bolla duplicata?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
                     </form>
                     {% endif %}

@@ -16,6 +16,7 @@
     <div class="header-actions">
         <a href="/entrate/bolla/{{ bolla.id }}/modifica" class="btn btn-secondary">Modifica</a>
         <form method="POST" action="/entrate/bolla/{{ bolla.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa bolla?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger">Elimina</button>
         </form>
     </div>

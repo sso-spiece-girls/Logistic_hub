@@ -48,6 +48,7 @@
                 <td class="actions-cell">
                     <a href="/prenotazioni/admin/slot/{{ r.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                     <form method="POST" action="/prenotazioni/admin/slot/{{ r.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa regola? Le prenotazioni attive saranno bloccate.')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
                     </form>
                 </td>

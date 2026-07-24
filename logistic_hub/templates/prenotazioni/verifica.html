@@ -72,6 +72,7 @@
     {% if p.stato == 'confermata' %}
     <div class="verifica-azioni">
         <form method="POST" action="/prenotazioni/verifica/{{ p.token_qr }}/conferma-ingresso" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary" style="font-size:1.1rem;padding:12px 32px">
                 Conferma Ingresso
             </button>

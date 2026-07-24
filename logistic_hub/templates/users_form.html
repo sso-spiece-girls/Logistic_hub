@@ -70,6 +70,7 @@
                     </td>
                     <td class="actions-cell">
                         <form method="POST" action="/users/{{ user.id }}/tipologie/{{ t.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa tipologia?{% if t.attivo and tipologie|selectattr('id','equalto',t.id)|first %} Sarà disattivata se ci sono prenotazioni attive collegate.{% endif %}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">
                                 {{ 'Elimina' if t.attivo else 'Rimuovi' }}
                             </button>

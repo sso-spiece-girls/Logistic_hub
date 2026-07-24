@@ -38,6 +38,7 @@
                 <td class="actions-cell">
                     <a href="/prenotazioni/admin/magazzini/{{ m.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                     <form method="POST" action="/prenotazioni/admin/magazzini/{{ m.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa configurazione? Le prenotazioni attive su questo magazzino lo impediranno.')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
                     </form>
                 </td>
