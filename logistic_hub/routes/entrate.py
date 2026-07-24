@@ -375,8 +375,7 @@ def ocr_status(task_id):
 @entrate.route("/importa")
 @login_required
 def importa():
-    from flask_wtf.csrf import generate_csrf
-    return render_template("entrate_importa.html", csrf_token=generate_csrf())
+    return render_template("entrate_importa.html")
 
 
 @entrate.route("/conferma-importa", methods=["POST"])

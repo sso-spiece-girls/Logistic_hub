@@ -20,12 +20,11 @@ def allowed_file(filename):
 @documenti.route("/")
 @login_required
 def lista():
-    from flask_wtf.csrf import generate_csrf
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
     pagination = Documento.query.order_by(Documento.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     doc_list = pagination.items
-    return render_template("documenti.html", documenti=doc_list, pagination=pagination, csrf_token=generate_csrf())
+    return render_template("documenti.html", documenti=doc_list, pagination=pagination)
 
 
 @documenti.route("/carica", methods=["POST"])

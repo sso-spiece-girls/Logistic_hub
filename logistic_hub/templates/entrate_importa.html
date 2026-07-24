@@ -65,7 +65,7 @@
     </div>
 
     <form id="form-conferma-multi" method="POST" action="/entrate/conferma-importa-multi">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="bolle_json" id="hidden-bolle-json">
 
         <div class="table-responsive">
