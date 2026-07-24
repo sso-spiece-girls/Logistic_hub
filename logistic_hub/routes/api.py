@@ -33,7 +33,8 @@ def cambia_stato(entity, entity_id):
         return jsonify({"error": "Oggetto non trovato"}), 404
 
     obj.stato = nuovo_stato
-    obj.updated_at = db.func.now()
+    if hasattr(obj, 'updated_at'):
+        obj.updated_at = db.func.now()
     db.session.commit()
 
     return jsonify({

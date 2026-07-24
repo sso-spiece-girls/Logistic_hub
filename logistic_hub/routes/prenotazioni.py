@@ -405,7 +405,8 @@ def approva(id):
             occupati = Prenotazione.query.filter(
                 Prenotazione.magazzino == p.magazzino,
                 Prenotazione.data == p.data,
-                Prenotazione.ora_inizio == p.ora_inizio,
+                Prenotazione.ora_inizio < p.ora_fine,
+                Prenotazione.ora_fine > p.ora_inizio,
                 Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
             ).count()
             if occupati >= mag.capienza_contemporanea:
@@ -434,13 +435,16 @@ def approva(id):
             occupati = Prenotazione.query.filter(
                 Prenotazione.magazzino == form.magazzino.data,
                 Prenotazione.data == p.data,
-                Prenotazione.ora_inizio == p.ora_inizio,
+                Prenotazione.ora_inizio < p.ora_fine,
+                Prenotazione.ora_fine > p.ora_inizio,
                 Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
             ).count()
             if occupati >= mag.capienza_contemporanea:
                 flash(f"Magazzino {form.magazzino.data} già pieno in questa fascia oraria.", "error")
                 return redirect(url_for("prenotazioni.in_attesa"))
     p.stato = "confermata"
+    if form.magazzino.data:
+        p.magazzino = form.magazzino.data
     p.token_qr = _genera_token()
     p.approvato_da_id = current_user.id
     p.approvato_at = datetime.now(timezone.utc)

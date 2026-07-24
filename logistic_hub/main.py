@@ -148,6 +148,10 @@ def create_app():
     def ping():
         return "pong", 200, {"Content-Type": "text/plain"}
 
+    @app.route("/health")
+    def health():
+        return {"status": "ok"}, 200
+
     @app.after_request
     def add_cache_headers(response):
         if response.content_type and "text/" in response.content_type:

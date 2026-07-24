@@ -41,6 +41,9 @@
                 {% if slot.prenotazione.magazzino %}
                 <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.magazzino }}</span>
                 {% endif %}
+                {% if slot.prenotazione.targa %}
+                <span style="font-size:.75rem;color:var(--text-muted)">Targa: {{ slot.prenotazione.targa }}</span>
+                {% endif %}
                 {% if slot.prenotazione.tipologia_materiale %}
                 <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.tipologia_materiale.nome }}</span>
                 {% endif %}

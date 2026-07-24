@@ -215,11 +215,47 @@ def _pulisci_ocr_task(task_id):
 
 
 def _pulisci_vecchie_task():
+    import os as _os
+    ora = datetime.now(timezone.utc).timestamp()
     with _ocr_tasks_lock:
-        ora = datetime.now(timezone.utc).timestamp()
         da_rimuovere = [tid for tid, t in _ocr_tasks.items() if t.get("status") in ("completed", "error") and ora - t.get("ts", 0) > 3600]
         for tid in da_rimuovere:
+            # Delete associated temp PDF
+            temp_id = _ocr_tasks[tid].get("result", {}).get("_temp_id", "")
+            if temp_id and _TEMP_PDF_DIR:
+                p = _os.path.join(_TEMP_PDF_DIR, temp_id + ".pdf")
+                try:
+                    if _os.path.exists(p):
+                        _os.unlink(p)
+                except OSError:
+                    pass
             del _ocr_tasks[tid]
+
+
+def _pulisci_temp_pdf_abbandonati():
+    """Pulisce file PDF temporanei orfani (più di 2 ore) che non hanno più una task associata."""
+    import os as _os
+    if not _TEMP_PDF_DIR or not _os.path.exists(_TEMP_PDF_DIR):
+        return
+    with _ocr_tasks_lock:
+        temp_ids_in_uso = set()
+        for t in _ocr_tasks.values():
+            tid = t.get("result", {}).get("_temp_id", "")
+            if tid:
+                temp_ids_in_uso.add(tid)
+    ora = datetime.now(timezone.utc).timestamp()
+    for fname in _os.listdir(_TEMP_PDF_DIR):
+        if not fname.endswith(".pdf"):
+            continue
+        saved_id = fname[:-4]
+        if saved_id in temp_ids_in_uso:
+            continue
+        fpath = _os.path.join(_TEMP_PDF_DIR, fname)
+        try:
+            if ora - _os.path.getmtime(fpath) > 7200:  # older than 2 hours
+                _os.unlink(fpath)
+        except OSError:
+            pass
 
 
 def _get_temp_pdf_dir():
@@ -264,6 +300,10 @@ def upload_ocr():
     import uuid
     import os as _os
     from flask import current_app
+
+    # Cleanup temp PDFs abbandonati prima di caricare nuovi file
+    _pulisci_temp_pdf_abbandonati()
+
     _app = current_app._get_current_object()
     files = request.files.getlist("file_pdf") or [request.files.get("file_pdf")]
     files = [f for f in files if f and f.filename]

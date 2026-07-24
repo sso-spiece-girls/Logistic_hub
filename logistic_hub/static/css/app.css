@@ -713,6 +713,22 @@ select.form-input { appearance: auto; }
   .form-card { padding: 1.25rem; }
   .detail-list { grid-template-columns: 1fr 1fr; }
   .page-header { flex-direction: column; }
+  /* Mobile: min 44px touch targets */
+  .btn, .sidebar-item, .filter-chip, .action-card, .nav-icon-btn {
+    min-height: 44px;
+  }
+  .btn { padding: 0.6rem 1rem; }
+  .btn-sm { padding: 0.5rem 0.75rem; }
+  /* Mobile: fullscreen modals */
+  .modal-content {
+    width: 100%; max-width: 100%; max-height: 100vh; height: 100vh;
+    border-radius: 0; padding: 1rem;
+  }
+  .modal-header { padding-top: env(safe-area-inset-top); }
+  /* Mobile: table cells tighter */
+  table.table thead th, .data-table th { padding: 0.5rem 0.6rem; font-size: 0.72rem; }
+  table.table tbody td, .data-table td { padding: 0.45rem 0.6rem; font-size: 0.78rem; }
+  .actions-cell .btn { font-size: 0.7rem; padding: 0.35rem 0.5rem; }
 }
 
 @media (max-width: 480px) {
@@ -722,6 +738,10 @@ select.form-input { appearance: auto; }
   .kpi-icon { width: 36px; height: 36px; }
   .action-grid { grid-template-columns: repeat(2, 1fr); }
   .search-form .form-input { max-width: 100%; }
+  /* 480px: table horizontal scroll forced */
+  .table-container { margin: 0 -1rem; padding: 0 0.5rem; }
+  /* Sidebar toggle more prominent on small screens */
+  .sidebar-toggle { min-height: 44px; min-width: 44px; }
 }
 
 /* STATUS INLINE DROPDOWN */
