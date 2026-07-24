@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, request
 from flask_compress import Compress
 from werkzeug.middleware.proxy_fix import ProxyFix
-from extensions import db, login_manager, limiter
+from extensions import db, login_manager, limiter, csrf
 from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
@@ -97,6 +97,7 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     limiter.init_app(app)
+    csrf.init_app(app)
 
     # Seed: crea tabelle e SlotOrario default (8-13 e 14-17, Lun-Ven)
     with app.app_context():
