@@ -189,6 +189,7 @@ def _processa_un_pdf(percorso):
 _TEMP_PDF_DIR = None
 _ocr_tasks = {}
 _ocr_tasks_lock = threading.Lock()
+_ocr_semaforo = threading.Semaphore(2)  # max 2 OCR contemporanei
 _excel_locks = {}
 _excel_locks_lock = threading.Lock()
 
@@ -270,6 +271,8 @@ def _get_temp_pdf_dir():
 def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
     import os as _os
     from models import Bolla
+    # Limita OCR concorrenti (max 2)
+    _ocr_semaforo.acquire()
     dest = _os.path.join(_get_temp_pdf_dir(), saved_id + ".pdf")
     try:
         res = _processa_un_pdf(dest)
@@ -293,6 +296,8 @@ def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
     except Exception as e:
         with _ocr_tasks_lock:
             _ocr_tasks[task_id] = {"status": "error", "error": str(e), "filename": filename, "ts": datetime.now(timezone.utc).timestamp()}
+    finally:
+        _ocr_semaforo.release()
 
 
 @entrate.route("/upload-ocr", methods=["POST"])

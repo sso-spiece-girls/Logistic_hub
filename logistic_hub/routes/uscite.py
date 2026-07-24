@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
-from models import DDT, RigheDDT, Giacenza, db
+from models import DDT, RigheDDT, Giacenza, User, db
 from forms import DDTForm
 from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import staff_required
@@ -22,7 +22,9 @@ def lista():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
     stato = request.args.get("stato", "")
-    query = DDT.query.order_by(DDT.created_at.desc())
+    query = DDT.query.options(
+        db.joinedload(DDT.operatore).load_only(User.username),
+    ).order_by(DDT.created_at.desc())
     if stato:
         query = query.filter_by(stato=stato)
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
