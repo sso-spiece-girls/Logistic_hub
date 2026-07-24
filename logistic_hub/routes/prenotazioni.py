@@ -199,6 +199,16 @@ def prenota():
     if data_prenot < date.today():
         flash("Non puoi prenotare nel passato.", "error")
         return redirect(url_for("prenotazioni.calendario"))
+    if data_prenot == date.today() and form.ora_inizio.data:
+        try:
+            ore, minuti = form.ora_inizio.data.split(":")
+            ora_slot = time(int(ore), int(minuti))
+            if ora_slot <= ora_corrente:
+                flash("Non puoi prenotare per un orario già passato.", "error")
+                return redirect(url_for("prenotazioni.calendario"))
+        except (ValueError, TypeError):
+            flash("Orario non valido.", "error")
+            return redirect(url_for("prenotazioni.calendario"))
     regola = db.session.query(SlotOrario).filter(
         SlotOrario.id == form.slot_orario_id.data
     ).with_for_update().first()
