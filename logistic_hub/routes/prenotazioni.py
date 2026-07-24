@@ -186,15 +186,15 @@ def prenota():
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    # Blocco prenotazioni: dopo le 16:00 ora di Roma non si può prenotare per domani
+    # Blocco prenotazioni: dopo le 14:00 ora di Roma non si può prenotare per domani
     ora_corrente = datetime.now(zoneinfo.ZoneInfo("Europe/Rome")).time()
     domani = date.today() + timedelta(days=1)
     data_prenot = form.data_prenotazione.data
     if not data_prenot:
         flash("Data non valida.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    if data_prenot == domani and ora_corrente >= time(16, 0):
-        flash("Le prenotazioni per domani chiudono alle 16:00. Puoi prenotare per i giorni successivi.", "error")
+    if data_prenot == domani and ora_corrente >= time(14, 0):
+        flash("Le prenotazioni per domani chiudono alle 14:00. Puoi prenotare per i giorni successivi.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     if data_prenot < date.today():
         flash("Non puoi prenotare nel passato.", "error")
