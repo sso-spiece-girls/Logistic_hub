@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
+from extensions import limiter
 from models import Bolla, DDT, Giacenza, Picking, db
 
 api = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -12,6 +13,10 @@ PICKING_STATI = ["aperto", "in_corso", "completato"]
 @api.route("/<entity>/<int:entity_id>/stato", methods=["POST"])
 @login_required
 def cambia_stato(entity, entity_id):
+    # IDOR protection: solo admin/operatore/ufficio possono cambiare stato
+    if current_user.role not in ("admin", "operatore", "ufficio"):
+        return jsonify({"error": "Accesso negato"}), 403
+
     data = request.get_json(silent=True) or {}
     nuovo_stato = data.get("stato", "").strip()
 

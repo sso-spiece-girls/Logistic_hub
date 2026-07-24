@@ -54,6 +54,7 @@
             <button class="modal-close" onclick="document.getElementById('uploadModal').classList.remove('open')">&times;</button>
         </div>
         <form method="POST" action="/documenti/carica" enctype="multipart/form-data" class="form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-group">
                 <label for="file">File</label>
                 <input type="file" name="file" class="form-input" required accept=".pdf,.png,.jpg,.jpeg,.tiff,.xlsx,.xls,.doc,.docx">

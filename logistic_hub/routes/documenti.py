@@ -1,7 +1,8 @@
 import os
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, abort
 from flask_login import login_required, current_user
+from flask_wtf.csrf import validate_csrf, CSRFError
 from werkzeug.utils import secure_filename
 from models import Documento, db
 from routes.auth import log_activity
@@ -19,16 +20,23 @@ def allowed_file(filename):
 @documenti.route("/")
 @login_required
 def lista():
+    from flask_wtf.csrf import generate_csrf
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
     pagination = Documento.query.order_by(Documento.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     doc_list = pagination.items
-    return render_template("documenti.html", documenti=doc_list, pagination=pagination)
+    return render_template("documenti.html", documenti=doc_list, pagination=pagination, csrf_token=generate_csrf())
 
 
 @documenti.route("/carica", methods=["POST"])
 @login_required
 def carica():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     if "file" not in request.files:
         flash("Nessun file selezionato.", "error")
         return redirect(url_for("documenti.lista"))
@@ -43,6 +51,14 @@ def carica():
     entity_id = request.form.get("entity_id", type=int)
 
     if file and allowed_file(file.filename):
+        # MIME type validation for PDF
+        if file.filename.lower().endswith(".pdf"):
+            file.stream.seek(0)
+            header = file.read(5)
+            file.stream.seek(0)
+            if header != b"%PDF-":
+                flash("Il file non è un PDF valido.", "error")
+                return redirect(url_for("documenti.lista"))
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         filename = secure_filename(file.filename)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_")

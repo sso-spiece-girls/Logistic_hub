@@ -1,10 +1,11 @@
 import os
 import threading
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
-from extensions import db
+from flask_wtf.csrf import validate_csrf, CSRFError
+from extensions import db, limiter
 from models import Bolla, DettaglioBolla, Giacenza, Movimento
 from forms import BollaForm
 from routes.auth import log_activity, create_notification, notifica_operatori
@@ -296,6 +297,7 @@ def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
 
 @entrate.route("/upload-ocr", methods=["POST"])
 @login_required
+@limiter.limit("20 per minute")
 def upload_ocr():
     import uuid
     import os as _os
@@ -314,6 +316,13 @@ def upload_ocr():
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
             risultati.append({"filename": file.filename, "error": "Solo PDF"})
+            continue
+        # MIME type validation: check magic bytes %PDF
+        file.stream.seek(0)
+        header = file.read(5)
+        file.stream.seek(0)
+        if header != b"%PDF-":
+            risultati.append({"filename": file.filename, "error": "Il file non è un PDF valido"})
             continue
         saved_id = str(uuid.uuid4())
         task_id = str(uuid.uuid4())
@@ -368,6 +377,12 @@ def importa():
 @entrate.route("/conferma-importa", methods=["POST"])
 @login_required
 def conferma_importa():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     numero_bolla = request.form.get("numero_bolla", "").strip()
     fornitore = request.form.get("fornitore", "").strip()
     if not numero_bolla or not fornitore:
@@ -395,6 +410,12 @@ def conferma_importa():
 @entrate.route("/conferma-importa-multi", methods=["POST"])
 @login_required
 def conferma_importa_multi():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     import json, os as _os, hashlib, base64
     raw = request.form.get("bolle_json", "")
     if not raw:
