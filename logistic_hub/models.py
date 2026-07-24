@@ -363,6 +363,24 @@ class TipologiaMateriale(db.Model):
         return f"<TipologiaMateriale {self.nome} cliente={self.cliente_id}>"
 
 
+class ClienteMagazzino(db.Model):
+    __tablename__ = "cliente_magazzini"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    magazzino = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    cliente = db.relationship("User", foreign_keys=[cliente_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("cliente_id", "magazzino", name="uq_cliente_magazzino"),
+    )
+
+    def __repr__(self):
+        return f"<ClienteMagazzino cliente={self.cliente_id} magazzino={self.magazzino}>"
+
+
 class Prenotazione(db.Model):
     __tablename__ = "prenotazioni"
 

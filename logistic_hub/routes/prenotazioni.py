@@ -4,7 +4,7 @@ from datetime import datetime, timezone, date, timedelta, time
 import zoneinfo
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file, jsonify
 from flask_login import login_required, current_user
-from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale
+from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale, ClienteMagazzino
 from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm, PrenotazioneStaffForm
 from routes.auth import log_activity, create_notification
 from core.auth_decorators import operatore_required, admin_required
@@ -148,6 +148,18 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     return oi, slot_end.time()
 
 
+def _magazzini_per_cliente(cliente_id):
+    """Restituisce la lista di magazzini visibili a un cliente.
+
+    Se il cliente ha associazioni configurate, mostra solo quelle.
+    Altrimenti mostra tutti i magazzini (fallback)."""
+    associazioni = ClienteMagazzino.query.filter_by(cliente_id=cliente_id).all()
+    if associazioni:
+        return [cm.magazzino for cm in associazioni]
+    # Fallback: tutti i magazzini configurati
+    return [m.magazzino for m in MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()]
+
+
 # ─── API ─────────────────────────────────────────────────────────────
 
 @bp.route("/api/tipologie-per-cliente/<int:cliente_id>")
@@ -196,10 +208,11 @@ def calendario():
     tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
-    # Popola il dropdown magazzino con quelli configurati dall'admin
-    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
-    form.magazzino.choices = [(m.magazzino, m.magazzino) for m in magazzini]
-    if not magazzini:
+    # Popola il dropdown magazzino — filtra per associazioni se presenti
+    magazzini_cliente = _magazzini_per_cliente(current_user.id)
+    if magazzini_cliente:
+        form.magazzino.choices = [(m, m) for m in magazzini_cliente]
+    else:
         form.magazzino.choices = [("", "Nessun magazzino configurato")]
     return render_template(
         "prenotazioni/calendario.html",
@@ -219,8 +232,8 @@ def prenota():
         return redirect(url_for("dashboard.index"))
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()]
-    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
-    form.magazzino.choices = [(m.magazzino, m.magazzino) for m in magazzini]
+    magazzini_cliente = _magazzini_per_cliente(current_user.id)
+    form.magazzino.choices = [(m, m) for m in magazzini_cliente] if magazzini_cliente else [("", "Nessun magazzino configurato")]
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))

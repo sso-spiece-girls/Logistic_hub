@@ -1,12 +1,36 @@
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from models import User, db, TipologiaMateriale
+from models import User, db, TipologiaMateriale, ClienteMagazzino, MagazzinoCapienza, Prenotazione
 from forms import UserForm, TipologiaMaterialeForm
 from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import admin_required
 
 users = Blueprint("users", __name__, url_prefix="/users")
+
+
+def _salva_magazzini_associati(cliente_id):
+    """Aggiorna le associazioni cliente-magazzino da request.form."""
+    selezionati = request.form.getlist("magazzini_associati")
+    # Rimuovi associazioni non più selezionate (con controllo prenotazioni attive)
+    esistenti = ClienteMagazzino.query.filter_by(cliente_id=cliente_id).all()
+    for cm in esistenti:
+        if cm.magazzino not in selezionati:
+            attive = Prenotazione.query.filter(
+                Prenotazione.cliente_id == cliente_id,
+                Prenotazione.magazzino == cm.magazzino,
+                Prenotazione.stato.in_(["in_attesa", "confermata"]),
+            ).count()
+            if attive > 0:
+                flash(f"Impossibile rimuovere {cm.magazzino}: ci sono {attive} prenotazioni attive.", "warning")
+                continue
+            db.session.delete(cm)
+    # Aggiungi nuove associazioni
+    esistenti_nomi = {cm.magazzino for cm in esistenti}
+    for magazzino in selezionati:
+        if magazzino not in esistenti_nomi:
+            db.session.add(ClienteMagazzino(cliente_id=cliente_id, magazzino=magazzino))
+    db.session.commit()
 
 
 @users.route("/")
@@ -66,13 +90,22 @@ def modifica(id):
         user.email = form.email.data
         user.role = form.role.data
         db.session.commit()
+
+        # Salva associazioni magazzini per clienti
+        if user.role == "cliente":
+            _salva_magazzini_associati(user.id)
+
         log_activity(current_user.id, "modifica_utente",
             f"{current_user.username} ha modificato l'utente {user.username}",
             "user", user.id)
         flash("Utente aggiornato con successo.", "success")
         return redirect(url_for("users.lista"))
     tipologie = TipologiaMateriale.query.filter_by(cliente_id=user.id).order_by(TipologiaMateriale.nome).all() if user.role == "cliente" else []
-    return render_template("users_form.html", form=form, titolo="Modifica Utente", user=user, tipologie=tipologie, tipologia_form=TipologiaMaterialeForm())
+    magazzini_associati = [cm.magazzino for cm in ClienteMagazzino.query.filter_by(cliente_id=user.id).all()] if user.role == "cliente" else []
+    tutti_magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
+    return render_template("users_form.html", form=form, titolo="Modifica Utente", user=user,
+                           tipologie=tipologie, tipologia_form=TipologiaMaterialeForm(),
+                           magazzini_associati=magazzini_associati, tutti_magazzini=tutti_magazzini)
 
 
 @users.route("/<int:id>/toggle", methods=["POST"])

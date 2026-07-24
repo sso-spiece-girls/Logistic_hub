@@ -13,6 +13,7 @@ from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
     SlotOrario, Prenotazione, MagazzinoCapienza, TipologiaMateriale,
+    ClienteMagazzino,
 )
 from routes.auth import auth
 from routes.dashboard import dashboard

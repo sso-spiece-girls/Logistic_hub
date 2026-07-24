@@ -103,15 +103,47 @@
 {% endif %}
 
 {% if user and user.role == "cliente" %}
+<div class="card" style="margin-top:24px" id="magazzini-section">
+    <div class="card-header">
+        <h3>Magazzini associati</h3>
+        <span class="card-link">Seleziona i magazzini a cui il cliente può prenotare</span>
+    </div>
+    <div class="card-body">
+        {% if tutti_magazzini %}
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+            Se non selezioni nessun magazzino, il cliente vedrà tutti i magazzini disponibili (comportamento attuale).
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+            {% for m in tutti_magazzini %}
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+                <input type="checkbox" name="magazzini_associati" value="{{ m.magazzino }}"
+                       {% if m.magazzino in magazzini_associati %}checked{% endif %}>
+                <span style="font-size:.9rem">{{ m.magazzino }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>Nessun magazzino configurato. Crea prima i magazzini nella sezione Capienza.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if user and user.role == "cliente" %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var roleSelect = document.getElementById('role');
     if (roleSelect) {
         roleSelect.addEventListener('change', function() {
-            var section = document.getElementById('tipologie-section');
-            if (section) {
-                section.style.display = this.value === 'cliente' ? '' : 'none';
-            }
+            var sections = ['tipologie-section', 'magazzini-section'];
+            sections.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) {
+                    el.style.display = this.value === 'cliente' ? '' : 'none';
+                }
+            });
         });
     }
 });
