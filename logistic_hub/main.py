@@ -13,7 +13,7 @@ from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
     SlotOrario, Prenotazione, MagazzinoCapienza, TipologiaMateriale,
-    ClienteMagazzino,
+    ClienteMagazzino, Vettore, ClienteVettore,
 )
 from routes.auth import auth
 from routes.dashboard import dashboard
@@ -31,6 +31,7 @@ from routes.api import api
 from routes.clienti import clienti
 from routes.prenotazioni import bp as prenotazioni
 from routes.tipologie_materiale import tipologie
+from routes.vettori import vettori
 from config import Config
 
 
@@ -60,12 +61,20 @@ def _migrate_prenotazioni():
     for col, coltype in [("targa", "VARCHAR(20)"), ("ddt_cmr", "VARCHAR(200)"),
                          ("inserita_da_staff", "BOOLEAN DEFAULT FALSE"),
                          ("staff_user_id", "INTEGER REFERENCES users(id)"),
-                         ("motivo_rifiuto", "TEXT")]:
+                         ("motivo_rifiuto", "TEXT"),
+                         ("vettore_id", "INTEGER REFERENCES vettori(id)")]:
         try:
             db.session.execute(text(f"ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS {col} {coltype}"))
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+    # Migrazione per magazzini_capienza
+    try:
+        db.session.execute(text("ALTER TABLE magazzini_capienza ADD COLUMN IF NOT EXISTS durata_slot_minuti INTEGER"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _seed_slot_orari():
@@ -133,6 +142,7 @@ def create_app():
     app.register_blueprint(clienti)
     app.register_blueprint(prenotazioni)
     app.register_blueprint(tipologie)
+    app.register_blueprint(vettori)
 
     @login_manager.user_loader
     def load_user(user_id):

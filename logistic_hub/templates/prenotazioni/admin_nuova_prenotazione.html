@@ -88,6 +88,15 @@
             {{ form.ddt_cmr(class="form-input", placeholder="Numero documento", maxlength=200) }}
         </div>
 
+        <div class="form-group">
+            <label for="vettore_id">Vettore (opzionale)</label>
+            <select name="vettore_id" class="form-input">
+                {% for val, label in form.vettore_id.choices %}
+                <option value="{{ val }}" {% if form.vettore_id.data == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
         <div class="form-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
             <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
                 {{ form.ingresso_diretto() }}

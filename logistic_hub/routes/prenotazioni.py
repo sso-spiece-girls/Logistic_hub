@@ -4,7 +4,7 @@ from datetime import datetime, timezone, date, timedelta, time
 import zoneinfo
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file, jsonify
 from flask_login import login_required, current_user
-from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale, ClienteMagazzino
+from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale, ClienteMagazzino, Vettore, ClienteVettore
 from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm, PrenotazioneStaffForm
 from routes.auth import log_activity, create_notification
 from core.auth_decorators import operatore_required, admin_required
@@ -148,6 +148,21 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     return oi, slot_end.time()
 
 
+def _durata_effettiva(tipologia, magazzino_str):
+    """Restituisce la durata in minuti per una prenotazione.
+
+    Se la prenotazione ha una tipologia, usa la durata della tipologia.
+    Altrimenti usa il fallback del magazzino (se configurato), o None (il chiamante userà regola.durata_minuti).
+    """
+    if tipologia and tipologia.durata_minuti:
+        return tipologia.durata_minuti
+    if magazzino_str:
+        mag = MagazzinoCapienza.query.filter_by(magazzino=magazzino_str).first()
+        if mag and mag.durata_slot_minuti:
+            return mag.durata_slot_minuti
+    return None
+
+
 def _magazzini_per_cliente(cliente_id):
     """Restituisce la lista di magazzini visibili a un cliente.
 
@@ -214,6 +229,13 @@ def calendario():
         form.magazzino.choices = [(m, m) for m in magazzini_cliente]
     else:
         form.magazzino.choices = [("", "Nessun magazzino configurato")]
+    # Popola dropdown vettori (filtrati per associazioni cliente)
+    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=current_user.id).all()]
+    if vettori_ids_associati:
+        vettori_associati = Vettore.query.filter(Vettore.id.in_(vettori_ids_associati), Vettore.attivo == True).order_by(Vettore.nome).all()
+    else:
+        vettori_associati = Vettore.query.filter_by(attivo=True).order_by(Vettore.nome).all()
+    form.vettore_id.choices = [(0, "-- Nessuno --")] + [(v.id, v.nome) for v in vettori_associati]
     return render_template(
         "prenotazioni/calendario.html",
         slots_per_giorno=slots_per_giorno,
@@ -234,6 +256,12 @@ def prenota():
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()]
     magazzini_cliente = _magazzini_per_cliente(current_user.id)
     form.magazzino.choices = [(m, m) for m in magazzini_cliente] if magazzini_cliente else [("", "Nessun magazzino configurato")]
+    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=current_user.id).all()]
+    if vettori_ids_associati:
+        vettori_associati = Vettore.query.filter(Vettore.id.in_(vettori_ids_associati), Vettore.attivo == True).order_by(Vettore.nome).all()
+    else:
+        vettori_associati = Vettore.query.filter_by(attivo=True).order_by(Vettore.nome).all()
+    form.vettore_id.choices = [(0, "-- Nessuno --")] + [(v.id, v.nome) for v in vettori_associati]
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))
@@ -295,10 +323,37 @@ def prenota():
     if occupate >= capienza_mag:
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
+
+    # Vincolo sovrapposizione: stesso cliente + stesso magazzino + stessa tipologia + stessa data → vietato
+    sovrapposta = Prenotazione.query.filter(
+        Prenotazione.cliente_id == current_user.id,
+        Prenotazione.magazzino == form.magazzino.data,
+        Prenotazione.tipologia_materiale_id == tipologia.id,
+        Prenotazione.data == data_prenot,
+        Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+        Prenotazione.ora_inizio < ora_fine,
+        Prenotazione.ora_fine > ora_inizio,
+    ).first()
+    if sovrapposta:
+        flash(f"Hai già una prenotazione per '{tipologia.nome}' su {form.magazzino.data} in questa fascia oraria nella stessa data.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+
     tipo = form.tipo.data
     if tipo not in ("carico", "scarico"):
         flash("Tipo operazione non valido.", "error")
         return redirect(url_for("prenotazioni.calendario"))
+# Vincolo targa: stessa targa + stessa data → vietato su qualsiasi magazzino
+    targa_val = (form.targa.data or "").upper()
+    if tipo != "trasferimento":
+        targa_esistente = Prenotazione.query.filter(
+            Prenotazione.targa == targa_val,
+            Prenotazione.data == data_prenot,
+            Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+        ).first()
+        if targa_esistente:
+            flash(f"Targa {targa_val} già presente in un'altra prenotazione per la stessa data ({data_prenot}).", "error")
+            return redirect(url_for("prenotazioni.calendario"))
+
     p = Prenotazione(
         cliente_id=current_user.id,
         slot_orario_id=regola.id,
@@ -308,8 +363,9 @@ def prenota():
         tipo=tipo,
         tipologia_materiale_id=tipologia.id,
         magazzino=form.magazzino.data,
-        targa=form.targa.data,
+        targa=targa_val,
         ddt_cmr=form.ddt_cmr.data,
+        vettore_id=form.vettore_id.data or None,
         stato="in_attesa",
     )
     db.session.add(p)
@@ -418,6 +474,76 @@ def admin_calendario():
     return render_template("prenotazioni/admin_calendario.html", slots_per_giorno=slots_per_giorno)
 
 
+@bp.route("/admin/seed-tipologie-celtex")
+@login_required
+@admin_required
+def admin_seed_tipologie_celtex():
+    """One-shot: crea le 4 tipologie per il cliente Celtex."""
+    from models import User as UserModel
+
+    # Trova o crea l'utente Celtex
+    celtex = UserModel.query.filter(
+        UserModel.role == "cliente",
+        UserModel.username.ilike("celtex"),
+    ).first()
+
+    if not celtex:
+        import secrets
+        celtex = UserModel(
+            username="Celtex",
+            email="celtex@logistichub.local",
+            role="cliente",
+        )
+        pwd = secrets.token_urlsafe(8)
+        celtex.set_password(pwd)
+        db.session.add(celtex)
+        db.session.flush()
+        _celtex_password = pwd
+    else:
+        _celtex_password = None
+
+    tipologie_da_creare = [
+        ("Bobine", 30),
+        ("Prodotto Finito (Celtex)", 60),
+        ("Prodotto Finito (ZVG)", 90),
+        ("Rientri", 45),
+    ]
+
+    creati = 0
+    gia_esistenti = 0
+    for nome, durata in tipologie_da_creare:
+        esistente = TipologiaMateriale.query.filter_by(
+            cliente_id=celtex.id, nome=nome
+        ).first()
+        if not esistente:
+            db.session.add(TipologiaMateriale(
+                cliente_id=celtex.id,
+                nome=nome,
+                durata_minuti=durata,
+                attivo=True,
+            ))
+            creati += 1
+        else:
+            gia_esistenti += 1
+
+    db.session.commit()
+
+    report = []
+    if creati:
+        report.append(f"Tipologie create: {creati}")
+    if gia_esistenti:
+        report.append(f"Tipologie già esistenti: {gia_esistenti}")
+    if _celtex_password:
+        report.append(f"Utente Celtex creato con password: {_celtex_password}")
+
+    if not report:
+        flash("Nessuna operazione necessaria.", "info")
+    else:
+        flash(" | ".join(report), "success" if creati else "info")
+
+    return redirect(url_for("prenotazioni.admin_calendario"))
+
+
 @bp.route("/admin/nuova", methods=["GET", "POST"])
 @login_required
 @operatore_required
@@ -449,6 +575,9 @@ def admin_nuova_prenotazione():
         ]
     else:
         form.tipologia_materiale_id.choices = []
+
+    vettori_tutti = Vettore.query.filter_by(attivo=True).order_by(Vettore.nome).all()
+    form.vettore_id.choices = [(0, "-- Nessuno --")] + [(v.id, v.nome) for v in vettori_tutti]
 
     if form.validate_on_submit():
         cliente = db.session.get(User, form.cliente_id.data)
@@ -519,6 +648,33 @@ def admin_nuova_prenotazione():
             flash("Slot non disponibile: capienza esaurita.", "error")
             return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
 
+        # Vincolo targa: stessa targa + stessa data su qualsiasi magazzino
+        targa_val = (form.targa.data or "").upper()
+        if form.tipo.data != "trasferimento" and targa_val:
+            targa_esistente = Prenotazione.query.filter(
+                Prenotazione.targa == targa_val,
+                Prenotazione.data == data_prenot,
+                Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+            ).first()
+            if targa_esistente:
+                flash(f"Targa {targa_val} già presente in un'altra prenotazione per la stessa data ({data_prenot}).", "error")
+                return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        # Vincolo sovrapposizione: stesso cliente/stesso magazzino/stessa tipologia/stessa data
+        if tipologia and magazzino_scelto:
+            sovrapposta = Prenotazione.query.filter(
+                Prenotazione.cliente_id == cliente.id,
+                Prenotazione.magazzino == magazzino_scelto,
+                Prenotazione.tipologia_materiale_id == tipologia.id,
+                Prenotazione.data == data_prenot,
+                Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+                Prenotazione.ora_inizio < ora_fine,
+                Prenotazione.ora_fine > ora_inizio,
+            ).first()
+            if sovrapposta:
+                flash(f"Esiste già una prenotazione per '{tipologia.nome}' su {magazzino_scelto} in questa fascia oraria per {cliente.username}.", "error")
+                return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
         # Crea la prenotazione
         stato_finale = "ingresso_registrato" if form.ingresso_diretto.data else "in_attesa"
 
@@ -531,8 +687,9 @@ def admin_nuova_prenotazione():
             tipo=form.tipo.data,
             tipologia_materiale_id=tipologia.id,
             magazzino=magazzino_scelto,
-            targa=form.targa.data,
+            targa=targa_val,
             ddt_cmr=form.ddt_cmr.data,
+            vettore_id=form.vettore_id.data or None,
             stato=stato_finale,
             inserita_da_staff=True,
             staff_user_id=current_user.id,
@@ -638,6 +795,45 @@ def approva(id):
         db.session.commit()
         flash("Prenotazione rifiutata: capienza esaurita nel frattempo.", "warning")
         return redirect(url_for("prenotazioni.in_attesa"))
+
+    # Vincolo targa: stessa targa + stessa data su qualsiasi magazzino
+    if p.tipo != "trasferimento" and p.targa:
+        targa_esistente = Prenotazione.query.filter(
+            Prenotazione.targa == p.targa,
+            Prenotazione.data == p.data,
+            Prenotazione.id != p.id,
+            Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+        ).first()
+        if targa_esistente:
+            p.stato = "rifiutata"
+            p.note_operatore = f"Targa {p.targa} già presente in un'altra prenotazione per la stessa data ({p.data})."
+            p.approvato_da_id = current_user.id
+            p.approvato_at = datetime.now(timezone.utc)
+            db.session.commit()
+            flash(f"Prenotazione rifiutata: targa {p.targa} già presente in un'altra prenotazione per la stessa data.", "warning")
+            return redirect(url_for("prenotazioni.in_attesa"))
+
+    # Vincolo sovrapposizione: stesso cliente/stesso magazzino/stessa tipologia/stessa data
+    if p.tipologia_materiale_id and p.magazzino:
+        sovrapposta = Prenotazione.query.filter(
+            Prenotazione.cliente_id == p.cliente_id,
+            Prenotazione.magazzino == p.magazzino,
+            Prenotazione.tipologia_materiale_id == p.tipologia_materiale_id,
+            Prenotazione.data == p.data,
+            Prenotazione.id != p.id,
+            Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
+            Prenotazione.ora_inizio < p.ora_fine,
+            Prenotazione.ora_fine > p.ora_inizio,
+        ).first()
+        if sovrapposta:
+            p.stato = "rifiutata"
+            p.note_operatore = f"Sovrapposizione con prenotazione {sovrapposta.id}: stesso cliente/stesso magazzino/stessa tipologia/stessa data."
+            p.approvato_da_id = current_user.id
+            p.approvato_at = datetime.now(timezone.utc)
+            db.session.commit()
+            flash("Prenotazione rifiutata: esiste già una prenotazione dello stesso tipo in questo magazzino nella stessa fascia oraria.", "warning")
+            return redirect(url_for("prenotazioni.in_attesa"))
+
     if form.magazzino.data:
         mag = db.session.query(MagazzinoCapienza).filter(
             MagazzinoCapienza.magazzino == form.magazzino.data
@@ -686,6 +882,7 @@ def rifiuta(id):
     if form.validate_on_submit():
         p.stato = "rifiutata"
         p.note_operatore = form.motivo.data or None
+        p.motivo_rifiuto = form.motivo.data or None
         p.approvato_da_id = current_user.id
         p.approvato_at = datetime.now(timezone.utc)
         db.session.commit()
@@ -832,6 +1029,7 @@ def admin_magazzini_nuovo():
         mag = MagazzinoCapienza(
             magazzino=form.magazzino.data,
             capienza_contemporanea=form.capienza_contemporanea.data,
+            durata_slot_minuti=form.durata_slot_minuti.data or None,
             creato_da_id=current_user.id,
         )
         db.session.add(mag)
@@ -862,6 +1060,7 @@ def admin_magazzini_modifica(id):
             return render_template("prenotazioni/admin_magazzini_form.html", form=form, titolo="Modifica capienza magazzino")
         mag.magazzino = form.magazzino.data
         mag.capienza_contemporanea = form.capienza_contemporanea.data
+        mag.durata_slot_minuti = form.durata_slot_minuti.data or None
         db.session.commit()
         log_activity(
             current_user.id, "modifica_capienza_magazzino",

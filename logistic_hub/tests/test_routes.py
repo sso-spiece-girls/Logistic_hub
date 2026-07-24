@@ -109,6 +109,7 @@ def test_admin_nuova_prenotazione_post_ok(auth_client, db):
         "magazzino": "TestMag",
         "targa": "AB123CD",
         "ddt_cmr": "DDT123",
+        "vettore_id": "0",
         "ingresso_diretto": "y",
         "inserimento_retroattivo": "",
     })

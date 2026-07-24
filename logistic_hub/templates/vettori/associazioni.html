@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Associazioni Vettori - Clienti{% endblock %}
+{% block breadcrumb_title %}Associazioni Vettori - Clienti{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Associazioni Vettori - Clienti</h1>
+        <p class="page-subtitle">Quali vettori possono essere usati da ciascun cliente</p>
+    </div>
+    <div class="header-actions">
+        <a href="/vettori" class="btn btn-ghost">← Torna ai vettori</a>
+    </div>
+</div>
+
+<div class="form-card" style="max-width:600px">
+    <form method="POST" action="/vettori/salva-associazioni">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label>Cliente</label>
+            <select name="cliente_id" class="form-input" required onchange="this.form.submit()">
+                <option value="">Seleziona cliente...</option>
+                {% for c in clienti %}
+                <option value="{{ c.id }}" {% if request.args.get('cliente_id')|int == c.id %}selected{% endif %}>
+                    {{ c.username }} ({{ c.email }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if clienti_selezionato %}
+    <form method="POST" action="/vettori/salva-associazioni">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="cliente_id" value="{{ clienti_selezionato.id }}">
+        <div class="form-group" style="margin-top:20px">
+            <label>Vettori disponibili</label>
+            <div class="checkbox-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+                {% for v in vettori %}
+                <label class="checkbox-label" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 8px;border-radius:6px;background:var(--bg-subtle, #f8f9fa)">
+                    <input type="checkbox" name="vettori_ids" value="{{ v.id }}"
+                           {% if v.id in associazioni_map.get(clienti_selezionato.id, []) %}checked{% endif %}>
+                    <span>{{ v.nome }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top:20px">
+            <button type="submit" class="btn btn-primary">Salva associazioni</button>
+        </div>
+    </form>
+    {% else %}
+    <div class="empty-state" style="margin-top:20px">
+        <p>Seleziona un cliente per gestire le associazioni.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

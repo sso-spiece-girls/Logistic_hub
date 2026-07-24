@@ -22,6 +22,12 @@
             {% for error in form.capienza_contemporanea.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
             <small class="form-hint">Numero massimo di prenotazioni contemporanee per questo magazzino nella stessa fascia oraria.</small>
         </div>
+        <div class="form-group">
+            {{ form.durata_slot_minuti.label(class="form-label") }}
+            {{ form.durata_slot_minuti(class="form-input", type="number", min=0, placeholder="es. 60") }}
+            {% for error in form.durata_slot_minuti.errors %}<span class="form-error">{{ error }}</span>{% endfor %}
+            <small class="form-hint">Durata slot di fallback (minuti) per prenotazioni senza tipologia. Se lasciato vuoto, usa la durata della regola slot.</small>
+        </div>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Salva</button>
             <a href="/prenotazioni/admin/magazzini" class="btn btn-ghost">Annulla</a>

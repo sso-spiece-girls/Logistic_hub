@@ -35,6 +35,7 @@
             <tr>
                 <td><strong>{{ m.magazzino }}</strong></td>
                 <td>{{ m.capienza_contemporanea }}</td>
+                <td>{{ m.durata_slot_minuti or '—' }}</td>
                 <td class="actions-cell">
                     <a href="/prenotazioni/admin/magazzini/{{ m.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                     <form method="POST" action="/prenotazioni/admin/magazzini/{{ m.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa configurazione? Le prenotazioni attive su questo magazzino lo impediranno.')">

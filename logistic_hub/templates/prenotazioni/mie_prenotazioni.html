@@ -42,6 +42,9 @@
                 <td>{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</td>
                 <td>
                     <span class="status-badge status-{{ p.stato }}">{{ p.stato_label if p.stato_label else p.stato }}</span>
+                    {% if p.stato == 'rifiutata' and p.motivo_rifiuto %}
+                    <br><small class="text-muted" style="font-size:.75rem">Motivo: {{ p.motivo_rifiuto }}</small>
+                    {% endif %}
                 </td>
                 <td>{{ p.magazzino or '-' }}</td>
                 <td>

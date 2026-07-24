@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Vettori{% endblock %}
+{% block breadcrumb_title %}Vettori{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Vettori / Trasportatori</h1>
+        <p class="page-subtitle">Gestione anagrafica vettori</p>
+    </div>
+    <div class="header-actions">
+        <a href="/vettori/nuovo" class="btn btn-primary">Nuovo vettore</a>
+        <a href="/vettori/associazioni" class="btn btn-ghost">Associazioni clienti</a>
+    </div>
+</div>
+
+{% if not vettori %}
+<div class="empty-state">
+    <p>Nessun vettore configurato.</p>
+</div>
+{% else %}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Partita IVA</th>
+                <th>Telefono</th>
+                <th>Email</th>
+                <th>Stato</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in vettori %}
+            <tr>
+                <td><strong>{{ v.nome }}</strong></td>
+                <td>{{ v.partita_iva or '-' }}</td>
+                <td>{{ v.telefono or '-' }}</td>
+                <td>{{ v.email or '-' }}</td>
+                <td>
+                    <span class="status-badge status-{{ 'completata' if v.attivo else 'bozza' }}">
+                        {{ 'Attivo' if v.attivo else 'Disattivo' }}
+                    </span>
+                </td>
+                <td class="actions-cell">
+                    <a href="/vettori/{{ v.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
+                    <form method="POST" action="/vettori/{{ v.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare {{ v.nome }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}
