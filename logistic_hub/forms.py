@@ -157,3 +157,20 @@ class MagazzinoCapienzaForm(FlaskForm):
 class TipologiaMaterialeForm(FlaskForm):
     nome = StringField("Nome tipologia", validators=[DataRequired(), Length(max=100)])
     durata_minuti = IntegerField("Durata (minuti)", validators=[DataRequired()], default=60)
+
+
+class PrenotazioneStaffForm(FlaskForm):
+    cliente_id = SelectField("Cliente", coerce=int, validators=[DataRequired()])
+    data_prenotazione = DateField("Data", validators=[DataRequired()])
+    slot_orario_id = SelectField("Fascia oraria", coerce=int, validators=[DataRequired()])
+    ora_inizio = StringField("Ora inizio", validators=[DataRequired()])
+    tipo = SelectField("Tipo operazione", choices=[
+        ("scarico", "Scarico"),
+        ("carico", "Carico"),
+    ], validators=[DataRequired()])
+    tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
+    magazzino = SelectField("Magazzino", validators=[DataRequired()])
+    targa = StringField("Targa", validators=[DataRequired()])
+    ddt_cmr = StringField("DDT / CMR", validators=[DataRequired()])
+    ingresso_diretto = BooleanField("Ingresso già avvenuto, registra direttamente", default=False)
+    inserimento_retroattivo = BooleanField("Inserimento retroattivo (consenti date passate)", default=False)

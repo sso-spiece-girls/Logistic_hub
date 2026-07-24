@@ -2,10 +2,10 @@ import io
 import secrets
 from datetime import datetime, timezone, date, timedelta, time
 import zoneinfo
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file, jsonify
 from flask_login import login_required, current_user
 from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale
-from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm
+from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm, PrenotazioneStaffForm
 from routes.auth import log_activity, create_notification
 from core.auth_decorators import operatore_required, admin_required
 import qrcode
@@ -146,6 +146,17 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     if slot_end > fine_regola:
         return None
     return oi, slot_end.time()
+
+
+# ─── API ─────────────────────────────────────────────────────────────
+
+@bp.route("/api/tipologie-per-cliente/<int:cliente_id>")
+@login_required
+@operatore_required
+def api_tipologie_per_cliente(cliente_id):
+    """Restituisce JSON con le tipologie attive per un cliente."""
+    tipologie = TipologiaMateriale.query.filter_by(cliente_id=cliente_id, attivo=True).all()
+    return jsonify([{"id": t.id, "nome": t.nome, "durata_minuti": t.durata_minuti} for t in tipologie])
 
 
 # ─── CLIENTE ────────────────────────────────────────────────────────
@@ -392,6 +403,163 @@ def admin_calendario():
                 "slots": chiavi,
             }
     return render_template("prenotazioni/admin_calendario.html", slots_per_giorno=slots_per_giorno)
+
+
+@bp.route("/admin/nuova", methods=["GET", "POST"])
+@login_required
+@operatore_required
+def admin_nuova_prenotazione():
+    """Inserimento manuale di una prenotazione da parte di admin/operatore.
+    Bypassa le regole di fascia oraria cliente ma NON i controlli di capienza/race condition."""
+    form = PrenotazioneStaffForm()
+
+    # Popola scelte dinamiche
+    clienti = User.query.filter_by(role="cliente", is_active=True).order_by(User.username).all()
+    form.cliente_id.choices = [(c.id, c.username) for c in clienti]
+
+    regole_attive = SlotOrario.query.filter_by(attivo=True).order_by(SlotOrario.giorno_settimana, SlotOrario.ora_inizio).all()
+    form.slot_orario_id.choices = [(r.id, f"{GIORNI_IT[r.giorno_settimana]} {r.ora_inizio.strftime('%H:%M')}-{r.ora_fine.strftime('%H:%M')}") for r in regole_attive]
+
+    # Popola magazzini (TUTTI, nessun filtro cliente)
+    magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
+    form.magazzino.choices = [(m.magazzino, m.magazzino) for m in magazzini]
+    if not magazzini:
+        form.magazzino.choices = [("", "Nessun magazzino configurato")]
+
+    # Popola tipologia choices PRIMA di validate_on_submit (su POST il cliente_id è già bindato)
+    if form.cliente_id.data:
+        tipologie_cliente = TipologiaMateriale.query.filter_by(
+            cliente_id=form.cliente_id.data, attivo=True
+        ).all()
+        form.tipologia_materiale_id.choices = [
+            (t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_cliente
+        ]
+    else:
+        form.tipologia_materiale_id.choices = []
+
+    if form.validate_on_submit():
+        cliente = db.session.get(User, form.cliente_id.data)
+        if not cliente or cliente.role != "cliente":
+            flash("Cliente non valido.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        data_prenot = form.data_prenotazione.data
+        if not data_prenot:
+            flash("Data non valida.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        # Controllo date passate: permesse solo con flag retroattivo
+        oggi = date.today()
+        if data_prenot < oggi and not form.inserimento_retroattivo.data:
+            flash("Non puoi inserire prenotazioni nel passato senza spuntare 'Inserimento retroattivo'.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        # Lock della regola per race condition
+        regola = db.session.query(SlotOrario).filter(
+            SlotOrario.id == form.slot_orario_id.data
+        ).with_for_update().first()
+        if not regola or not regola.attivo:
+            flash("Regola non trovata o non attiva.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        if data_prenot.weekday() != regola.giorno_settimana:
+            flash("Giorno non valido per questa regola.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        # Calcola durata effettiva
+        tipologia = db.session.get(TipologiaMateriale, form.tipologia_materiale_id.data) if form.tipologia_materiale_id.data else None
+        if not tipologia or not tipologia.attivo:
+            flash("Tipologia materiale non valida.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+        if tipologia.cliente_id != cliente.id:
+            flash("Tipologia non appartenente al cliente selezionato.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        durata = tipologia.durata_minuti
+
+        # Allinea orario
+        orari = _allinea_orario(regola, form.ora_inizio.data, durata)
+        if orari is None:
+            flash("Orario non valido o non allineato agli slot disponibili.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+        ora_inizio, ora_fine = orari
+
+        # Controllo capienza per il magazzino scelto
+        magazzino_scelto = form.magazzino.data
+        capienza_mag = 999
+        if magazzino_scelto:
+            mag = db.session.query(MagazzinoCapienza).filter(
+                MagazzinoCapienza.magazzino == magazzino_scelto
+            ).with_for_update().first()
+            capienza_mag = mag.capienza_contemporanea if mag else 999
+
+        # Controllo sovrapposizione oraria (stessa logica usata in approva)
+        occupate = Prenotazione.query.filter(
+            Prenotazione.slot_orario_id == regola.id,
+            Prenotazione.data == data_prenot,
+            Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+            Prenotazione.ora_inizio < ora_fine,
+            Prenotazione.ora_fine > ora_inizio,
+        ).count()
+
+        if occupate >= capienza_mag:
+            flash("Slot non disponibile: capienza esaurita.", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        # Crea la prenotazione
+        stato_finale = "ingresso_registrato" if form.ingresso_diretto.data else "in_attesa"
+
+        p = Prenotazione(
+            cliente_id=cliente.id,
+            slot_orario_id=regola.id,
+            data=data_prenot,
+            ora_inizio=ora_inizio,
+            ora_fine=ora_fine,
+            tipo=form.tipo.data,
+            tipologia_materiale_id=tipologia.id,
+            magazzino=magazzino_scelto,
+            targa=form.targa.data,
+            ddt_cmr=form.ddt_cmr.data,
+            stato=stato_finale,
+            inserita_da_staff=True,
+            staff_user_id=current_user.id,
+        )
+
+        if stato_finale == "ingresso_registrato":
+            p.token_qr = _genera_token()
+            p.ingresso_verificato_da_id = current_user.id
+            p.ingresso_verificato_at = datetime.now(timezone.utc)
+
+        db.session.add(p)
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Errore durante la creazione della prenotazione: {str(e)}", "error")
+            return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
+        log_activity(
+            current_user.id, "prenota_staff",
+            f"{current_user.username} ha creato una prenotazione staff per {cliente.username} {form.tipo.data} {data_prenot} {ora_inizio}-{ora_fine}",
+            "prenotazione", p.id,
+        )
+
+        # Notifica al cliente
+        create_notification(
+            cliente.id,
+            "Prenotazione creata dallo staff",
+            f"{'Ingresso registrato' if stato_finale == 'ingresso_registrato' else 'Richiesta di prenotazione'} per {form.tipo.data} del {data_prenot} alle {ora_inizio.strftime('%H:%M')}. Magazzino: {magazzino_scelto}.",
+        )
+
+        _notifica_operatori(
+            "Nuova prenotazione staff",
+            f"{current_user.username} ha creato una prenotazione per {cliente.username} ({form.tipo.data} {data_prenot} {ora_inizio.strftime('%H:%M')})",
+        )
+
+        flash(f"Prenotazione creata con successo per {cliente.username}.", "success")
+        return redirect(url_for("prenotazioni.admin_calendario"))
+
+    return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
 
 
 @bp.route("/admin/in-attesa")

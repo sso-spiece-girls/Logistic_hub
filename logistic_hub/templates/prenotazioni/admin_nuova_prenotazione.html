@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Nuova Prenotazione (Staff){% endblock %}
+{% block breadcrumb_title %}Nuova Prenotazione{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Nuova Prenotazione</h1>
+        <p class="page-subtitle">Inserimento manuale per admin/operatori</p>
+    </div>
+    <div class="header-actions">
+        <a href="/prenotazioni/admin/calendario" class="btn btn-ghost">Calendario</a>
+    </div>
+</div>
+
+<div class="form-card" style="max-width:600px">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+
+        <div class="form-group">
+            <label for="cliente_id">Cliente</label>
+            <select name="cliente_id" id="cliente_id" class="form-input" required>
+                <option value="">-- Seleziona --</option>
+                {% for val, label in form.cliente_id.choices %}
+                <option value="{{ val }}" {% if form.cliente_id.data == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if form.cliente_id.errors %}<div class="form-error">{% for e in form.cliente_id.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="data_prenotazione">Data</label>
+            {{ form.data_prenotazione(class="form-input") }}
+            {% if form.data_prenotazione.errors %}<div class="form-error">{% for e in form.data_prenotazione.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="slot_orario_id">Fascia oraria</label>
+            <select name="slot_orario_id" id="slot_orario_id" class="form-input" required>
+                <option value="">-- Seleziona --</option>
+                {% for val, label in form.slot_orario_id.choices %}
+                <option value="{{ val }}" {% if form.slot_orario_id.data == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if form.slot_orario_id.errors %}<div class="form-error">{% for e in form.slot_orario_id.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="ora_inizio">Ora inizio (HH:MM)</label>
+            {{ form.ora_inizio(class="form-input", placeholder="es. 08:00") }}
+            {% if form.ora_inizio.errors %}<div class="form-error">{% for e in form.ora_inizio.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            <small class="form-hint">Deve essere allineata agli slot disponibili (es. 08:00, 09:00, 10:00...)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="tipo">Tipo operazione</label>
+            <select name="tipo" class="form-input" required>
+                <option value="scarico" {% if form.tipo.data == 'scarico' %}selected{% endif %}>Scarico</option>
+                <option value="carico" {% if form.tipo.data == 'carico' %}selected{% endif %}>Carico</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="tipologia_materiale_id">Tipologia materiale</label>
+            <select name="tipologia_materiale_id" id="tipologia_materiale_id" class="form-input" required>
+                <option value="">-- Seleziona prima il cliente --</option>
+            </select>
+            {% if form.tipologia_materiale_id.errors %}<div class="form-error">{% for e in form.tipologia_materiale_id.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            <small class="form-hint">Seleziona prima il cliente per caricare le tipologie disponibili</small>
+        </div>
+
+        <div class="form-group">
+            <label for="magazzino">Magazzino</label>
+            <select name="magazzino" class="form-input" required>
+                <option value="">-- Seleziona --</option>
+                {% for val, label in form.magazzino.choices %}
+                <option value="{{ val }}" {% if form.magazzino.data == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="targa">Targa</label>
+            {{ form.targa(class="form-input", placeholder="AB123CD", maxlength=20, style="text-transform:uppercase") }}
+        </div>
+
+        <div class="form-group">
+            <label for="ddt_cmr">DDT / CMR</label>
+            {{ form.ddt_cmr(class="form-input", placeholder="Numero documento", maxlength=200) }}
+        </div>
+
+        <div class="form-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+            <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                {{ form.ingresso_diretto() }}
+                <span>{{ form.ingresso_diretto.label.text }}</span>
+            </label>
+            <small class="form-hint">Se spuntato, la prenotazione viene creata direttamente con stato "Ingresso registrato" saltando il flusso QR/verifica.</small>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                {{ form.inserimento_retroattivo() }}
+                <span>{{ form.inserimento_retroattivo.label.text }}</span>
+            </label>
+            <small class="form-hint">Spunta per permettere date passate (es. per registrare ingressi avvenuti in precedenza).</small>
+        </div>
+
+        <div class="form-actions" style="margin-top:24px">
+            <a href="/prenotazioni/admin/calendario" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Crea Prenotazione</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var clienteSelect = document.getElementById('cliente_id');
+    var tipologiaSelect = document.getElementById('tipologia_materiale_id');
+
+    function caricaTipologie(clienteId) {
+        if (!clienteId) {
+            tipologiaSelect.innerHTML = '<option value="">-- Seleziona prima il cliente --</option>';
+            return;
+        }
+        fetch('/prenotazioni/api/tipologie-per-cliente/' + clienteId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                tipologiaSelect.innerHTML = '<option value="">-- Seleziona --</option>';
+                data.forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nome + ' (' + t.durata_minuti + ' min)';
+                    tipologiaSelect.appendChild(opt);
+                });
+            })
+            .catch(function() {
+                tipologiaSelect.innerHTML = '<option value="">-- Errore caricamento --</option>';
+            });
+    }
+
+    // Se c'è già un cliente selezionato (es. dopo errore di validazione), carica le tipologie
+    if (clienteSelect.value) {
+        caricaTipologie(clienteSelect.value);
+    }
+
+    clienteSelect.addEventListener('change', function() {
+        caricaTipologie(this.value);
+    });
+});
+</script>
+{% endblock %}

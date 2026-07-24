@@ -384,6 +384,9 @@ class Prenotazione(db.Model):
     approvato_at = db.Column(db.DateTime, nullable=True)
     ingresso_verificato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     ingresso_verificato_at = db.Column(db.DateTime, nullable=True)
+    inserita_da_staff = db.Column(db.Boolean, default=False, nullable=False)
+    staff_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    motivo_rifiuto = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     cliente = db.relationship("User", foreign_keys=[cliente_id], backref="prenotazioni")
@@ -391,6 +394,7 @@ class Prenotazione(db.Model):
     tipologia_materiale = db.relationship("TipologiaMateriale", foreign_keys=[tipologia_materiale_id])
     approvato_da = db.relationship("User", foreign_keys=[approvato_da_id])
     ingresso_verificato_da = db.relationship("User", foreign_keys=[ingresso_verificato_da_id])
+    staff_user = db.relationship("User", foreign_keys=[staff_user_id])
 
     STATI_ATTIVI = ("in_attesa", "confermata")
 

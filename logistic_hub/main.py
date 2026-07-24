@@ -56,7 +56,10 @@ def _get_cached_notifiche(user_id):
 def _migrate_prenotazioni():
     """Aggiunge colonne mancanti alla tabella prenotazioni (migrazione senza Alembic)."""
     from sqlalchemy import text
-    for col, coltype in [("targa", "VARCHAR(20)"), ("ddt_cmr", "VARCHAR(200)")]:
+    for col, coltype in [("targa", "VARCHAR(20)"), ("ddt_cmr", "VARCHAR(200)"),
+                         ("inserita_da_staff", "BOOLEAN DEFAULT FALSE"),
+                         ("staff_user_id", "INTEGER REFERENCES users(id)"),
+                         ("motivo_rifiuto", "TEXT")]:
         try:
             db.session.execute(text(f"ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS {col} {coltype}"))
             db.session.commit()
