@@ -1,3 +1,22 @@
+/* INTERCETTATORE GLOBALE CSRF — inietta X-CSRFToken su fetch same-origin POST/PUT/PATCH/DELETE */
+(function () {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) return;
+  var csrfValue = meta.getAttribute('content');
+  var originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    init = init || {};
+    var method = (init.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      init.headers = new Headers(init.headers || {});
+      if (!init.headers.has('X-CSRFToken')) {
+        init.headers.set('X-CSRFToken', csrfValue);
+      }
+    }
+    return originalFetch.call(this, input, init);
+  };
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
 
   /* SIDEBAR TOGGLE — overlay mode, content non si sposta */
