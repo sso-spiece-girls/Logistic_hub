@@ -36,15 +36,17 @@
         </summary>
         <div class="calendario-slots">
             {% for slot in giorno_data.slots %}
-            <div class="calendario-slot {% if not slot.disponibile %}occupato{% endif %}">
+            <div class="calendario-slot {% if not slot.prenotabile %}occupato{% endif %} {% if not slot.disponibile and slot.prenotabile %}pieno{% endif %}">
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
-                {% if slot.disponibile %}
+                {% if slot.prenotabile %}
                 <button type="button" class="btn btn-sm btn-primary"
                         onclick="apriPrenotaModal('{{ giorno_key }}', '{{ slot.ora_inizio }}', '{{ slot.ora_fine }}', '{{ slot.slot_orario_id }}', '{{ giorno_data.giorno_nome }} {{ giorno_data.giorno|roma_time('%d/%m/%Y') }}')">
                     Prenota
                 </button>
+                {% elif not slot.disponibile %}
+                <span class="slot-occupato-label">Pieno</span>
                 {% else %}
-                <span class="slot-occupato-label">Occupato</span>
+                <span class="slot-occupato-label">Non disponibile</span>
                 {% endif %}
             </div>
             {% endfor %}
@@ -133,7 +135,9 @@ document.getElementById('prenota-modal').addEventListener('click', function(e) {
 .calendario-giorno-data { color:var(--text-muted); font-size:.85rem; font-weight:400 }
 .calendario-slots { padding:12px; display:flex; flex-wrap:wrap; gap:8px }
 .calendario-slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; min-width:220px }
-.calendario-slot.occupato { background:var(--surface-hover); opacity:.6 }
+.calendario-slot.occupato { background:var(--surface-hover); opacity:.6; cursor:not-allowed }
+.calendario-slot.pieno { background:#fff0f0; opacity:.7; border-color:#ffcccc }
+.calendario-slot.pieno .slot-occupato-label { color:#cc3333; font-weight:500 }
 .slot-orario { font-size:.85rem; font-weight:500; color:var(--text) }
 .slot-occupato-label { font-size:.8rem; color:var(--text-muted); font-style:italic }
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:1000 }

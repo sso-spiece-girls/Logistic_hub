@@ -15,6 +15,22 @@ bp = Blueprint("prenotazioni", __name__, url_prefix="/prenotazioni")
 GIORNI_IT = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 
 
+def _giorno_bloccato_dopo_14():
+    """Restituisce la data del giorno che viene bloccato dopo le 14:00,
+    oppure None se siamo prima delle 14:00.
+
+    Dopo le 14:00 non si può prenotare per il giorno successivo.
+    Se oggi è venerdì, il giorno successivo è lunedì (salta weekend).
+    """
+    ora_corrente = datetime.now(zoneinfo.ZoneInfo("Europe/Rome")).time()
+    if ora_corrente < time(14, 0):
+        return None
+    oggi = date.today()
+    if oggi.weekday() == 4:  # Venerdì → salta a lunedì
+        return oggi + timedelta(days=3)
+    return oggi + timedelta(days=1)
+
+
 def _capienza_magazzini():
     """Restituisce capienza totale sommando tutti i magazzini configurati, o 999 se nessuno."""
     righe = MagazzinoCapienza.query.all()
@@ -142,6 +158,7 @@ def calendario():
         return redirect(url_for("dashboard.index"))
     regole = SlotOrario.query.filter_by(attivo=True).all()
     oggi = date.today()
+    giorno_bloccato = _giorno_bloccato_dopo_14()
     slots_per_giorno = {}
     for i in range(14):
         g = oggi + timedelta(days=i)
@@ -150,6 +167,14 @@ def calendario():
             if g.weekday() != r.giorno_settimana:
                 continue
             for s in _slot_disponibili(r, g):
+                # Determina se lo slot è effettivamente prenotabile:
+                # - deve essere disponibile (capienza)
+                # - non deve essere oggi o nel passato
+                # - non deve essere il giorno bloccato (dopo le 14:00)
+                prenotabile = s["disponibile"] and g > oggi
+                if giorno_bloccato and g == giorno_bloccato:
+                    prenotabile = False
+                s["prenotabile"] = prenotabile
                 chiavi.append(s)
         if chiavi:
             slots_per_giorno[g.isoformat()] = {
@@ -170,6 +195,8 @@ def calendario():
         slots_per_giorno=slots_per_giorno,
         form=form,
         tipologie_attive=tipologie_attive,
+        oggi=oggi,
+        giorno_bloccato=giorno_bloccato,
     )
 
 
@@ -186,18 +213,20 @@ def prenota():
     if not form.validate_on_submit():
         flash("Errore nei dati inviati. Riprova.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    # Blocco prenotazioni: dopo le 14:00 ora di Roma non si può prenotare per domani
-    ora_corrente = datetime.now(zoneinfo.ZoneInfo("Europe/Rome")).time()
-    domani = date.today() + timedelta(days=1)
+    # Blocco prenotazioni: dopo le 14:00 ora di Roma non si può prenotare per il giorno successivo
+    # (e se venerdì, il giorno successivo è lunedì)
+    ora_corrente = datetime.now(zoneinfo.ZoneInfo("Europe/Rome"))
+    oggi = date.today()
     data_prenot = form.data_prenotazione.data
     if not data_prenot:
         flash("Data non valida.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    if data_prenot == domani and ora_corrente >= time(14, 0):
-        flash("Le prenotazioni per domani chiudono alle 14:00. Puoi prenotare per i giorni successivi.", "error")
-        return redirect(url_for("prenotazioni.calendario"))
-    if data_prenot <= date.today():
+    if data_prenot <= oggi:
         flash("Puoi prenotare solo a partire da domani.", "error")
+        return redirect(url_for("prenotazioni.calendario"))
+    giorno_bloccato = _giorno_bloccato_dopo_14()
+    if giorno_bloccato and data_prenot == giorno_bloccato:
+        flash("Sono passate le 14:00, non puoi più prenotare per questo giorno. Scegli un giorno successivo.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     regola = db.session.query(SlotOrario).filter(
         SlotOrario.id == form.slot_orario_id.data
