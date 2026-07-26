@@ -120,6 +120,7 @@ class PrenotazioneForm(FlaskForm):
     tipo = SelectField("Tipo operazione", choices=[
         ("scarico", "Scarico"),
         ("carico", "Carico"),
+        ("trasferimento", "Trasferimento (stesso giorno, stessa targa consentita)"),
     ], validators=[DataRequired()])
     tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
     magazzino = SelectField("Magazzino", validators=[DataRequired()])
@@ -169,6 +170,7 @@ class PrenotazioneStaffForm(FlaskForm):
     tipo = SelectField("Tipo operazione", choices=[
         ("scarico", "Scarico"),
         ("carico", "Carico"),
+        ("trasferimento", "Trasferimento (stesso giorno, stessa targa consentita)"),
     ], validators=[DataRequired()])
     tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
     magazzino = SelectField("Magazzino", validators=[DataRequired()])

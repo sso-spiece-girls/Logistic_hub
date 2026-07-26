@@ -5,6 +5,9 @@ from flask import Flask
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__))))
 
+# Config necessita SECRET_KEY al momento dell'import
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+
 
 @pytest.fixture
 def app():

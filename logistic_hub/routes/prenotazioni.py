@@ -148,21 +148,6 @@ def _allinea_orario(regola, ora_inizio_str, durata_minuti=None):
     return oi, slot_end.time()
 
 
-def _durata_effettiva(tipologia, magazzino_str):
-    """Restituisce la durata in minuti per una prenotazione.
-
-    Se la prenotazione ha una tipologia, usa la durata della tipologia.
-    Altrimenti usa il fallback del magazzino (se configurato), o None (il chiamante userà regola.durata_minuti).
-    """
-    if tipologia and tipologia.durata_minuti:
-        return tipologia.durata_minuti
-    if magazzino_str:
-        mag = MagazzinoCapienza.query.filter_by(magazzino=magazzino_str).first()
-        if mag and mag.durata_slot_minuti:
-            return mag.durata_slot_minuti
-    return None
-
-
 def _magazzini_per_cliente(cliente_id):
     """Restituisce la lista di magazzini visibili a un cliente.
 
@@ -339,7 +324,7 @@ def prenota():
         return redirect(url_for("prenotazioni.calendario"))
 
     tipo = form.tipo.data
-    if tipo not in ("carico", "scarico"):
+    if tipo not in ("carico", "scarico", "trasferimento"):
         flash("Tipo operazione non valido.", "error")
         return redirect(url_for("prenotazioni.calendario"))
 # Vincolo targa: stessa targa + stessa data → vietato su qualsiasi magazzino
@@ -807,6 +792,7 @@ def approva(id):
         if targa_esistente:
             p.stato = "rifiutata"
             p.note_operatore = f"Targa {p.targa} già presente in un'altra prenotazione per la stessa data ({p.data})."
+            p.motivo_rifiuto = p.note_operatore
             p.approvato_da_id = current_user.id
             p.approvato_at = datetime.now(timezone.utc)
             db.session.commit()
@@ -828,6 +814,7 @@ def approva(id):
         if sovrapposta:
             p.stato = "rifiutata"
             p.note_operatore = f"Sovrapposizione con prenotazione {sovrapposta.id}: stesso cliente/stesso magazzino/stessa tipologia/stessa data."
+            p.motivo_rifiuto = p.note_operatore
             p.approvato_da_id = current_user.id
             p.approvato_at = datetime.now(timezone.utc)
             db.session.commit()
@@ -1156,6 +1143,7 @@ def rifiuta_ingresso(token):
     if form.validate_on_submit():
         p.stato = "ingresso_rifiutato"
         p.note_operatore = form.motivo.data or "Nessun motivo specificato"
+        p.motivo_rifiuto = p.note_operatore
         p.ingresso_verificato_da_id = current_user.id
         p.ingresso_verificato_at = datetime.now(timezone.utc)
         db.session.commit()
