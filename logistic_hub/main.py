@@ -76,6 +76,17 @@ def _migrate_prenotazioni():
     except Exception:
         db.session.rollback()
 
+    # Rimuove il vecchio vincolo UNIQUE (slot_orario_id, data, ora_inizio) sulle
+    # prenotazioni attive. Era un residuo precedente a MagazzinoCapienza.capienza_contemporanea
+    # e al vincolo di sovrapposizione Feature 8 (stesso cliente+magazzino+tipologia).
+    # Oggi nello stesso orario possono coesistere clienti diversi o stesso cliente
+    # con tipologia diversa, limitati solo dalla capienza del magazzino.
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS uq_slot_booking_attivo"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 def _seed_slot_orari():
     """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""

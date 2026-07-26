@@ -242,10 +242,10 @@ def test_overlap_stessa_tipologia_orari_diversi_ok(auth_client, db):
         assert count == 2, f"Devono esserci 2 prenotazioni, trovata {count}"
 
 
+# ── TEST RIPRISTINATO (punto 3): stesso orario, tipologia diversa ──────────
 def test_overlap_tipologie_diverse_stesso_orario_ok(auth_client, db):
-    """Stessa data, tipologia diversa, orari NON sovrapposti → entrambe passano.
-    Nota: il DB ha UNIQUE(slot_orario_id, data, ora_inizio), quindi stesso orario
-    è vietato anche con tipologie diverse. Usiamo orari diversi."""
+    """Stesso orario inizio, tipologia diversa → entrambe passano (il vecchio
+    vincolo UNIQUE uq_slot_booking_attivo è stato rimosso)."""
     from models import Prenotazione
     cliente_id, slot_id, tip_id, tip2_id, data_futura = _setup_prenotazione_base(auth_client, db)
 
@@ -254,8 +254,8 @@ def test_overlap_tipologie_diverse_stesso_orario_ok(auth_client, db):
     assert resp1.status_code == 302
 
     resp2 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip2_id, data_futura,
-                                      targa="CC222DD", ora="09:00")
-    assert resp2.status_code == 302, f"Tipologia diversa orario diverso dovrebbe passare: {resp2.status_code}"
+                                      targa="CC222DD", ora="08:00")
+    assert resp2.status_code == 302, f"Stesso orario, tipologia diversa dovrebbe passare: {resp2.status_code}"
 
     with auth_client.application.app_context():
         count = Prenotazione.query.filter(
@@ -263,6 +263,43 @@ def test_overlap_tipologie_diverse_stesso_orario_ok(auth_client, db):
             Prenotazione.magazzino == "TestMag",
         ).count()
         assert count == 2, f"Devono esserci 2 prenotazioni (tipologie diverse), trovata {count}"
+
+
+# ── TEST NUOVO (punto 4): due clienti diversi, stesso orario ──────────────
+def test_overlap_clienti_diversi_stesso_orario_ok(auth_client, db):
+    """Due clienti diversi, stesso magazzino, stesso orario → entrambe passano
+    (limitate solo da capienza_contemporanea, qui 10)."""
+    from models import User, TipologiaMateriale, Prenotazione
+    cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
+
+    # Crea un secondo cliente con una propria tipologia
+    with auth_client.application.app_context():
+        cliente2 = User(username="cliente2", email="c2@c2.local", role="cliente")
+        cliente2.set_password("pass")
+        db.session.add(cliente2)
+        db.session.flush()
+        tip_cliente2 = TipologiaMateriale(
+            cliente_id=cliente2.id, nome="TipoCliente2", durata_minuti=60, attivo=True,
+        )
+        db.session.add(tip_cliente2)
+        db.session.commit()
+        cliente2_id = cliente2.id
+        tip2_id = tip_cliente2.id
+
+    resp1 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
+                                      targa="AA111BB", ora="08:00")
+    assert resp1.status_code == 302
+
+    resp2 = _crea_prenotazione_admin(auth_client, cliente2_id, slot_id, tip2_id, data_futura,
+                                      targa="CC222DD", ora="08:00")
+    assert resp2.status_code == 302, f"Secondo cliente stesso orario dovrebbe passare: {resp2.status_code}"
+
+    with auth_client.application.app_context():
+        count = Prenotazione.query.filter(
+            Prenotazione.data == data_futura,
+            Prenotazione.magazzino == "TestMag",
+        ).count()
+        assert count == 2, f"Devono esserci 2 prenotazioni (clienti diversi), trovata {count}"
 
 
 # ─── Feature 7 — Motivo rifiuto ────────────────────────────────────────────

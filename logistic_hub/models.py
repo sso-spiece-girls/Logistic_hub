@@ -467,12 +467,6 @@ class Prenotazione(db.Model):
         return labels.get(self.stato, self.stato)
 
     __table_args__ = (
-        db.Index(
-            "uq_slot_booking_attivo",
-            "slot_orario_id", "data", "ora_inizio",
-            unique=True,
-            postgresql_where=db.text("stato IN ('in_attesa', 'confermata')"),
-        ),
         db.Index("ix_prenotazioni_data_ora", "data", "ora_inizio"),
         db.Index("ix_prenotazioni_data_stato", "data", "stato"),
         db.Index("ix_prenotazioni_cliente_data", "cliente_id", "data"),
