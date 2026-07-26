@@ -30,33 +30,31 @@
     </summary>
     <div class="calendario-slots">
         {% for slot in giorno_data.slots %}
-        <div class="calendario-slot {% if slot.prenotazione %}prenotato{% endif %}">
+        <div class="calendario-slot {% if slot.prenotazioni %}prenotato{% endif %}">
             <div class="slot-info">
                 <span class="slot-orario">{{ slot.ora_inizio }} - {{ slot.ora_fine }}</span>
-                {% if slot.prenotazione %}
-                <span class="slot-cliente">{{ slot.prenotazione.cliente.username }}</span>
-                <span class="status-badge status-{{ slot.prenotazione.tipo }}" style="font-size:.75rem">{{ slot.prenotazione.tipo|capitalize }}</span>
-                <span class="status-badge status-{{ slot.prenotazione.stato }}">
-                    {{ slot.prenotazione.stato }}
-                </span>
-                {% if slot.prenotazione.magazzino %}
-                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.magazzino }}</span>
-                {% endif %}
-                {% if slot.prenotazione.targa %}
-                <span style="font-size:.75rem;color:var(--text-muted)">Targa: {{ slot.prenotazione.targa }}</span>
-                {% endif %}
-                {% if slot.prenotazione.tipologia_materiale %}
-                <span style="font-size:.75rem;color:var(--text-muted)">{{ slot.prenotazione.tipologia_materiale.nome }}</span>
-                {% endif %}
+                {% if slot.prenotazioni %}
+                {% for bp in slot.prenotazioni %}
+                <div class="calendario-booking-item">
+                    <span class="slot-cliente">{{ bp.cliente.username }}</span>
+                    <span class="status-badge status-{{ bp.tipo }}" style="font-size:.75rem">{{ bp.tipo|capitalize }}</span>
+                    <span class="status-badge status-{{ bp.stato }}">{{ bp.stato }}</span>
+                    {% if bp.magazzino %}
+                    <span style="font-size:.75rem;color:var(--text-muted)">{{ bp.magazzino }}</span>
+                    {% endif %}
+                    {% if bp.targa %}
+                    <span style="font-size:.75rem;color:var(--text-muted)">Targa: {{ bp.targa }}</span>
+                    {% endif %}
+                    {% if bp.tipologia_materiale %}
+                    <span style="font-size:.75rem;color:var(--text-muted)">{{ bp.tipologia_materiale.nome }}</span>
+                    {% endif %}
+                    <a href="/prenotazioni/verifica/{{ bp.token_qr }}" class="btn btn-sm btn-ghost">Dettaglio</a>
+                </div>
+                {% endfor %}
                 {% else %}
                 <span class="slot-libero">Libero</span>
                 {% endif %}
             </div>
-            {% if slot.prenotazione %}
-            <div class="slot-actions">
-                <a href="/prenotazioni/verifica/{{ slot.prenotazione.token_qr }}" class="btn btn-sm btn-ghost">Dettaglio</a>
-            </div>
-            {% endif %}
         </div>
         {% endfor %}
     </div>

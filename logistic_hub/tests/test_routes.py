@@ -364,3 +364,52 @@ def test_motivo_rifiuto_visibile_rifiuta_ingresso(auth_client, db):
         assert p.motivo_rifiuto == "Documenti non conformi", (
             f"motivo_rifiuto atteso 'Documenti non conformi', ottenuto '{p.motivo_rifiuto}'"
         )
+
+
+# ─── Regressione: calendario admin mostra tutte le prenotazioni per tick ──
+def test_admin_calendario_mostra_tutte_prenotazioni(auth_client, db):
+    """Due prenotazioni (clienti diversi) stesso slot/giorno/orario → il calendario
+    admin deve mostrarle ENTRAMBE, non solo la prima, e i tick non devono essere
+    fusi in un blocco unico."""
+    from models import User, TipologiaMateriale, Prenotazione
+
+    cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
+
+    # Secondo cliente con propria tipologia
+    with auth_client.application.app_context():
+        cliente2 = User(username="cal-cliente2", email="cal-c2@local", role="cliente")
+        cliente2.set_password("pass")
+        db.session.add(cliente2)
+        db.session.flush()
+        tip2 = TipologiaMateriale(cliente_id=cliente2.id, nome="TipoCal2", durata_minuti=60, attivo=True)
+        db.session.add(tip2)
+        db.session.commit()
+        c2_id = cliente2.id
+        t2_id = tip2.id
+
+    # Due prenotazioni stesso slot/giorno/orario
+    resp1 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
+                                      targa="CAL111", ora="08:00")
+    assert resp1.status_code == 302
+
+    resp2 = _crea_prenotazione_admin(auth_client, c2_id, slot_id, t2_id, data_futura,
+                                      targa="CAL222", ora="08:00")
+    assert resp2.status_code == 302
+
+    # Chiama il calendario admin
+    resp_cal = auth_client.get("/prenotazioni/admin/calendario")
+    assert resp_cal.status_code == 200
+
+    # Verifica che entrambe le targhe compaiano nell'HTML
+    # (se una delle due fosse nascosta, la sua targa o username non apparirebbe)
+    assert "CAL111" in resp_cal.text, "Targa CAL111 non trovata nel calendario"
+    assert "CAL222" in resp_cal.text, "Targa CAL222 non trovata nel calendario"
+    assert "cal-cliente2" in resp_cal.text, "cliente2 non trovato nel calendario"
+
+    # Verifica che NON ci sia un singolo blocco fuso che nasconde le prenotazioni:
+    # ogni booking-item è un <div class="calendario-booking-item"> separato
+    import re
+    items = re.findall(r'<div class="calendario-booking-item">', resp_cal.text)
+    assert len(items) >= 2, (
+        f"Dovrebbero esserci almeno 2 booking-item distinti, trovati {len(items)}"
+    )

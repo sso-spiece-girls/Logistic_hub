@@ -92,17 +92,15 @@ def _consolida_slots(slots):
 
 
 def _consolida_admin(slots):
-    """Unisce tick adiacenti per la vista admin: stesso stato E (se occupato) stessa prenotazione.
-    Due prenotazioni diverse non vengono mai unite insieme."""
+    """Unisce tick adiacenti con lo STESSO insieme di prenotazioni attive.
+    Due tick si fondono solo se hanno esattamente gli stessi prenotazioni_ids
+    (incluso il caso entrambi vuoti = davvero liberi)."""
     if not slots:
         return []
     result = []
     current = dict(slots[0])
     for s in slots[1:]:
-        same_available = s["disponibile"] and current["disponibile"]
-        same_booking = (not s["disponibile"] and not current["disponibile"]
-                        and s.get("prenotazione") is current.get("prenotazione"))
-        if same_available or same_booking:
+        if s.get("prenotazioni_ids") == current.get("prenotazioni_ids"):
             current["ora_fine"] = s["ora_fine"]
         else:
             result.append(current)
@@ -437,18 +435,14 @@ def admin_calendario():
                 oi = datetime.strptime(s["ora_inizio"], "%H:%M").time()
                 of = datetime.strptime(s["ora_fine"], "%H:%M").time()
                 key = (r.id, g.isoformat())
-                prenotazione = None
-                for bp in p_map.get(key, []):
-                    if bp.ora_inizio < of and bp.ora_fine > oi:
-                        prenotazione = bp
-                        break
+                prenotazioni_tick = [bp for bp in p_map.get(key, []) if bp.ora_inizio < of and bp.ora_fine > oi]
                 chiavi.append({
                     **s,
                     "slot_orario_id": r.id,
-                    "prenotazione": prenotazione,
+                    "prenotazioni": prenotazioni_tick,
+                    "prenotazioni_ids": tuple(sorted(p.id for p in prenotazioni_tick)),
                 })
-            # Consolidamento solo per vista admin: unisce tick adiacenti
-            # con lo stesso stato e la stessa prenotazione
+            # Consolidamento: unisce tick adiacenti con lo STESSO insieme di prenotazioni
             chiavi = _consolida_admin(chiavi)
         if chiavi:
             slots_per_giorno[g.isoformat()] = {
