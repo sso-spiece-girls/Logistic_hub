@@ -413,3 +413,32 @@ def test_admin_calendario_mostra_tutte_prenotazioni(auth_client, db):
     assert len(items) >= 2, (
         f"Dovrebbero esserci almeno 2 booking-item distinti, trovati {len(items)}"
     )
+
+
+# ─── VETTORE ────────────────────────────────────────────────────────────────
+
+def test_vettore_on_delete_set_null(app, db):
+    """ON DELETE SET NULL: eliminato l'User, il Vettore sopravvive con user_id=NULL."""
+    from models import User, Vettore
+
+    with app.app_context():
+        u = User(username="vettore-del-test", email="v@del.local", role="vettore")
+        u.set_password("pass")
+        db.session.add(u)
+        db.session.flush()
+        uid = u.id
+
+        v = Vettore(nome="Vettore Da Eliminare", user_id=uid)
+        db.session.add(v)
+        db.session.commit()
+        vid = v.id
+
+        # Elimina l'User — ON DELETE SET NULL deve scattare
+        db.session.delete(u)
+        db.session.commit()
+
+        # Verifica: Vettore esiste ancora, user_id è NULL
+        v_dopo = db.session.get(Vettore, vid)
+        assert v_dopo is not None, "Il Vettore NON dovrebbe essere stato eliminato a cascata"
+        assert v_dopo.nome == "Vettore Da Eliminare"
+        assert v_dopo.user_id is None, "user_id dovrebbe essere NULL (SET NULL)"

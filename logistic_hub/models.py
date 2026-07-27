@@ -18,6 +18,7 @@ class User(UserMixin, db.Model):
 
     activities = db.relationship("Activity", backref="user", lazy="dynamic", foreign_keys="Activity.user_id")
     notifications = db.relationship("Notification", backref="user", lazy="dynamic")
+    vettore = db.relationship("Vettore", back_populates="user", uselist=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -30,7 +31,7 @@ class User(UserMixin, db.Model):
 
     @property
     def role_label(self):
-        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin", "cliente": "Cliente"}
+        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin", "cliente": "Cliente", "vettore": "Vettore"}
         return labels.get(self.role, self.role)
 
     def __repr__(self):
@@ -392,6 +393,8 @@ class Vettore(db.Model):
     email = db.Column(db.String(120), nullable=True)
     attivo = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True)
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="vettore")
 
     def __repr__(self):
         return f"<Vettore {self.nome}>"

@@ -87,6 +87,18 @@ def _migrate_prenotazioni():
     except Exception:
         db.session.rollback()
 
+    # Migrazione per vettori.user_id (collegamento opzionale Vettore → User)
+    try:
+        db.session.execute(text("ALTER TABLE vettori ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_vettori_user_id ON vettori (user_id) WHERE user_id IS NOT NULL"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 def _seed_slot_orari():
     """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""
@@ -122,6 +134,16 @@ def create_app():
     login_manager.init_app(app)
     limiter.init_app(app)
     csrf.init_app(app)
+
+    # Abilita vincoli foreign key su SQLite (essenziale per ON DELETE SET NULL)
+    if "sqlite" in app.config.get("SQLALCHEMY_DATABASE_URI", ""):
+        from sqlalchemy import event
+        with app.app_context():
+            @event.listens_for(db.engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
 
     # Seed: crea tabelle e SlotOrario default (8-13 e 14-17, Lun-Ven)
     with app.app_context():

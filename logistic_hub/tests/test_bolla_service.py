@@ -276,9 +276,13 @@ def test_crea_righe_bolla_preserves_description(app, db):
 def test_dettaglio_bolla_description_preferred_over_code(app, db):
     """Verify DettaglioBolla.descrizione is preferred over articolo_codice for form prefill (F6)."""
     with app.app_context():
+        # Crea la Bolla padre per rispettare la FK su dettaglio_bolla.bolla_id
+        bolla_padre = Bolla(numero_bolla="B-DESC", fornitore="Test", operatore_id=1)
+        db.session.add(bolla_padre)
+        db.session.flush()
         # Simulate a DettaglioBolla as it would be stored after creation
         riga = DettaglioBolla(
-            bolla_id=1,
+            bolla_id=bolla_padre.id,
             articolo_codice="IG-BIANCO-PEFC-GR.15",
             descrizione="IG BIANCO PEFC GR.15",
             quantita_colli=10,
@@ -293,8 +297,11 @@ def test_dettaglio_bolla_description_preferred_over_code(app, db):
         assert prefill_descrizione != "IG-BIANCO-PEFC-GR.15"
 
         # When descrizione is None, fall back to articolo_codice
+        bolla_padre2 = Bolla(numero_bolla="B-DESC2", fornitore="Test", operatore_id=1)
+        db.session.add(bolla_padre2)
+        db.session.flush()
         riga2 = DettaglioBolla(
-            bolla_id=2,
+            bolla_id=bolla_padre2.id,
             articolo_codice="ART001",
             descrizione=None,
             quantita_colli=5,

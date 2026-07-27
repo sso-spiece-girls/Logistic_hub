@@ -31,3 +31,13 @@ def operatore_required(f):
             return redirect(url_for("dashboard.index"))
         return f(*args, **kwargs)
     return decorated
+
+
+def vettore_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != "vettore":
+            flash("Accesso riservato ai vettori.", "error")
+            return redirect(url_for("dashboard.index"))
+        return f(*args, **kwargs)
+    return decorated

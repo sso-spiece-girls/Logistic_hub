@@ -33,6 +33,7 @@ class UserForm(FlaskForm):
         ("ufficio", "Ufficio"),
         ("admin", "Admin"),
         ("cliente", "Cliente"),
+        ("vettore", "Vettore"),
     ], validators=[DataRequired()])
 
 
