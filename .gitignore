@@ -10,3 +10,11 @@ dist/
 build/
 *.spec
 .backup_magazzino_*/
+
+# Database e runtime
+*.db
+instance/
+
+# Pianificazione e appunti
+FASE*.md
+cookies.txt
