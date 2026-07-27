@@ -194,20 +194,23 @@ def calendario():
     oggi = date.today()
     giorno_bloccato = _giorno_bloccato_dopo_14()
     slots_per_giorno = {}
-    for i in range(14):
+    # Itera fino a 14 giorni VISIBILI, saltando completamente
+    # il giorno bloccato (dopo le 14:00 non si vede più il giorno successivo).
+    giorni_visibili = 0
+    max_giorni = 14
+    i = 0
+    while giorni_visibili < max_giorni and i < 30:  # safety cap
         g = oggi + timedelta(days=i)
+        i += 1
+        if giorno_bloccato and g == giorno_bloccato:
+            continue  # giorno bloccato: non mostrarlo proprio
         chiavi = []
         for r in regole:
             if g.weekday() != r.giorno_settimana:
                 continue
             for s in _slot_disponibili(r, g):
-                # Determina se lo slot è effettivamente prenotabile:
-                # - deve essere disponibile (capienza)
-                # - non deve essere oggi o nel passato
-                # - non deve essere il giorno bloccato (dopo le 14:00)
+                # Prenotabile solo se disponibile e nel futuro
                 prenotabile = s["disponibile"] and g > oggi
-                if giorno_bloccato and g == giorno_bloccato:
-                    prenotabile = False
                 s["prenotabile"] = prenotabile
                 chiavi.append(s)
         if chiavi:
@@ -216,6 +219,7 @@ def calendario():
                 "giorno_nome": GIORNI_IT[g.weekday()],
                 "slots": chiavi,
             }
+            giorni_visibili += 1
     tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=cliente_id, attivo=True).all()
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
