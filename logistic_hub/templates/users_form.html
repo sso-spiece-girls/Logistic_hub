@@ -33,6 +33,11 @@
                 {{ form.role(class="form-input" + (" is-invalid" if form.role.errors else "")) }}
                 {% if form.role.errors %}<div class="form-error">{% for e in form.role.errors %}{{ e }}{% endfor %}</div>{% endif %}
             </div>
+            <div class="form-group" id="vettore-field" style="display:none">
+                <label for="vettore_id">Vettore da collegare</label>
+                {{ form.vettore_id(class="form-input" + (" is-invalid" if form.vettore_id.errors else "")) }}
+                {% if form.vettore_id.errors %}<div class="form-error">{% for e in form.vettore_id.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
         </div>
         <div class="form-actions">
             <a href="/users" class="btn btn-ghost">Annulla</a>
@@ -131,22 +136,28 @@
 </div>
 {% endif %}
 
-{% if user and user.role == "cliente" %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var roleSelect = document.getElementById('role');
     if (roleSelect) {
-        roleSelect.addEventListener('change', function() {
-            var sections = ['tipologie-section', 'magazzini-section'];
-            sections.forEach(function(id) {
+        function toggleFields() {
+            var val = roleSelect.value;
+            // Sezioni cliente
+            ['tipologie-section', 'magazzini-section'].forEach(function(id) {
                 var el = document.getElementById(id);
                 if (el) {
-                    el.style.display = this.value === 'cliente' ? '' : 'none';
+                    el.style.display = val === 'cliente' ? '' : 'none';
                 }
             });
-        });
+            // Campo vettore
+            var vettoreField = document.getElementById('vettore-field');
+            if (vettoreField) {
+                vettoreField.style.display = val === 'vettore' ? '' : 'none';
+            }
+        }
+        roleSelect.addEventListener('change', toggleFields);
+        toggleFields();
     }
 });
 </script>
-{% endif %}
 {% endblock %}

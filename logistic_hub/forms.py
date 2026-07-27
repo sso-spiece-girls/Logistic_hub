@@ -35,6 +35,7 @@ class UserForm(FlaskForm):
         ("cliente", "Cliente"),
         ("vettore", "Vettore"),
     ], validators=[DataRequired()])
+    vettore_id = SelectField("Vettore da collegare", coerce=int, validators=[Optional()])
 
 
 class BollaForm(FlaskForm):
