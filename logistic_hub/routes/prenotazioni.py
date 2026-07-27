@@ -2,12 +2,12 @@ import io
 import secrets
 from datetime import datetime, timezone, date, timedelta, time
 import zoneinfo
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, send_file, jsonify, session
 from flask_login import login_required, current_user
 from models import db, Prenotazione, SlotOrario, User, MagazzinoCapienza, TipologiaMateriale, ClienteMagazzino, Vettore, ClienteVettore
 from forms import PrenotazioneForm, SlotOrarioForm, PrenotazioneAdminForm, MagazzinoCapienzaForm, TipologiaMaterialeForm, PrenotazioneStaffForm
 from routes.auth import log_activity, create_notification
-from core.auth_decorators import operatore_required, admin_required
+from core.auth_decorators import operatore_required, admin_required, vettore_required
 import qrcode
 
 bp = Blueprint("prenotazioni", __name__, url_prefix="/prenotazioni")
@@ -174,8 +174,21 @@ def api_tipologie_per_cliente(cliente_id):
 @bp.route("/calendario")
 @login_required
 def calendario():
-    if current_user.role != "cliente":
-        flash("Accesso riservato ai clienti.", "error")
+    if current_user.role == "cliente":
+        cliente_id = current_user.id
+    elif current_user.role == "vettore":
+        cliente_id = session.get("vettore_cliente_id")
+        if not cliente_id:
+            flash("Seleziona un cliente prima di prenotare.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+        cliente_obj = db.session.get(User, cliente_id)
+        if not cliente_obj or not cliente_obj.is_active or cliente_obj.role != "cliente":
+            session.pop("vettore_cliente_id", None)
+            session.pop("vettore_cliente_nome", None)
+            flash("Il cliente selezionato non è più disponibile.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+    else:
+        flash("Accesso riservato.", "error")
         return redirect(url_for("dashboard.index"))
     regole = SlotOrario.query.filter_by(attivo=True).all()
     oggi = date.today()
@@ -203,17 +216,17 @@ def calendario():
                 "giorno_nome": GIORNI_IT[g.weekday()],
                 "slots": chiavi,
             }
-    tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()
+    tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=cliente_id, attivo=True).all()
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
     # Popola il dropdown magazzino — filtra per associazioni se presenti
-    magazzini_cliente = _magazzini_per_cliente(current_user.id)
+    magazzini_cliente = _magazzini_per_cliente(cliente_id)
     if magazzini_cliente:
         form.magazzino.choices = [(m, m) for m in magazzini_cliente]
     else:
         form.magazzino.choices = [("", "Nessun magazzino configurato")]
     # Popola dropdown vettori (filtrati per associazioni cliente)
-    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=current_user.id).all()]
+    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=cliente_id).all()]
     if vettori_ids_associati:
         vettori_associati = Vettore.query.filter(Vettore.id.in_(vettori_ids_associati), Vettore.attivo == True).order_by(Vettore.nome).all()
     else:
@@ -232,14 +245,27 @@ def calendario():
 @bp.route("/prenota", methods=["POST"])
 @login_required
 def prenota():
-    if current_user.role != "cliente":
-        flash("Accesso riservato ai clienti.", "error")
+    if current_user.role == "cliente":
+        cliente_id = current_user.id
+    elif current_user.role == "vettore":
+        cliente_id = session.get("vettore_cliente_id")
+        if not cliente_id:
+            flash("Seleziona un cliente prima di prenotare.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+        cliente_obj = db.session.get(User, cliente_id)
+        if not cliente_obj or not cliente_obj.is_active or cliente_obj.role != "cliente":
+            session.pop("vettore_cliente_id", None)
+            session.pop("vettore_cliente_nome", None)
+            flash("Il cliente selezionato non è più disponibile.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+    else:
+        flash("Accesso riservato.", "error")
         return redirect(url_for("dashboard.index"))
     form = PrenotazioneForm()
-    form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=current_user.id, attivo=True).all()]
-    magazzini_cliente = _magazzini_per_cliente(current_user.id)
+    form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in TipologiaMateriale.query.filter_by(cliente_id=cliente_id, attivo=True).all()]
+    magazzini_cliente = _magazzini_per_cliente(cliente_id)
     form.magazzino.choices = [(m, m) for m in magazzini_cliente] if magazzini_cliente else [("", "Nessun magazzino configurato")]
-    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=current_user.id).all()]
+    vettori_ids_associati = [cv.vettore_id for cv in ClienteVettore.query.filter_by(cliente_id=cliente_id).all()]
     if vettori_ids_associati:
         vettori_associati = Vettore.query.filter(Vettore.id.in_(vettori_ids_associati), Vettore.attivo == True).order_by(Vettore.nome).all()
     else:
@@ -273,7 +299,7 @@ def prenota():
         flash("Giorno non valido per questa regola.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     tipologia = db.session.get(TipologiaMateriale, form.tipologia_materiale_id.data) if form.tipologia_materiale_id.data else None
-    if not tipologia or tipologia.cliente_id != current_user.id or not tipologia.attivo:
+    if not tipologia or tipologia.cliente_id != cliente_id or not tipologia.attivo:
         flash("Tipologia materiale non valida.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     orari = _allinea_orario(regola, form.ora_inizio.data, tipologia.durata_minuti)
@@ -309,7 +335,7 @@ def prenota():
 
     # Vincolo sovrapposizione: stesso cliente + stesso magazzino + stessa tipologia + stessa data → vietato
     sovrapposta = Prenotazione.query.filter(
-        Prenotazione.cliente_id == current_user.id,
+        Prenotazione.cliente_id == cliente_id,
         Prenotazione.magazzino == form.magazzino.data,
         Prenotazione.tipologia_materiale_id == tipologia.id,
         Prenotazione.data == data_prenot,
@@ -337,8 +363,14 @@ def prenota():
             flash(f"Targa {targa_val} già presente in un'altra prenotazione per la stessa data ({data_prenot}).", "error")
             return redirect(url_for("prenotazioni.calendario"))
 
+    vettore_id_finale = form.vettore_id.data or None
+    if current_user.role == "vettore":
+        vettore_record = Vettore.query.filter_by(user_id=current_user.id).first()
+        if vettore_record:
+            vettore_id_finale = vettore_record.id
+
     p = Prenotazione(
-        cliente_id=current_user.id,
+        cliente_id=cliente_id,
         slot_orario_id=regola.id,
         data=data_prenot,
         ora_inizio=ora_inizio,
@@ -348,7 +380,7 @@ def prenota():
         magazzino=form.magazzino.data,
         targa=targa_val,
         ddt_cmr=form.ddt_cmr.data,
-        vettore_id=form.vettore_id.data or None,
+        vettore_id=vettore_id_finale,
         stato="in_attesa",
     )
     db.session.add(p)
@@ -374,12 +406,42 @@ def prenota():
 @bp.route("/mie")
 @login_required
 def mie():
-    if current_user.role != "cliente":
-        flash("Accesso riservato ai clienti.", "error")
+    if current_user.role == "cliente":
+        cliente_id = current_user.id
+    elif current_user.role == "vettore":
+        cliente_id = session.get("vettore_cliente_id")
+        if not cliente_id:
+            flash("Seleziona un cliente prima di prenotare.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+        cliente_obj = db.session.get(User, cliente_id)
+        if not cliente_obj or not cliente_obj.is_active or cliente_obj.role != "cliente":
+            session.pop("vettore_cliente_id", None)
+            session.pop("vettore_cliente_nome", None)
+            flash("Il cliente selezionato non è più disponibile.", "warning")
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
+    else:
+        flash("Accesso riservato.", "error")
         return redirect(url_for("dashboard.index"))
     prenotazioni = Prenotazione.query.options(
         db.joinedload(Prenotazione.tipologia_materiale),
-    ).filter_by(cliente_id=current_user.id).order_by(
+    ).filter_by(cliente_id=cliente_id).order_by(
+        Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
+    ).all()
+    return render_template("prenotazioni/mie_prenotazioni.html", prenotazioni=prenotazioni)
+
+
+@bp.route("/vettore/mie")
+@login_required
+@vettore_required
+def vettore_mie():
+    """Mostra solo le prenotazioni create da questo specifico vettore."""
+    vettore = Vettore.query.filter_by(user_id=current_user.id).first()
+    if not vettore:
+        flash("Account vettore non configurato.", "warning")
+        return redirect(url_for("dashboard.index"))
+    prenotazioni = Prenotazione.query.options(
+        db.joinedload(Prenotazione.tipologia_materiale),
+    ).filter_by(vettore_id=vettore.id).order_by(
         Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
     ).all()
     return render_template("prenotazioni/mie_prenotazioni.html", prenotazioni=prenotazioni)

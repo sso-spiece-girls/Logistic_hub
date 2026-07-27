@@ -641,3 +641,331 @@ def test_vettore_cambia_cliente_resets_session(app, db):
     with client.session_transaction() as sess:
         assert "vettore_cliente_id" not in sess
         assert "vettore_cliente_nome" not in sess
+
+
+# ─── BLOCCO 3 — Vettore può prenotare ─────────────────────────────────────
+
+
+def _crea_setup_cliente(app, db, cliente_username="cliente-b3", con_tipologia=True):
+    """Helper: crea un cliente User + SlotOrario + MagazzinoCapienza + opzionale TipologiaMateriale.
+    Restituisce dict: cliente_id, slot_id, tip_id, data_futura."""
+    from datetime import date, time, timedelta
+    from models import User, SlotOrario, MagazzinoCapienza, TipologiaMateriale
+
+    with app.app_context():
+        cliente = User(username=cliente_username, email=f"{cliente_username}@test.local", role="cliente")
+        cliente.set_password("pass")
+        db.session.add(cliente)
+        db.session.flush()
+        cid = cliente.id
+
+        oggi = date.today()
+        giorno_slot = (oggi.weekday() + 3) % 7
+        data_futura = oggi + timedelta(days=3)
+        while data_futura.weekday() != giorno_slot or data_futura <= oggi:
+            data_futura += timedelta(days=1)
+
+        slot = SlotOrario(
+            giorno_settimana=giorno_slot,
+            ora_inizio=time(8, 0),
+            ora_fine=time(13, 0),
+            durata_minuti=60,
+            capienza=10,
+            attivo=True,
+            creato_da_id=1,
+        )
+        db.session.add(slot)
+        db.session.flush()
+        sid = slot.id
+
+        mag = MagazzinoCapienza(magazzino="MagBlocco3", capienza_contemporanea=10, creato_da_id=1)
+        db.session.add(mag)
+
+        tip_id = None
+        if con_tipologia:
+            tip = TipologiaMateriale(cliente_id=cid, nome="TipoB3", durata_minuti=60, attivo=True)
+            db.session.add(tip)
+            db.session.flush()
+            tip_id = tip.id
+
+        db.session.commit()
+        return {"cliente_id": cid, "slot_id": sid, "tip_id": tip_id, "data_futura": data_futura}
+
+
+def _crea_setup_vettore_con_cliente(app, db, vettore_nome="VettoreB3", vettore_username="vettore-b3",
+                                     cliente_username="cliente-b3"):
+    """Helper: crea User(vettore) + Vettore + ClienteVettore + dati base prenotazione.
+    Restituisce dict con tutti gli ID."""
+    from models import User, Vettore, ClienteVettore
+
+    with app.app_context():
+        setup = _crea_setup_cliente(app, db, cliente_username=cliente_username)
+        cid = setup["cliente_id"]
+
+        vu = User(username=vettore_username, role="vettore")
+        vu.set_password("pass")
+        db.session.add(vu)
+        db.session.flush()
+        vu_id = vu.id
+
+        v = Vettore(nome=vettore_nome, user_id=vu_id, attivo=True)
+        db.session.add(v)
+        db.session.flush()
+        vid = v.id
+
+        db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vid))
+        db.session.commit()
+        setup["vettore_user_id"] = vu_id
+        setup["vettore_id"] = vid
+        return setup
+
+
+def _post_prenota(client, setup, follow_redirects=False):
+    """Helper: esegue POST a /prenotazioni/prenota con i dati base.
+    setup è il dict da _crea_setup_*. Restituisce la risposta."""
+    return client.post("/prenotazioni/prenota", data={
+        "data_prenotazione": setup["data_futura"].isoformat(),
+        "slot_orario_id": setup["slot_id"],
+        "ora_inizio": "08:00",
+        "ora_fine": "09:00",
+        "tipo": "scarico",
+        "tipologia_materiale_id": setup["tip_id"],
+        "magazzino": "MagBlocco3",
+        "targa": "ZZ000ZZ",
+        "ddt_cmr": "DDT-B3",
+        "vettore_id": "0",
+    }, follow_redirects=follow_redirects)
+
+
+def test_cliente_prenota_via_prenota_endpoint(app, db):
+    """Cliente normale → POST /prenotazioni/prenota crea prenotazione invariata."""
+    from models import Prenotazione
+    client = app.test_client()
+
+    with app.app_context():
+        setup = _crea_setup_cliente(app, db, cliente_username="cliente-b3-test1")
+        db.session.commit()
+
+    # Login come cliente
+    client.post("/login", data={"username": "cliente-b3-test1", "password": "pass"})
+
+    resp = _post_prenota(client, setup)
+    # Dopo prenotazione, redirect a /prenotazioni/mie
+    assert resp.status_code == 302
+    assert "/prenotazioni/mie" in resp.headers.get("Location", "")
+
+    with app.app_context():
+        p = Prenotazione.query.filter_by(targa="ZZ000ZZ").first()
+        assert p is not None
+        assert p.cliente_id == setup["cliente_id"]
+        assert p.vettore_id is None  # Nessun vettore selezionato
+        assert p.stato == "in_attesa"
+
+
+def test_vettore_prenota_con_cliente_selezionato(app, db):
+    """Vettore con cliente in sessione → prenotazione ha cliente_id=cliente e vettore_id=vettore."""
+    from models import Prenotazione, Vettore
+    client = app.test_client()
+
+    with app.app_context():
+        setup = _crea_setup_vettore_con_cliente(
+            app, db,
+            vettore_nome="VettorePrenota",
+            vettore_username="vettore-prenota",
+            cliente_username="cliente-vp",
+        )
+        vid = setup["vettore_id"]
+        cid = setup["cliente_id"]
+
+    # Login come vettore
+    client.post("/login", data={"username": "vettore-prenota", "password": "pass"})
+
+    # GET seleziona-cliente → auto-select (1 solo cliente) → sessione popolata
+    resp = client.get("/vettore/seleziona-cliente", follow_redirects=False)
+    # Deve fare auto-select e redirect
+    assert resp.status_code == 302
+
+    # Verifica sessione
+    with client.session_transaction() as sess:
+        assert sess.get("vettore_cliente_id") == cid
+        assert sess.get("vettore_cliente_nome") is not None
+
+    # Ora prenota
+    resp = _post_prenota(client, setup)
+    assert resp.status_code == 302, f"Prenotazione vettore fallita: {resp.status_code}"
+    assert "/prenotazioni/mie" in resp.headers.get("Location", "")
+
+    with app.app_context():
+        p = Prenotazione.query.filter_by(targa="ZZ000ZZ").first()
+        assert p is not None
+        assert p.cliente_id == cid, f"cliente_id={p.cliente_id}, atteso {cid}"
+        assert p.vettore_id == vid, f"vettore_id={p.vettore_id}, atteso {vid}"
+        assert p.stato == "in_attesa"
+
+
+def test_vettore_senza_cliente_in_sessione(app, db):
+    """Vettore senza cliente selezionato → calendario() e prenota() redirect a seleziona-cliente."""
+    from models import Vettore
+    from datetime import date, timedelta
+    client = app.test_client()
+
+    with app.app_context():
+        # Crea vettore ma non seleziona alcun cliente
+        _ = _crea_setup_vettore_con_cliente(
+            app, db,
+            vettore_nome="VettoreNoSel",
+            vettore_username="vettore-nosel",
+            cliente_username="cliente-nosel",
+        )
+
+    # Login come vettore
+    client.post("/login", data={"username": "vettore-nosel", "password": "pass"})
+
+    # Prova ad accedere a calendario (senza aver selezionato cliente)
+    resp = client.get("/prenotazioni/calendario", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
+
+    # Prova a prenotare (senza cliente selezionato) — i dati del form
+    # sono irrilevanti perché la guard controlla la sessione prima
+    resp2 = client.post("/prenotazioni/prenota", data={
+        "data_prenotazione": (date.today() + timedelta(days=3)).isoformat(),
+        "slot_orario_id": 1,
+        "ora_inizio": "08:00",
+    })
+    assert resp2.status_code == 302
+    assert "/vettore/seleziona-cliente" in resp2.headers.get("Location", "")
+
+
+def test_vettore_mie_isolamento(app, db):
+    """Due vettori per lo stesso cliente → ognuno vede solo le proprie prenotazioni in vettore_mie()."""
+    from models import Prenotazione, Vettore, User
+    import datetime
+    from datetime import date, timedelta
+
+    client = app.test_client()
+
+    with app.app_context():
+        # Crea un cliente condiviso
+        setup = _crea_setup_cliente(app, db, cliente_username="cliente-condiviso")
+        cid = setup["cliente_id"]
+
+        # Crea Vettore 1
+        vu1 = User(username="vettore-mie1", role="vettore")
+        vu1.set_password("pass")
+        db.session.add(vu1)
+        db.session.flush()
+        v1 = Vettore(nome="Vettore Mie 1", user_id=vu1.id, attivo=True)
+        db.session.add(v1)
+        db.session.flush()
+        vid1 = v1.id
+
+        # Crea Vettore 2
+        vu2 = User(username="vettore-mie2", role="vettore")
+        vu2.set_password("pass")
+        db.session.add(vu2)
+        db.session.flush()
+        v2 = Vettore(nome="Vettore Mie 2", user_id=vu2.id, attivo=True)
+        db.session.add(v2)
+        db.session.flush()
+        vid2 = v2.id
+
+        # Crea associazioni
+        from models import ClienteVettore
+        db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vid1))
+        db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vid2))
+
+        # Crea due prenotazioni: una per vettore 1, una per vettore 2
+        slot_id = setup["slot_id"]
+        tip_id = setup["tip_id"]
+        data_fut = setup["data_futura"]
+
+        p1 = Prenotazione(
+            cliente_id=cid,
+            slot_orario_id=slot_id,
+            data=data_fut,
+            ora_inizio=datetime.time(8, 0),
+            ora_fine=datetime.time(9, 0),
+            tipo="scarico",
+            tipologia_materiale_id=tip_id,
+            magazzino="MagBlocco3",
+            targa="MIE111",
+            vettore_id=vid1,
+            stato="in_attesa",
+        )
+        db.session.add(p1)
+
+        p2 = Prenotazione(
+            cliente_id=cid,
+            slot_orario_id=slot_id,
+            data=data_fut,
+            ora_inizio=datetime.time(10, 0),
+            ora_fine=datetime.time(11, 0),
+            tipo="carico",
+            tipologia_materiale_id=tip_id,
+            magazzino="MagBlocco3",
+            targa="MIE222",
+            vettore_id=vid2,
+            stato="in_attesa",
+        )
+        db.session.add(p2)
+
+        db.session.commit()
+        p1_id = p1.id
+        p2_id = p2.id
+
+    # Vettore 1 login e verifica vettore_mie (usa un solo client per evitare
+    # cookie collision tra due test_client sulla stessa app)
+    client.post("/login", data={"username": "vettore-mie1", "password": "pass"})
+    resp1 = client.get("/prenotazioni/vettore/mie")
+    assert resp1.status_code == 200
+    assert "Scarico" in resp1.text, "Vettore 1 dovrebbe vedere la sua prenotazione (Scarico)"
+    assert "Carico" not in resp1.text, "Vettore 1 NON dovrebbe vedere la prenotazione dell'altro vettore (Carico)"
+
+    # Logout Vettore 1, login Vettore 2
+    client.get("/logout", follow_redirects=False)
+    client.post("/login", data={"username": "vettore-mie2", "password": "pass"})
+    resp2 = client.get("/prenotazioni/vettore/mie")
+    assert resp2.status_code == 200
+    assert "Carico" in resp2.text, "Vettore 2 dovrebbe vedere la sua prenotazione (Carico)"
+    assert "Scarico" not in resp2.text, "Vettore 2 NON dovrebbe vedere la prenotazione dell'altro vettore (Scarico)"
+
+
+def test_vettore_cliente_disattivato_dopo_selezione(app, db):
+    """Cliente disattivato dopo la selezione → calendario() e prenota() redirect a seleziona-cliente."""
+    from models import User
+    client = app.test_client()
+
+    with app.app_context():
+        setup = _crea_setup_vettore_con_cliente(
+            app, db,
+            vettore_nome="VettoreDisatt",
+            vettore_username="vettore-disatt",
+            cliente_username="cliente-disatt",
+        )
+        cid = setup["cliente_id"]
+
+    # Login come vettore → auto-select (1 cliente)
+    client.post("/login", data={"username": "vettore-disatt", "password": "pass"})
+    resp = client.get("/vettore/seleziona-cliente", follow_redirects=False)
+    assert resp.status_code == 302  # auto-select
+
+    # Verifica sessione
+    with client.session_transaction() as sess:
+        assert sess.get("vettore_cliente_id") == cid
+
+    # Disattiva il cliente
+    with app.app_context():
+        cliente_obj = db.session.get(User, cid)
+        cliente_obj.is_active = False
+        db.session.commit()
+
+    # calendario() → redirect
+    resp = client.get("/prenotazioni/calendario", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
+
+    # Session resettata
+    with client.session_transaction() as sess:
+        assert "vettore_cliente_id" not in sess
+        assert "vettore_cliente_nome" not in sess
