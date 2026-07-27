@@ -100,6 +100,24 @@ def _migrate_prenotazioni():
     except Exception:
         db.session.rollback()
 
+    # Rimuove il vincolo UNIQUE su users.email (permette email duplicate e multiple NULL)
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS ix_users_email"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        db.session.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    # SQLite: l'auto-index per unique=True si chiama sqlite_autoindex_users_2
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS sqlite_autoindex_users_2"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 def _seed_slot_orari():
     """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""

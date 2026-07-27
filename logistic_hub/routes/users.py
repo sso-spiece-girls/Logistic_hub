@@ -61,9 +61,10 @@ def nuovo():
                                    magazzini_associati=[])
 
         try:
+            email_val = form.email.data or None  # stringa vuota → None per evitare conflitto unique
             user = User(
                 username=form.username.data,
-                email=form.email.data,
+                email=email_val,
                 role=form.role.data,
             )
             user.set_password(form.password.data)
@@ -146,7 +147,7 @@ def modifica(id):
         if form.password.data:
             user.set_password(form.password.data)
         user.username = form.username.data
-        user.email = form.email.data
+        user.email = form.email.data or None  # stringa vuota → None
         user.role = form.role.data
 
         # Gestione associazioni vettore-clienti
