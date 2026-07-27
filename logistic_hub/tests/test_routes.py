@@ -932,7 +932,7 @@ def test_vettore_mie_isolamento(app, db):
 
 
 def test_vettore_accede_mie(app, db):
-    """Vettore → GET /prenotazioni/mie funziona (stessa pagina del cliente)."""
+    """Vettore → GET /prenotazioni/mie mostra le sue prenotazioni (per vettore_id)."""
     client = app.test_client()
 
     with app.app_context():
@@ -946,15 +946,9 @@ def test_vettore_accede_mie(app, db):
     # Login come vettore
     client.post("/login", data={"username": "vettore-mieok", "password": "pass"})
 
-    # GET /prenotazioni/mie senza cliente selezionato → redirect a seleziona-cliente
+    # GET /prenotazioni/mie → funziona subito (non serve cliente selezionato)
     resp = client.get("/prenotazioni/mie", follow_redirects=False)
-    assert resp.status_code == 302
-    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
-
-    # Dopo aver selezionato un cliente → deve funzionare (200)
-    client.get("/vettore/seleziona-cliente", follow_redirects=False)
-    resp2 = client.get("/prenotazioni/mie", follow_redirects=False)
-    assert resp2.status_code == 200, f"Dovrebbe mostrare le prenotazioni, status={resp2.status_code}"
+    assert resp.status_code == 200, f"Dovrebbe mostrare le sue prenotazioni, status={resp.status_code}"
 
 
 def test_vettore_cliente_disattivato_dopo_selezione(app, db):

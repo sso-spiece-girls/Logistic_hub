@@ -411,26 +411,24 @@ def prenota():
 @login_required
 def mie():
     if current_user.role == "cliente":
-        cliente_id = current_user.id
+        prenotazioni = Prenotazione.query.options(
+            db.joinedload(Prenotazione.tipologia_materiale),
+        ).filter_by(cliente_id=current_user.id).order_by(
+            Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
+        ).all()
     elif current_user.role == "vettore":
-        cliente_id = session.get("vettore_cliente_id")
-        if not cliente_id:
-            flash("Seleziona un cliente prima di accedere alle prenotazioni.", "warning")
-            return redirect(url_for("vettore_portale.seleziona_cliente"))
-        cliente_obj = db.session.get(User, cliente_id)
-        if not cliente_obj or not cliente_obj.is_active or cliente_obj.role != "cliente":
-            session.pop("vettore_cliente_id", None)
-            session.pop("vettore_cliente_nome", None)
-            flash("Il cliente selezionato non è più disponibile.", "warning")
-            return redirect(url_for("vettore_portale.seleziona_cliente"))
+        vettore = Vettore.query.filter_by(user_id=current_user.id).first()
+        if not vettore:
+            flash("Account vettore non configurato.", "warning")
+            return redirect(url_for("dashboard.index"))
+        prenotazioni = Prenotazione.query.options(
+            db.joinedload(Prenotazione.tipologia_materiale),
+        ).filter_by(vettore_id=vettore.id).order_by(
+            Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
+        ).all()
     else:
         flash("Accesso riservato.", "error")
         return redirect(url_for("dashboard.index"))
-    prenotazioni = Prenotazione.query.options(
-        db.joinedload(Prenotazione.tipologia_materiale),
-    ).filter_by(cliente_id=cliente_id).order_by(
-        Prenotazione.data.desc(), Prenotazione.ora_inizio.desc()
-    ).all()
     return render_template("prenotazioni/mie_prenotazioni.html", prenotazioni=prenotazioni)
 
 
