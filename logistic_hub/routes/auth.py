@@ -14,6 +14,8 @@ def login():
     if current_user.is_authenticated:
         if current_user.role == "cliente":
             return redirect(url_for("prenotazioni.calendario"))
+        if current_user.role == "vettore":
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
         return redirect(url_for("dashboard.index"))
 
     form = LoginForm()
@@ -34,6 +36,8 @@ def login():
             next_page = request.args.get("next")
             if user.role == "cliente":
                 return redirect(next_page or url_for("prenotazioni.calendario"))
+            if user.role == "vettore":
+                return redirect(next_page or url_for("vettore_portale.seleziona_cliente"))
             return redirect(next_page or url_for("dashboard.index"))
         else:
             flash("Credenziali non valide.", "error")

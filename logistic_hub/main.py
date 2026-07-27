@@ -32,6 +32,7 @@ from routes.clienti import clienti
 from routes.prenotazioni import bp as prenotazioni
 from routes.tipologie_materiale import tipologie
 from routes.vettori import vettori
+from routes.vettore_portale import vettore_portale
 from config import Config
 
 
@@ -176,6 +177,7 @@ def create_app():
     app.register_blueprint(prenotazioni)
     app.register_blueprint(tipologie)
     app.register_blueprint(vettori)
+    app.register_blueprint(vettore_portale)
 
     @login_manager.user_loader
     def load_user(user_id):

@@ -442,3 +442,202 @@ def test_vettore_on_delete_set_null(app, db):
         assert v_dopo is not None, "Il Vettore NON dovrebbe essere stato eliminato a cascata"
         assert v_dopo.nome == "Vettore Da Eliminare"
         assert v_dopo.user_id is None, "user_id dovrebbe essere NULL (SET NULL)"
+
+
+def _crea_setup_vettore(db, clienti_count=1, con_vettore=True, vettore_attivo=True):
+    """Helper: crea User(vettore), Vettore e N clienti associati.
+    Restituisce (username_vettore, password, lista_id_clienti)."""
+    from models import User, Vettore, ClienteVettore
+
+    vu = User(username="vettore-test", role="vettore")
+    vu.set_password("pass")
+    db.session.add(vu)
+    db.session.flush()
+    vu_id = vu.id
+
+    if con_vettore:
+        v = Vettore(nome="Vettore Test SRL", user_id=vu_id, attivo=vettore_attivo)
+        db.session.add(v)
+        db.session.flush()
+        v_id = v.id
+    else:
+        v_id = None
+
+    clienti_ids = []
+    for i in range(clienti_count):
+        c = User(username=f"cliente-vettore-{i}", role="cliente")
+        c.set_password("pass")
+        db.session.add(c)
+        db.session.flush()
+        clienti_ids.append(c.id)
+        if v_id is not None:
+            db.session.add(ClienteVettore(cliente_id=c.id, vettore_id=v_id))
+
+    db.session.commit()
+    return ("vettore-test", "pass", clienti_ids)
+
+
+def test_vettore_login_redirect(app, db):
+    """Vettore loggato → redirect a /vettore/seleziona-cliente."""
+    from models import User, Vettore
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=1)
+
+    resp = client.post(
+        "/login",
+        data={"username": "vettore-test", "password": "pass"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
+
+
+def test_vettore_no_vettore_record(app, db):
+    """User vettore senza Vettore collegato → 'Account non configurato'."""
+    from models import User
+    client = app.test_client()
+
+    with app.app_context():
+        # Crea solo User(vettore), nessun Vettore con user_id
+        _crea_setup_vettore(db, con_vettore=False, clienti_count=0)
+
+    resp = client.post(
+        "/login",
+        data={"username": "vettore-test", "password": "pass"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "Account non configurato" in resp.text
+    assert "contatta" in resp.text.lower()
+
+
+def test_vettore_no_clienti(app, db):
+    """Vettore con account ma nessun ClienteVettore → 'Account non configurato'."""
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=0)
+
+    resp = client.post(
+        "/login",
+        data={"username": "vettore-test", "password": "pass"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert "Account non configurato" in resp.text
+
+
+def test_vettore_single_cliente_auto_select(app, db):
+    """Un solo cliente associato → auto-selezione, redirect a calendario."""
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=1)
+
+    resp = client.post(
+        "/login",
+        data={"username": "vettore-test", "password": "pass"},
+        follow_redirects=False,
+    )
+
+    # Prima redirect a seleziona-cliente (dopo login)
+    assert resp.status_code == 302
+    # Il seleziona-cliente dovrebbe auto-selezionare e redirect a calendario
+    resp2 = client.get("/vettore/seleziona-cliente", follow_redirects=False)
+    # Dopo l'auto-selezione, dovrebbe essere redirect a /prenotazioni/calendario
+    if resp2.status_code == 302:
+        assert "/prenotazioni/calendario" in resp2.headers.get("Location", "")
+
+    # Verifica anche la sessione
+    with client.session_transaction() as sess:
+        assert sess.get("vettore_cliente_id") is not None
+        assert sess.get("vettore_cliente_nome") is not None
+
+
+def test_vettore_multi_cliente_shows_selection(app, db):
+    """Più clienti → mostra schermata di selezione."""
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=2)
+
+    # Login
+    client.post("/login", data={"username": "vettore-test", "password": "pass"})
+
+    # GET seleziona-cliente → deve mostrare la pagina di selezione
+    resp = client.get("/vettore/seleziona-cliente")
+    assert resp.status_code == 200
+    assert "cliente-vettore-0" in resp.text
+    assert "cliente-vettore-1" in resp.text
+    # Nessun messaggio di errore
+    assert "Account non configurato" not in resp.text
+
+
+def test_vettore_seleziona_cliente_post(app, db):
+    """POST selezione cliente → sessione aggiornata."""
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=2)
+
+    # Login
+    client.post("/login", data={"username": "vettore-test", "password": "pass"})
+
+    # Recupera gli ID dei clienti dalla pagina di selezione
+    resp = client.get("/vettore/seleziona-cliente")
+    assert resp.status_code == 200
+
+    # Trova il primo cliente_id nel form action
+    import re
+    match = re.search(r'name="cliente_id"\s+value="(\d+)"', resp.text)
+    assert match, "Campo cliente_id hidden non trovato"
+    primo_cliente_id = int(match.group(1))
+
+    # POST selezione
+    resp = client.post(
+        "/vettore/seleziona-cliente",
+        data={"cliente_id": primo_cliente_id},
+        follow_redirects=False,
+    )
+    # Dopo selezione, redirect a calendario
+    assert resp.status_code == 302
+    assert "/prenotazioni/calendario" in resp.headers.get("Location", "")
+
+    # Verifica sessione
+    with client.session_transaction() as sess:
+        assert sess.get("vettore_cliente_id") == primo_cliente_id
+        assert sess.get("vettore_cliente_nome") is not None
+
+
+def test_vettore_cambia_cliente_resets_session(app, db):
+    """GET cambia-cliente → sessione resettata."""
+    import re
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore(db, clienti_count=2)
+
+    # Login e seleziona cliente
+    client.post("/login", data={"username": "vettore-test", "password": "pass"})
+    resp = client.get("/vettore/seleziona-cliente")
+    match = re.search(r'name="cliente_id"\s+value="(\d+)"', resp.text)
+    client.post(
+        "/vettore/seleziona-cliente",
+        data={"cliente_id": int(match.group(1))},
+    )
+
+    # Verifica sessione prima del reset
+    with client.session_transaction() as sess:
+        assert "vettore_cliente_id" in sess
+
+    # Cambia cliente
+    resp = client.get("/vettore/cambia-cliente", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
+
+    # Verifica sessione dopo reset
+    with client.session_transaction() as sess:
+        assert "vettore_cliente_id" not in sess
+        assert "vettore_cliente_nome" not in sess
