@@ -33,10 +33,24 @@
                 {{ form.role(class="form-input" + (" is-invalid" if form.role.errors else "")) }}
                 {% if form.role.errors %}<div class="form-error">{% for e in form.role.errors %}{{ e }}{% endfor %}</div>{% endif %}
             </div>
-            <div class="form-group" id="vettore-field" style="display:none">
-                <label for="vettore_id">Vettore da collegare</label>
-                {{ form.vettore_id(class="form-input" + (" is-invalid" if form.vettore_id.errors else "")) }}
-                {% if form.vettore_id.errors %}<div class="form-error">{% for e in form.vettore_id.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            <div class="form-group" id="clienti-vettore-field" style="display:none">
+                <label>Clienti associati</label>
+                {% if clienti_disponibili %}
+                <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+                    Seleziona i clienti per cui questo vettore potrà prenotare.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:12px">
+                    {% for c in clienti_disponibili %}
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+                        <input type="checkbox" name="clienti_associati" value="{{ c.id }}"
+                               {% if c.id in clienti_associati_ids %}checked{% endif %}>
+                        <span style="font-size:.9rem">{{ c.username }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="font-size:.85rem;color:var(--text-muted)">Nessun cliente disponibile. Crea prima degli utenti con ruolo Cliente.</p>
+                {% endif %}
             </div>
         </div>
         <div class="form-actions">
@@ -149,10 +163,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     el.style.display = val === 'cliente' ? '' : 'none';
                 }
             });
-            // Campo vettore
-            var vettoreField = document.getElementById('vettore-field');
-            if (vettoreField) {
-                vettoreField.style.display = val === 'vettore' ? '' : 'none';
+            // Sezione clienti associati per vettori
+            var clientiField = document.getElementById('clienti-vettore-field');
+            if (clientiField) {
+                clientiField.style.display = val === 'vettore' ? '' : 'none';
             }
         }
         roleSelect.addEventListener('change', toggleFields);

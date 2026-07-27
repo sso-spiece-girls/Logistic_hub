@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from models import User, db, TipologiaMateriale, ClienteMagazzino, MagazzinoCapienza, Prenotazione, Vettore
+from models import User, db, TipologiaMateriale, ClienteMagazzino, MagazzinoCapienza, Prenotazione, Vettore, ClienteVettore
 from forms import UserForm, TipologiaMaterialeForm
 from routes.auth import log_activity, create_notification, notifica_operatori
 from core.auth_decorators import admin_required
@@ -46,21 +46,16 @@ def lista():
 @admin_required
 def nuovo():
     form = UserForm()
-    # Popola choices vettore (filtra solo vettori attivi non ancora collegati)
-    vettori_disponibili = Vettore.query.filter(
-        Vettore.user_id.is_(None), Vettore.attivo.is_(True)
-    ).order_by(Vettore.nome).all()
-    form.vettore_id.choices = [(0, "-- Nessuno --")] + [(v.id, v.nome) for v in vettori_disponibili]
+    # Clienti disponibili (per associazione vettore)
+    clienti_disponibili = User.query.filter_by(role="cliente", is_active=True).order_by(User.username).all()
+    clienti_associati_ids = []  # nuovo utente → nessun cliente associato
 
     if form.validate_on_submit():
         if User.query.filter_by(username=form.username.data).first():
             flash("Username già esistente.", "error")
-            return render_template("users_form.html", form=form, titolo="Nuovo Utente")
-
-        # Validazione: per ruolo vettore, selezionare un vettore è obbligatorio
-        if form.role.data == "vettore" and form.vettore_id.data in (0, None, ""):
-            flash("Per il ruolo Vettore è obbligatorio selezionare un vettore da collegare.", "error")
-            return render_template("users_form.html", form=form, titolo="Nuovo Utente")
+            return render_template("users_form.html", form=form, titolo="Nuovo Utente",
+                                   clienti_disponibili=clienti_disponibili,
+                                   clienti_associati_ids=clienti_associati_ids)
 
         try:
             user = User(
@@ -72,19 +67,29 @@ def nuovo():
             db.session.add(user)
             db.session.flush()
 
-            # Collega vettore dopo flush per avere user.id
+            # Per vettore: auto-crea Vettore + associa clienti selezionati
             if form.role.data == "vettore":
-                vettore = Vettore.query.get(form.vettore_id.data)
-                if vettore is None:
-                    flash("Vettore selezionato non trovato. Potrebbe essere stato eliminato.", "error")
-                    return render_template("users_form.html", form=form, titolo="Nuovo Utente")
-                vettore.user_id = user.id
+                vettore = Vettore(
+                    nome=f"Autista {user.username}",
+                    email=user.email,
+                    attivo=True,
+                    user_id=user.id,
+                )
+                db.session.add(vettore)
+                db.session.flush()
+
+                clienti_ids = set(int(x) for x in request.form.getlist("clienti_associati") if x)
+                for cid in clienti_ids:
+                    if any(c.id == cid for c in clienti_disponibili):
+                        db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vettore.id))
 
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
-            flash("Errore: username, email o vettore già in uso.", "error")
-            return render_template("users_form.html", form=form, titolo="Nuovo Utente")
+            flash("Errore: username o email già in uso.", "error")
+            return render_template("users_form.html", form=form, titolo="Nuovo Utente",
+                                   clienti_disponibili=clienti_disponibili,
+                                   clienti_associati_ids=clienti_associati_ids)
         log_activity(current_user.id, "crea_utente",
             f"{current_user.username} ha creato l'utente {user.username}",
             "user", user.id)
@@ -92,7 +97,9 @@ def nuovo():
             f"{current_user.username} ha creato l'utente {user.username} ({user.role_label})", "info")
         flash("Utente creato con successo.", "success")
         return redirect(url_for("users.lista"))
-    return render_template("users_form.html", form=form, titolo="Nuovo Utente")
+    return render_template("users_form.html", form=form, titolo="Nuovo Utente",
+                           clienti_disponibili=clienti_disponibili,
+                           clienti_associati_ids=clienti_associati_ids)
 
 
 @users.route("/<int:id>/modifica", methods=["GET", "POST"])
@@ -104,15 +111,14 @@ def modifica(id):
     form.password.validators = []
     form.password.render_kw = {"placeholder": "Lascia vuoto per non cambiare"}
 
-    # Popola choices vettore (include quello già collegato a questo utente)
-    vettori_disponibili = Vettore.query.filter(
-        Vettore.attivo.is_(True)
-    ).filter(
-        (Vettore.user_id.is_(None)) | (Vettore.user_id == user.id)
-    ).order_by(Vettore.nome).all()
-    form.vettore_id.choices = [(0, "-- Nessuno --")] + [(v.id, v.nome) for v in vettori_disponibili]
-    if request.method == "GET" and user.vettore:
-        form.vettore_id.data = user.vettore.id
+    # Clienti disponibili per associazione vettore
+    clienti_disponibili = User.query.filter_by(role="cliente", is_active=True).order_by(User.username).all()
+    # Clienti già associati (tramite Vettore)
+    clienti_associati_ids = []
+    if user.vettore:
+        clienti_associati_ids = [
+            cv.cliente_id for cv in ClienteVettore.query.filter_by(vettore_id=user.vettore.id).all()
+        ]
 
     # Template vars condivise (sia GET che POST error)
     tipologie = TipologiaMateriale.query.filter_by(cliente_id=user.id).order_by(TipologiaMateriale.nome).all() if user.role == "cliente" else []
@@ -120,7 +126,9 @@ def modifica(id):
     tutti_magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
     template_ctx = dict(form=form, titolo="Modifica Utente", user=user,
                         tipologie=tipologie, tipologia_form=TipologiaMaterialeForm(),
-                        magazzini_associati=magazzini_associati, tutti_magazzini=tutti_magazzini)
+                        magazzini_associati=magazzini_associati, tutti_magazzini=tutti_magazzini,
+                        clienti_disponibili=clienti_disponibili,
+                        clienti_associati_ids=clienti_associati_ids)
 
     if form.validate_on_submit():
         if form.password.data:
@@ -129,35 +137,43 @@ def modifica(id):
         user.email = form.email.data
         user.role = form.role.data
 
-        # Validazione vettore obbligatorio per ruolo vettore
-        if form.role.data == "vettore" and form.vettore_id.data in (0, None, ""):
-            flash("Per il ruolo Vettore è obbligatorio selezionare un vettore da collegare.", "error")
-            return render_template("users_form.html", **template_ctx)
-
-        # Gestione collegamento vettore
+        # Gestione associazioni vettore-clienti
         if form.role.data == "vettore":
-            nuovo_vettore = Vettore.query.get(form.vettore_id.data)
-            if nuovo_vettore is None:
-                flash("Vettore selezionato non trovato. Potrebbe essere stato eliminato.", "error")
-                return render_template("users_form.html", **template_ctx)
-            if nuovo_vettore.user_id is not None and nuovo_vettore.user_id != user.id:
-                flash("Vettore già collegato a un altro utente.", "error")
-                return render_template("users_form.html", **template_ctx)
-            # Scollega vecchio vettore se diverso da quello selezionato
-            vecchio_vettore = Vettore.query.filter_by(user_id=user.id).first()
-            if vecchio_vettore and vecchio_vettore.id != nuovo_vettore.id:
-                vecchio_vettore.user_id = None
-                db.session.flush()  # UPDATE immediato per evitare UNIQUE violation
-            nuovo_vettore.user_id = user.id
+            # Auto-crea Vettore se non esiste (backward compat)
+            vettore = user.vettore
+            if not vettore:
+                vettore = Vettore(
+                    nome=f"Autista {user.username}",
+                    email=user.email,
+                    attivo=True,
+                    user_id=user.id,
+                )
+                db.session.add(vettore)
+                db.session.flush()
+
+            # Sincronizza ClienteVettore coi clienti selezionati
+            selezionati = set(int(x) for x in request.form.getlist("clienti_associati") if x)
+            # Rimuovi deselezionati
+            for cv in ClienteVettore.query.filter_by(vettore_id=vettore.id).all():
+                if cv.cliente_id not in selezionati:
+                    db.session.delete(cv)
+            # Aggiungi nuovi
+            esistenti = {cv.cliente_id for cv in ClienteVettore.query.filter_by(vettore_id=vettore.id).all()}
+            for cid in selezionati:
+                if cid not in esistenti and any(c.id == cid for c in clienti_disponibili):
+                    db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vettore.id))
         else:
-            # Se non è più vettore, scollega eventuale vettore collegato
-            Vettore.query.filter_by(user_id=user.id).update({"user_id": None})
+            # Se non è più vettore, scollega eventuale Vettore e rimuovi associazioni
+            vettore = user.vettore
+            if vettore:
+                ClienteVettore.query.filter_by(vettore_id=vettore.id).delete()
+                vettore.user_id = None
 
         try:
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
-            flash("Errore: username, email o vettore già in uso.", "error")
+            flash("Errore: username o email già in uso.", "error")
             return render_template("users_form.html", **template_ctx)
 
         # Salva associazioni magazzini per clienti

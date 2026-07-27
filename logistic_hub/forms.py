@@ -35,7 +35,7 @@ class UserForm(FlaskForm):
         ("cliente", "Cliente"),
         ("vettore", "Vettore"),
     ], validators=[DataRequired()])
-    vettore_id = SelectField("Vettore da collegare", coerce=int, validators=[Optional()])
+    # clienti associati gestiti via template checkboxes + request.form.getlist()
 
 
 class BollaForm(FlaskForm):
