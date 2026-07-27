@@ -931,6 +931,33 @@ def test_vettore_mie_isolamento(app, db):
     assert "Scarico" not in resp2.text, "Vettore 2 NON dovrebbe vedere la prenotazione dell'altro vettore (Scarico)"
 
 
+def test_vettore_non_accede_mie(app, db):
+    """Vettore → GET /prenotazioni/mie viene respinto (route riservata ai soli clienti)."""
+    client = app.test_client()
+
+    with app.app_context():
+        _crea_setup_vettore_con_cliente(
+            app, db,
+            vettore_nome="VettoreMieBlock",
+            vettore_username="vettore-mieblock",
+            cliente_username="cliente-mieblock",
+        )
+
+    # Login come vettore
+    client.post("/login", data={"username": "vettore-mieblock", "password": "pass"})
+
+    # GET /prenotazioni/mie → deve essere respinto
+    resp = client.get("/prenotazioni/mie", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/dashboard" in resp.headers.get("Location", "")
+
+    # Anche dopo aver selezionato un cliente
+    client.get("/vettore/seleziona-cliente", follow_redirects=False)
+    resp2 = client.get("/prenotazioni/mie", follow_redirects=False)
+    assert resp2.status_code == 302
+    assert "/dashboard" in resp2.headers.get("Location", "")
+
+
 def test_vettore_cliente_disattivato_dopo_selezione(app, db):
     """Cliente disattivato dopo la selezione → calendario() e prenota() redirect a seleziona-cliente."""
     from models import User
