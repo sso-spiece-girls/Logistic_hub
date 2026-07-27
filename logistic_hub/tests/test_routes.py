@@ -931,31 +931,30 @@ def test_vettore_mie_isolamento(app, db):
     assert "Scarico" not in resp2.text, "Vettore 2 NON dovrebbe vedere la prenotazione dell'altro vettore (Scarico)"
 
 
-def test_vettore_non_accede_mie(app, db):
-    """Vettore → GET /prenotazioni/mie viene respinto (route riservata ai soli clienti)."""
+def test_vettore_accede_mie(app, db):
+    """Vettore → GET /prenotazioni/mie funziona (stessa pagina del cliente)."""
     client = app.test_client()
 
     with app.app_context():
         _crea_setup_vettore_con_cliente(
             app, db,
-            vettore_nome="VettoreMieBlock",
-            vettore_username="vettore-mieblock",
-            cliente_username="cliente-mieblock",
+            vettore_nome="VettoreMieOk",
+            vettore_username="vettore-mieok",
+            cliente_username="cliente-mieok",
         )
 
     # Login come vettore
-    client.post("/login", data={"username": "vettore-mieblock", "password": "pass"})
+    client.post("/login", data={"username": "vettore-mieok", "password": "pass"})
 
-    # GET /prenotazioni/mie → deve essere respinto
+    # GET /prenotazioni/mie senza cliente selezionato → redirect a seleziona-cliente
     resp = client.get("/prenotazioni/mie", follow_redirects=False)
     assert resp.status_code == 302
-    assert "/dashboard" in resp.headers.get("Location", "")
+    assert "/vettore/seleziona-cliente" in resp.headers.get("Location", "")
 
-    # Anche dopo aver selezionato un cliente
+    # Dopo aver selezionato un cliente → deve funzionare (200)
     client.get("/vettore/seleziona-cliente", follow_redirects=False)
     resp2 = client.get("/prenotazioni/mie", follow_redirects=False)
-    assert resp2.status_code == 302
-    assert "/dashboard" in resp2.headers.get("Location", "")
+    assert resp2.status_code == 200, f"Dovrebbe mostrare le prenotazioni, status={resp2.status_code}"
 
 
 def test_vettore_cliente_disattivato_dopo_selezione(app, db):
