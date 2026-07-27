@@ -120,7 +120,7 @@
     <div class="layout">
         <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
         <aside class="sidebar" id="sidebar">
-            {% if current_user.role != 'cliente' %}
+            {% if current_user.role not in ('cliente', 'vettore') %}
             <div class="sidebar-section">
                 <div class="sidebar-label">OPERATIVO</div>
                 <a href="/dashboard" class="sidebar-item {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}">
