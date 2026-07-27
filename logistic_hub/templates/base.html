@@ -96,6 +96,12 @@
                             Backup
                         </a>
                         {% endif %}
+                        {% if current_user.role == 'vettore' and session.get('vettore_cliente_nome') %}
+                        <a href="/vettore/cambia-cliente" class="user-menu-item">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
+                            Cambia cliente ({{ session['vettore_cliente_nome'] }})
+                        </a>
+                        {% endif %}
                         <a href="/attivita" class="user-menu-item">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                             Registro Attività
@@ -190,12 +196,7 @@
             {% endif %}
             {% if current_user.role in ('cliente', 'vettore') %}
             <div class="sidebar-section">
-                <div class="sidebar-label">
-                    PRENOTAZIONI
-                    {% if session.get('vettore_cliente_nome') %}
-                    <span class="badge badge-cliente" style="font-size:.65rem;font-weight:600;background:#2563eb;color:#fff;padding:2px 6px;border-radius:4px;margin-left:4px">{{ session['vettore_cliente_nome'] }}</span>
-                    {% endif %}
-                </div>
+                <div class="sidebar-label">PRENOTAZIONI</div>
                 <a href="/prenotazioni/calendario" class="sidebar-item {% if request.endpoint and 'prenotazioni.calendario' in request.endpoint %}active{% endif %}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     Calendario
@@ -204,12 +205,6 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                     Le mie prenotazioni
                 </a>
-                {% if current_user.role == 'vettore' %}
-                <a href="/vettore/cambia-cliente" class="sidebar-item">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
-                    Cambia cliente
-                </a>
-                {% endif %}
             </div>
             {% endif %}
         </aside>
