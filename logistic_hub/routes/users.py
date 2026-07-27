@@ -49,13 +49,16 @@ def nuovo():
     # Clienti disponibili (per associazione vettore)
     clienti_disponibili = User.query.filter_by(role="cliente", is_active=True).order_by(User.username).all()
     clienti_associati_ids = []  # nuovo utente → nessun cliente associato
+    tutti_magazzini = MagazzinoCapienza.query.order_by(MagazzinoCapienza.magazzino).all()
 
     if form.validate_on_submit():
         if User.query.filter_by(username=form.username.data).first():
             flash("Username già esistente.", "error")
             return render_template("users_form.html", form=form, titolo="Nuovo Utente",
                                    clienti_disponibili=clienti_disponibili,
-                                   clienti_associati_ids=clienti_associati_ids)
+                                   clienti_associati_ids=clienti_associati_ids,
+                                   tutti_magazzini=tutti_magazzini,
+                                   magazzini_associati=[])
 
         try:
             user = User(
@@ -84,12 +87,19 @@ def nuovo():
                         db.session.add(ClienteVettore(cliente_id=cid, vettore_id=vettore.id))
 
             db.session.commit()
+
+            # Salva associazioni magazzini per nuovi clienti
+            if form.role.data == "cliente":
+                _salva_magazzini_associati(user.id)
+
         except IntegrityError:
             db.session.rollback()
             flash("Errore: username o email già in uso.", "error")
             return render_template("users_form.html", form=form, titolo="Nuovo Utente",
                                    clienti_disponibili=clienti_disponibili,
-                                   clienti_associati_ids=clienti_associati_ids)
+                                   clienti_associati_ids=clienti_associati_ids,
+                                   tutti_magazzini=tutti_magazzini,
+                                   magazzini_associati=[])
         log_activity(current_user.id, "crea_utente",
             f"{current_user.username} ha creato l'utente {user.username}",
             "user", user.id)
@@ -99,7 +109,9 @@ def nuovo():
         return redirect(url_for("users.lista"))
     return render_template("users_form.html", form=form, titolo="Nuovo Utente",
                            clienti_disponibili=clienti_disponibili,
-                           clienti_associati_ids=clienti_associati_ids)
+                           clienti_associati_ids=clienti_associati_ids,
+                           tutti_magazzini=tutti_magazzini,
+                           magazzini_associati=[])
 
 
 @users.route("/<int:id>/modifica", methods=["GET", "POST"])
