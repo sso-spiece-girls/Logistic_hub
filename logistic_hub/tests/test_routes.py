@@ -546,9 +546,9 @@ def test_vettore_single_cliente_auto_select(app, db):
     assert resp.status_code == 302
     # Il seleziona-cliente dovrebbe auto-selezionare e redirect a calendario
     resp2 = client.get("/vettore/seleziona-cliente", follow_redirects=False)
-    # Dopo l'auto-selezione, dovrebbe essere redirect a /prenotazioni/calendario
-    if resp2.status_code == 302:
-        assert "/prenotazioni/calendario" in resp2.headers.get("Location", "")
+    # Dopo l'auto-selezione, deve essere redirect a /prenotazioni/calendario
+    assert resp2.status_code == 302
+    assert "/prenotazioni/calendario" in resp2.headers.get("Location", "")
 
     # Verifica anche la sessione
     with client.session_transaction() as sess:
