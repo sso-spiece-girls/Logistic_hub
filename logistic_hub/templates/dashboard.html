@@ -8,7 +8,10 @@
     {% for n in notifiche_non_lette[:3] %}
     <div class="notif-strip-item notif-{{ n.type }}">
         <span>{{ n.message }}</span>
-        <a href="/notifiche/marca/{{ n.id }}" class="notif-dismiss">&times;</a>
+        <form method="POST" action="/notifiche/marca/{{ n.id }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="notif-dismiss" style="background:none;border:none;cursor:pointer;font:inherit;color:inherit;padding:0">&times;</button>
+        </form>
     </div>
     {% endfor %}
 </div>
