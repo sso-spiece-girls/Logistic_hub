@@ -292,15 +292,6 @@ def prenota():
         flash("Orario non valido o non allineato agli slot disponibili.", "error")
         return redirect(url_for("prenotazioni.calendario"))
     ora_inizio, ora_fine = orari
-    stesso_orario = Prenotazione.query.filter(
-        Prenotazione.slot_orario_id == regola.id,
-        Prenotazione.data == data_prenot,
-        Prenotazione.ora_inizio == ora_inizio,
-        Prenotazione.stato.in_(["in_attesa", "confermata"]),
-    ).count() > 0
-    if stesso_orario:
-        flash("Orario non disponibile: slot già occupato.", "error")
-        return redirect(url_for("prenotazioni.calendario"))
     # Controllo capienza per il magazzino scelto dal cliente
     magazzino_scelto = form.magazzino.data
     capienza_mag = 999
