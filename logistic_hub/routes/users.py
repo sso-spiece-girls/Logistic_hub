@@ -74,7 +74,7 @@ def nuovo():
             # Per vettore: auto-crea Vettore + associa clienti selezionati
             if form.role.data == "vettore":
                 vettore = Vettore(
-                    nome=f"Autista {user.username}",
+                    nome=user.username,
                     email=user.email,
                     attivo=True,
                     user_id=user.id,
@@ -156,7 +156,7 @@ def modifica(id):
             vettore = user.vettore
             if not vettore:
                 vettore = Vettore(
-                    nome=f"Autista {user.username}",
+                    nome=user.username,
                     email=user.email,
                     attivo=True,
                     user_id=user.id,

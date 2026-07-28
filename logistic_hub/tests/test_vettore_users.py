@@ -43,7 +43,7 @@ def test_creazione_vettore_con_clienti(auth_client, db):
         # Vettore auto-creato
         vettore = user.vettore
         assert vettore is not None, "Vettore deve essere auto-creato"
-        assert vettore.nome == f"Autista {user.username}"
+        assert vettore.nome == user.username
         assert vettore.attivo is True
         # ClienteVettore creati
         associazioni = ClienteVettore.query.filter_by(vettore_id=vettore.id).all()
