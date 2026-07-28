@@ -21,7 +21,7 @@
 </div>
 {% else %}
 <div class="table-container">
-    <table class="data-table">
+    <table class="data-table responsive-table">
         <thead>
             <tr>
                 <th>Tipo</th>
@@ -36,18 +36,18 @@
         <tbody>
             {% for p in prenotazioni %}
             <tr>
-                <td><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
-                <td>{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
-                <td>{{ p.data|roma_time('%d/%m/%Y') }}</td>
-                <td>{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</td>
-                <td>
+                <td data-label="Tipo"><span class="status-badge status-{{ p.tipo }}">{{ p.tipo|capitalize }}</span></td>
+                <td data-label="Tipologia">{{ p.tipologia_materiale.nome if p.tipologia_materiale else '-' }}</td>
+                <td data-label="Data">{{ p.data|roma_time('%d/%m/%Y') }}</td>
+                <td data-label="Ora">{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</td>
+                <td data-label="Stato">
                     <span class="status-badge status-{{ p.stato }}">{{ p.stato_label if p.stato_label else p.stato }}</span>
                     {% if p.stato in ('rifiutata', 'ingresso_rifiutato') and p.motivo_rifiuto %}
                     <br><small class="text-muted" style="font-size:.75rem">Motivo: {{ p.motivo_rifiuto }}</small>
                     {% endif %}
                 </td>
-                <td>{{ p.magazzino or '-' }}</td>
-                <td>
+                <td data-label="Magazzino">{{ p.magazzino or '-' }}</td>
+                <td data-label="QR">
                     {% if p.token_qr %}
                     <a href="/prenotazioni/qr/{{ p.token_qr }}" class="btn btn-sm btn-ghost" download>
                         Scarica QR
@@ -62,4 +62,63 @@
     </table>
 </div>
 {% endif %}
+
+<style>
+/* 📱 Mobile < 768px: table → cards */
+@media (max-width: 768px) {
+  table.responsive-table thead { display:none; }
+  table.responsive-table,
+  table.responsive-table tbody,
+  table.responsive-table tr,
+  table.responsive-table td { display:block; }
+  table.responsive-table tr {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px;
+    margin-bottom:10px;
+    box-shadow:var(--card-shadow);
+  }
+  table.responsive-table td {
+    padding:6px 0;
+    border:none;
+    font-size:.82rem;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    min-height:32px;
+  }
+  table.responsive-table td::before {
+    content:attr(data-label);
+    font-size:.75rem;
+    font-weight:600;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    flex-shrink:0;
+  }
+  table.responsive-table td:not(:last-child) {
+    border-bottom:1px solid var(--border-light);
+  }
+  table.responsive-table td .status-badge {
+    font-size:.75rem;
+  }
+  table.responsive-table td .btn-sm {
+    font-size:.75rem;
+    padding:0.35rem 0.6rem;
+    min-height:32px;
+  }
+  table.responsive-table td:last-child::before {
+    display:none;
+  }
+  table.responsive-table td:last-child {
+    justify-content:center;
+    padding-top:8px;
+    margin-top:4px;
+    border-top:1px solid var(--border);
+    border-bottom:none !important;
+  }
+}
+</style>
 {% endblock %}

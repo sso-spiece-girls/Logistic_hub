@@ -769,7 +769,19 @@ select.form-input { appearance: auto; }
   .main-content { padding: 1rem; padding-left: 2rem; }
   .form-card { padding: 1.25rem; }
   .detail-list { grid-template-columns: 1fr 1fr; }
-  .page-header { flex-direction: column; }
+  .page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .page-header .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .page-header .header-actions .btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+  }
   /* Mobile: min 44px touch targets */
   .btn, .sidebar-item, .filter-chip, .action-card, .nav-icon-btn {
     min-height: 44px;
@@ -786,6 +798,9 @@ select.form-input { appearance: auto; }
   table.table thead th, .data-table th { padding: 0.5rem 0.6rem; font-size: 0.72rem; }
   table.table tbody td, .data-table td { padding: 0.45rem 0.6rem; font-size: 0.78rem; }
   .actions-cell .btn { font-size: 0.7rem; padding: 0.35rem 0.5rem; }
+  /* Mobile: calendario slots stack */
+  .calendario-slots { gap:6px; }
+  .calendario-giorno-header { -webkit-tap-highlight-color:transparent; }
 }
 
 @media (max-width: 480px) {
@@ -799,6 +814,9 @@ select.form-input { appearance: auto; }
   .table-container { margin: 0 -1rem; padding: 0 0.5rem; }
   /* Sidebar toggle more prominent on small screens */
   .sidebar-toggle { min-height: 44px; min-width: 44px; }
+  /* Page header buttons stack vertically on tiny screens */
+  .page-header .header-actions .btn { flex:auto; width:100%; }
+  .page-header { gap: 0.5rem; }
 }
 
 /* STATUS INLINE DROPDOWN */

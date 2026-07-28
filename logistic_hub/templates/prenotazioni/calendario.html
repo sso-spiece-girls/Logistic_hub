@@ -8,8 +8,9 @@
         <p class="page-subtitle">Seleziona uno slot disponibile per prenotare</p>
     </div>
     <div class="header-actions">
-        <a href="/prenotazioni/mie" class="btn btn-ghost">
-            Le mie prenotazioni
+        <a href="/prenotazioni/mie" class="btn btn-ghost" id="btnMiePrenotazioni">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span class="btn-label">Le mie prenotazioni</span>
         </a>
     </div>
 </div>
@@ -135,22 +136,76 @@ document.getElementById('prenota-modal').addEventListener('click', function(e) {
 </script>
 
 <style>
-.calendario-container { max-width:800px }
-.calendario-giorno { margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden }
-.calendario-giorno-header { padding:12px 16px; cursor:pointer; background:var(--surface-hover); display:flex; gap:8px; align-items:center; font-weight:600 }
+.calendario-container { max-width:800px; margin:0 auto; }
+.calendario-giorno { margin-bottom:10px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); }
+.calendario-giorno-header { padding:14px 16px; cursor:pointer; background:var(--surface-hover); display:flex; gap:8px; align-items:center; font-weight:600; user-select:none; -webkit-tap-highlight-color:transparent; }
 .calendario-giorno-header:hover { background:var(--surface-hover) }
+.calendario-giorno-header::-webkit-details-marker { display:none }
+.calendario-giorno-header::marker { display:none; content:"" }
 .calendario-giorno-nome { color:var(--primary-light); font-size:.9rem }
-.calendario-giorno-data { color:var(--text-muted); font-size:.85rem; font-weight:400 }
-.calendario-slots { padding:12px; display:flex; flex-wrap:wrap; gap:8px }
-.calendario-slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border:1px solid var(--border); border-radius:6px; min-width:220px }
-.calendario-slot.occupato { background:var(--surface-hover); opacity:.6; cursor:not-allowed }
+.calendario-giorno-data { color:var(--text-muted); font-size:.85rem; font-weight:400; margin-left:auto }
+.calendario-slots { padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px }
+.calendario-slot { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; flex:1 1 200px; min-width:0; transition:border-color .15s; }
+.calendario-slot.occupato { background:var(--surface-hover); opacity:.6; cursor:not-allowed; pointer-events:none }
 .calendario-slot.pieno { background:#fff0f0; opacity:.7; border-color:#ffcccc }
 .calendario-slot.pieno .slot-occupato-label { color:#cc3333; font-weight:500 }
-.slot-orario { font-size:.85rem; font-weight:500; color:var(--text) }
+.slot-orario { font-size:.85rem; font-weight:600; color:var(--text); white-space:nowrap }
 .slot-occupato-label { font-size:.8rem; color:var(--text-muted); font-style:italic }
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:1000 }
-.modal-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.3); width:100% }
-.form-group { margin-bottom:12px }
-.form-group label { display:block; margin-bottom:4px; font-size:.85rem; font-weight:500; color:var(--text-muted) }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+.modal-card { background:var(--surface); padding:24px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.3); width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+.form-group { margin-bottom:14px }
+.form-group label { display:block; margin-bottom:6px; font-size:.85rem; font-weight:500; color:var(--text-muted) }
+.form-group select.form-input,
+.form-group input.form-input { font-size:1rem; min-height:44px; }
+
+/* 📱 Mobile: < 768px — header actions inline */
+@media (max-width: 768px) {
+  .page-header .header-actions { width:100%; }
+  .page-header .header-actions #btnMiePrenotazioni {
+    width:100%; justify-content:center; font-size:.85rem; padding:0.6rem 1rem;
+  }
+}
+
+/* 📱 Mobile: < 600px */
+@media (max-width: 600px) {
+  .calendario-container { margin:0 -1rem; }
+  .calendario-giorno { border-radius:0; border-left:none; border-right:none; }
+  .calendario-giorno-header { padding:14px 1rem; }
+  .calendario-giorno-nome { font-size:.85rem }
+  .calendario-slots { padding:10px 1rem; gap:6px; flex-direction:column; }
+  .calendario-slot { flex:1 1 auto; min-height:48px; padding:10px 12px; }
+  .slot-orario { font-size:.82rem; }
+  /* Bottoni full-width dentro lo slot */
+  .calendario-slot .btn-sm { flex-shrink:0; font-size:.82rem; padding:0.5rem 0.85rem; min-height:36px; }
+  /* Modal a schermo intero con input touch-friendly */
+  .modal-card { max-width:100%; max-height:100dvh; height:100dvh; border-radius:0; padding:1rem; display:flex; flex-direction:column; }
+  .modal-card h3 { margin-top:0; font-size:1.1rem; }
+  .modal-card form { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
+  .modal-card form > .form-group:last-of-type { flex:1; }
+  .modal-card form > div:last-child {
+    position:sticky; bottom:0; background:var(--surface); padding-top:12px;
+    box-shadow:0 -4px 12px rgba(0,0,0,0.06);
+  }
+  .form-group { margin-bottom:12px; }
+  .form-group label { font-size:.82rem; }
+  /* Input con altezza tattile maggiorata su mobile */
+  .modal-card .form-group select.form-input,
+  .modal-card .form-group input.form-input { min-height:48px; font-size:16px; }
+  /* Nasconde l'etichetta del bottone su mobile estrema, tiene solo icona */
+  #btnMiePrenotazioni .btn-label { display:inline; }
+  .empty-state { padding:2rem 1rem; }
+  .empty-state p { font-size:.85rem; }
+}
+
+/* 📱 Mobile piccolo: < 400px */
+@media (max-width: 400px) {
+  .calendario-giorno-header { padding:12px 0.75rem; }
+  .calendario-slots { padding:8px 0.75rem; }
+  .calendario-slot { flex-direction:column; align-items:stretch; gap:6px; text-align:center; }
+  .calendario-slot .btn-sm { width:100%; }
+  .modal-card { padding:0.75rem; }
+  .modal-card .form-group select.form-input,
+  .modal-card .form-group input.form-input { min-height:44px; font-size:16px; }
+}
 </style>
 {% endblock %}
