@@ -39,37 +39,26 @@ def _capienza_magazzini():
     return sum(r.capienza_contemporanea for r in righe)
 
 
-def _slot_disponibili(regola, giorno, capienza=None):
+def _slot_disponibili(regola, giorno):
     """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno.
 
-    Usa un passo minimo di 30 minuti per evitare micro-slot: se la regola ha
-    durata_minuti < 30, si usa comunque 30 come granularità dei tick.
-    NON consolida i tick — ogni slot rimane individuale così il cliente può
-    selezionare un orario di inizio preciso.
+    La capienza è per-magazzino, non globale: il controllo effettivo
+    avviene in `prenota()` che filtra per magazzino. Qui mostriamo
+    sempre tutti gli slot come prenotabili.
     """
-    if capienza is None:
-        capienza = _capienza_magazzini()
     slots = []
     cur = datetime.combine(giorno, regola.ora_inizio)
     fine = datetime.combine(giorno, regola.ora_fine)
     # Minimo 60 minuti tra un tick e l'altro — evita griglia troppo fitta
     step = timedelta(minutes=max(regola.durata_minuti, 60))
-    prenotazioni_giorno = Prenotazione.query.filter(
-        Prenotazione.slot_orario_id == regola.id,
-        Prenotazione.data == giorno,
-        Prenotazione.stato.in_(["in_attesa", "confermata"]),
-    ).all()
     while cur + step <= fine:
         oi = cur.time()
         of = (cur + step).time()
-        # Conta quante prenotazioni si sovrappongono a questo tick.
-        # Con durate variabili (tipologia), una prenotazione può occupare più tick.
-        occupate = sum(1 for p in prenotazioni_giorno if p.ora_inizio < of and p.ora_fine > oi)
         slots.append({
             "slot_orario_id": regola.id,
             "ora_inizio": oi.strftime("%H:%M"),
             "ora_fine": of.strftime("%H:%M"),
-            "disponibile": occupate < capienza,
+            "disponibile": True,
         })
         cur += step
     return slots
