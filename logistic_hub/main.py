@@ -118,26 +118,30 @@ def _migrate_prenotazioni():
     except Exception:
         db.session.rollback()
 
+    # Rimuove il prefisso "Autista " dai nomi dei Vettori esistenti (migrazione dati)
+    try:
+        db.session.execute(
+            text("UPDATE vettori SET nome = SUBSTR(nome, 9) WHERE nome LIKE 'Autista %'")
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 def _seed_slot_orari():
-    """Crea gli slot orari default (8-13 e 14-17, Lun-Ven) se non ne esiste nessuno."""
+    """Crea gli slot orari default (8-17, Lun-Ven) se non ne esiste nessuno."""
     from models import SlotOrario
     from datetime import time as dt_time
     if SlotOrario.query.first() is not None:
         return
     giorni = [0, 1, 2, 3, 4]  # Lun-Ven
-    fasce = [
-        (dt_time(8, 0), dt_time(13, 0)),   # 8:00-13:00
-        (dt_time(14, 0), dt_time(17, 0)),  # 14:00-17:00
-    ]
     admin = User.query.filter_by(role="admin").first()
     admin_id = admin.id if admin else 1
     for g in giorni:
-        for oi, of in fasce:
-            db.session.add(SlotOrario(
-                giorno_settimana=g, ora_inizio=oi, ora_fine=of,
-                durata_minuti=60, capienza=1, attivo=True, creato_da_id=admin_id,
-            ))
+        db.session.add(SlotOrario(
+            giorno_settimana=g, ora_inizio=dt_time(8, 0), ora_fine=dt_time(17, 0),
+            durata_minuti=60, capienza=1, attivo=True, creato_da_id=admin_id,
+        ))
     db.session.commit()
 
 

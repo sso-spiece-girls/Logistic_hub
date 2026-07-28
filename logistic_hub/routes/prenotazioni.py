@@ -998,9 +998,10 @@ def admin_slot_nuovo():
 def admin_slot_modifica(id):
     regola = SlotOrario.query.get_or_404(id)
     form = SlotOrarioForm(obj=regola)
-    form.giorno_settimana.data = str(regola.giorno_settimana)
-    form.ora_inizio.data = regola.ora_inizio.strftime("%H:%M")
-    form.ora_fine.data = regola.ora_fine.strftime("%H:%M")
+    if request.method == "GET":
+        form.giorno_settimana.data = str(regola.giorno_settimana)
+        form.ora_inizio.data = regola.ora_inizio.strftime("%H:%M")
+        form.ora_fine.data = regola.ora_fine.strftime("%H:%M")
     if form.validate_on_submit():
         try:
             oi = datetime.strptime(form.ora_inizio.data or "", "%H:%M").time()
