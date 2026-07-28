@@ -319,6 +319,36 @@ def prenota():
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
 
+    # Nuovo controllo: limite 1 slot per tipologia per fascia (mattina/pomeriggio)
+    # solo per magazzini con capienza_contemporanea >= 2 (doppio slot)
+    if form.magazzino.data and tipologia:
+        mag = MagazzinoCapienza.query.filter_by(magazzino=form.magazzino.data).first()
+        if mag and mag.capienza_contemporanea >= 2:
+            if ora_inizio < time(14, 0):
+                stessa_fascia = Prenotazione.query.filter(
+                    Prenotazione.cliente_id == cliente_id,
+                    Prenotazione.magazzino == form.magazzino.data,
+                    Prenotazione.tipologia_materiale_id == tipologia.id,
+                    Prenotazione.data == data_prenot,
+                    Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+                    Prenotazione.ora_inizio < time(14, 0),
+                ).first()
+                if stessa_fascia:
+                    flash(f"Limite superato: puoi prenotare '{tipologia.nome}' su {form.magazzino.data} solo 1 volta al mattino (entro le 14:00).", "error")
+                    return redirect(url_for("prenotazioni.calendario"))
+            else:
+                stessa_fascia = Prenotazione.query.filter(
+                    Prenotazione.cliente_id == cliente_id,
+                    Prenotazione.magazzino == form.magazzino.data,
+                    Prenotazione.tipologia_materiale_id == tipologia.id,
+                    Prenotazione.data == data_prenot,
+                    Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+                    Prenotazione.ora_inizio >= time(14, 0),
+                ).first()
+                if stessa_fascia:
+                    flash(f"Limite superato: puoi prenotare '{tipologia.nome}' su {form.magazzino.data} solo 1 volta al pomeriggio (dalle 14:00).", "error")
+                    return redirect(url_for("prenotazioni.calendario"))
+
     # Vincolo sovrapposizione: stesso cliente + stesso magazzino + stessa tipologia + stessa data → vietato
     sovrapposta = Prenotazione.query.filter(
         Prenotazione.cliente_id == cliente_id,
@@ -674,6 +704,38 @@ def admin_nuova_prenotazione():
             flash("Slot non disponibile: capienza esaurita.", "error")
             return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
 
+        # Nuovo controllo: limite 1 slot per tipologia per fascia (mattina/pomeriggio)
+        # solo per magazzini con capienza_contemporanea >= 2 (doppio slot)
+        if magazzino_scelto and tipologia:
+            mag = db.session.query(MagazzinoCapienza).filter(
+                MagazzinoCapienza.magazzino == magazzino_scelto
+            ).with_for_update().first()
+            if mag and mag.capienza_contemporanea >= 2:
+                if ora_inizio < time(14, 0):
+                    stessa_fascia = Prenotazione.query.filter(
+                        Prenotazione.cliente_id == cliente.id,
+                        Prenotazione.magazzino == magazzino_scelto,
+                        Prenotazione.tipologia_materiale_id == tipologia.id,
+                        Prenotazione.data == data_prenot,
+                        Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+                        Prenotazione.ora_inizio < time(14, 0),
+                    ).first()
+                    if stessa_fascia:
+                        flash(f"Limite superato: '{tipologia.nome}' su {magazzino_scelto} già prenotato per {cliente.username} al mattino (entro le 14:00).", "error")
+                        return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+                else:
+                    stessa_fascia = Prenotazione.query.filter(
+                        Prenotazione.cliente_id == cliente.id,
+                        Prenotazione.magazzino == magazzino_scelto,
+                        Prenotazione.tipologia_materiale_id == tipologia.id,
+                        Prenotazione.data == data_prenot,
+                        Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
+                        Prenotazione.ora_inizio >= time(14, 0),
+                    ).first()
+                    if stessa_fascia:
+                        flash(f"Limite superato: '{tipologia.nome}' su {magazzino_scelto} già prenotato per {cliente.username} al pomeriggio (dalle 14:00).", "error")
+                        return render_template("prenotazioni/admin_nuova_prenotazione.html", form=form)
+
         # Vincolo targa: stessa targa + stessa data su qualsiasi magazzino
         targa_val = (form.targa.data or "").upper()
         if form.tipo.data != "trasferimento" and targa_val:
@@ -840,6 +902,50 @@ def approva(id):
             db.session.commit()
             flash(f"Prenotazione rifiutata: targa {p.targa} già presente in un'altra prenotazione per la stessa data.", "warning")
             return redirect(url_for("prenotazioni.in_attesa"))
+
+    # Nuovo controllo: limite 1 slot per tipologia per fascia (mattina/pomeriggio)
+    # solo per magazzini con capienza_contemporanea >= 2 (doppio slot)
+    if p.tipologia_materiale_id and p.magazzino:
+        mag = MagazzinoCapienza.query.filter_by(magazzino=p.magazzino).first()
+        if mag and mag.capienza_contemporanea >= 2:
+            if p.ora_inizio < time(14, 0):
+                stessa_fascia = Prenotazione.query.filter(
+                    Prenotazione.cliente_id == p.cliente_id,
+                    Prenotazione.magazzino == p.magazzino,
+                    Prenotazione.tipologia_materiale_id == p.tipologia_materiale_id,
+                    Prenotazione.data == p.data,
+                    Prenotazione.id != p.id,
+                    Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
+                    Prenotazione.ora_inizio < time(14, 0),
+                ).first()
+                if stessa_fascia:
+                    p.stato = "rifiutata"
+                    p.note_operatore = f"Limite superato: stessa tipologia già prenotata al mattino su {p.magazzino}."
+                    p.motivo_rifiuto = p.note_operatore
+                    p.approvato_da_id = current_user.id
+                    p.approvato_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                    flash("Prenotazione rifiutata: stesso cliente/tipologia/magazzino già prenotato al mattino.", "warning")
+                    return redirect(url_for("prenotazioni.in_attesa"))
+            else:
+                stessa_fascia = Prenotazione.query.filter(
+                    Prenotazione.cliente_id == p.cliente_id,
+                    Prenotazione.magazzino == p.magazzino,
+                    Prenotazione.tipologia_materiale_id == p.tipologia_materiale_id,
+                    Prenotazione.data == p.data,
+                    Prenotazione.id != p.id,
+                    Prenotazione.stato.in_(["confermata", "ingresso_registrato"]),
+                    Prenotazione.ora_inizio >= time(14, 0),
+                ).first()
+                if stessa_fascia:
+                    p.stato = "rifiutata"
+                    p.note_operatore = f"Limite superato: stessa tipologia già prenotata al pomeriggio su {p.magazzino}."
+                    p.motivo_rifiuto = p.note_operatore
+                    p.approvato_da_id = current_user.id
+                    p.approvato_at = datetime.now(timezone.utc)
+                    db.session.commit()
+                    flash("Prenotazione rifiutata: stesso cliente/tipologia/magazzino già prenotato al pomeriggio.", "warning")
+                    return redirect(url_for("prenotazioni.in_attesa"))
 
     # Vincolo sovrapposizione: stesso cliente/stesso magazzino/stessa tipologia/stessa data
     if p.tipologia_materiale_id and p.magazzino:

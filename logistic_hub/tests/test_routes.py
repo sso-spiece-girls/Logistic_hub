@@ -179,16 +179,17 @@ def test_targa_bloccata_stesso_giorno(auth_client, db):
 
 
 def test_targa_trasferimento_esente(auth_client, db):
-    """Due prenotazioni stessa targa stesso giorno,
+    """Due prenotazioni stessa targa stesso giorno (tipologie diverse),
     la seconda con tipo=trasferimento → deve passare."""
     from models import Prenotazione
-    cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
+    cliente_id, slot_id, tip_id, tip2_id, data_futura = _setup_prenotazione_base(auth_client, db)
 
     resp1 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
                                       targa="XX222ZZ", tipo="scarico")
     assert resp1.status_code == 302, f"Prima prenotazione fallita: {resp1.status_code}"
 
-    resp2 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
+    # Usa tipologia diversa (tip2_id) per non incappare nel limite 1-per-fascia dei doppi slot
+    resp2 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip2_id, data_futura,
                                       targa="XX222ZZ", tipo="trasferimento", ora="09:00")
     assert resp2.status_code == 302, f"Trasferimento con stessa targa fallito: {resp2.status_code}"
 
@@ -220,8 +221,8 @@ def test_overlap_stessa_tipologia_bloccato(auth_client, db):
         assert count == 1, f"Dev'esserci solo 1 prenotazione per questa tipologia/giorno, trovata {count}"
 
 
-def test_overlap_stessa_tipologia_orari_diversi_ok(auth_client, db):
-    """Stessa tipologia ma orari NON sovrapposti → entrambe passano."""
+def test_overlap_stessa_tipologia_orari_diversi_bloccato_se_doppio_slot(auth_client, db):
+    """Stessa tipologia, stesso magazzino doppio slot (capienza>=2), stessa mattina → seconda bloccata."""
     from models import Prenotazione
     cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
 
@@ -231,14 +232,115 @@ def test_overlap_stessa_tipologia_orari_diversi_ok(auth_client, db):
 
     resp2 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
                                       targa="CC222DD", ora="09:00")
-    assert resp2.status_code == 302, f"Orari non sovrapposti avrebbero dovuto passare: {resp2.status_code}"
+    assert resp2.status_code == 200, f"Stessa tipologia/mattina/doppio slot avrebbe dovuto essere bloccato: {resp2.status_code}"
 
     with auth_client.application.app_context():
         count = Prenotazione.query.filter(
             Prenotazione.tipologia_materiale_id == tip_id,
             Prenotazione.data == data_futura,
         ).count()
-        assert count == 2, f"Devono esserci 2 prenotazioni, trovata {count}"
+        assert count == 1, f"Dev'esserci solo 1 prenotazione, trovata {count}"
+
+
+def test_overlap_stessa_tipologia_mattina_pomeriggio_ok(auth_client, db):
+    """Stessa tipologia, doppio slot, mattina E pomeriggio → entrambe passano (fasce diverse)."""
+    from models import Prenotazione
+    cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
+
+    # Mattina ore 8
+    resp1 = _crea_prenotazione_admin(auth_client, cliente_id, slot_id, tip_id, data_futura,
+                                      targa="AA111BB", ora="08:00")
+    assert resp1.status_code == 302
+
+    # Pomeriggio ore 14 (deve esistere uno slot pomeridiano — usiamo un secondo SlotOrario)
+    with auth_client.application.app_context():
+        from models import SlotOrario, MagazzinoCapienza
+        from datetime import time as dt_time
+        # Crea uno slot pomeridiano (14-17) per lo stesso giorno
+        slot_pm = SlotOrario(
+            giorno_settimana=data_futura.weekday(),
+            ora_inizio=dt_time(14, 0),
+            ora_fine=dt_time(17, 0),
+            durata_minuti=60,
+            attivo=True,
+            creato_da_id=1,
+        )
+        db.session.add(slot_pm)
+        db.session.commit()
+        slot_pm_id = slot_pm.id
+
+    resp2 = auth_client.post("/prenotazioni/admin/nuova", data={
+        "cliente_id": cliente_id,
+        "data_prenotazione": data_futura.isoformat(),
+        "slot_orario_id": slot_pm_id,
+        "ora_inizio": "14:00",
+        "tipo": "scarico",
+        "tipologia_materiale_id": tip_id,
+        "magazzino": "TestMag",
+        "targa": "CC222DD",
+        "ddt_cmr": "DDT999",
+        "vettore_id": "0",
+        "ingresso_diretto": "",
+    })
+    assert resp2.status_code == 302, f"Mattina e pomeriggio dovrebbero passare: {resp2.status_code}"
+
+    with auth_client.application.app_context():
+        count = Prenotazione.query.filter(
+            Prenotazione.tipologia_materiale_id == tip_id,
+            Prenotazione.data == data_futura,
+        ).count()
+        assert count == 2, f"Devono esserci 2 prenotazioni (mattina+pomeriggio), trovata {count}"
+
+
+def test_overlap_stessa_tipologia_orari_diversi_slot_singolo_ok(auth_client, db):
+    """Stessa tipologia, orari diversi, magazzino a slot singolo (capienza=1) → entrambe passano."""
+    from models import Prenotazione, MagazzinoCapienza
+    cliente_id, slot_id, tip_id, _, data_futura = _setup_prenotazione_base(auth_client, db)
+
+    with auth_client.application.app_context():
+        mag_singolo = MagazzinoCapienza(magazzino="Colle Singolo", capienza_contemporanea=1, creato_da_id=1)
+        db.session.add(mag_singolo)
+        db.session.commit()
+
+    # Prima prenotazione su magazzino a slot singolo
+    resp1 = auth_client.post("/prenotazioni/admin/nuova", data={
+        "cliente_id": cliente_id,
+        "data_prenotazione": data_futura.isoformat(),
+        "slot_orario_id": slot_id,
+        "ora_inizio": "08:00",
+        "tipo": "scarico",
+        "tipologia_materiale_id": tip_id,
+        "magazzino": "Colle Singolo",
+        "targa": "AA111BB",
+        "ddt_cmr": "DDT999",
+        "vettore_id": "0",
+        "ingresso_diretto": "",
+    })
+    assert resp1.status_code == 302
+
+    # Seconda prenotazione stesso magazzino, stessa tipologia, orario diverso (9:00) → permessa (slot singolo)
+    resp2 = auth_client.post("/prenotazioni/admin/nuova", data={
+        "cliente_id": cliente_id,
+        "data_prenotazione": data_futura.isoformat(),
+        "slot_orario_id": slot_id,
+        "ora_inizio": "09:00",
+        "tipo": "scarico",
+        "tipologia_materiale_id": tip_id,
+        "magazzino": "Colle Singolo",
+        "targa": "CC222DD",
+        "ddt_cmr": "DDT999",
+        "vettore_id": "0",
+        "ingresso_diretto": "",
+    })
+    assert resp2.status_code == 302, f"Slot singolo dovrebbe permettere orari diversi: {resp2.status_code}"
+
+    with auth_client.application.app_context():
+        count = Prenotazione.query.filter(
+            Prenotazione.tipologia_materiale_id == tip_id,
+            Prenotazione.data == data_futura,
+            Prenotazione.magazzino == "Colle Singolo",
+        ).count()
+        assert count == 2, f"Devono esserci 2 prenotazioni su slot singolo, trovata {count}"
 
 
 # ── TEST RIPRISTINATO (punto 3): stesso orario, tipologia diversa ──────────
