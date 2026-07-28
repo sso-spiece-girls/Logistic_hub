@@ -3,8 +3,10 @@ const STATIC_URLS = [
   '/static/css/app.css',
   '/static/js/app.js',
   '/static/manifest.json',
+  '/static/img/logo.png',
   '/static/img/icon-192.png',
   '/static/img/icon-512.png',
+  '/static/img/favicon.png',
 ];
 
 self.addEventListener('install', function (event) {

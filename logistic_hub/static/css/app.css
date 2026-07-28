@@ -8,9 +8,9 @@
   --text: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
-  --primary: #1e40af;
-  --primary-light: #3b82f6;
-  --primary-bg: #dbeafe;
+  --primary: #f39200;
+  --primary-light: #f6a832;
+  --primary-bg: #fff3e0;
   --accent: #0f172a;
   --navbar-bg: #0f172a;
   --navbar-text: #f8fafc;
@@ -19,9 +19,9 @@
   --navbar-input-border: #334155;
   --sidebar-bg: #ffffff;
   --sidebar-hover: #f1f5f9;
-  --sidebar-active: #eff6ff;
+  --sidebar-active: #fff3e0;
   --sidebar-text: #334155;
-  --sidebar-active-text: #1e40af;
+  --sidebar-active-text: #f39200;
   --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
   --radius: 8px;
@@ -52,9 +52,9 @@
     --text: #f1f5f9;
     --text-secondary: #94a3b8;
     --text-muted: #64748b;
-    --primary: #3b82f6;
-    --primary-light: #60a5fa;
-    --primary-bg: #1e3a5f;
+    --primary: #f6a832;
+    --primary-light: #f8c062;
+    --primary-bg: #3d2e00;
     --accent: #f1f5f9;
     --navbar-bg: #020617;
     --navbar-text: #f1f5f9;
@@ -63,9 +63,9 @@
     --navbar-input-border: #1e293b;
     --sidebar-bg: #1e293b;
     --sidebar-hover: #243447;
-    --sidebar-active: #1e3a5f;
+    --sidebar-active: #3d2e00;
     --sidebar-text: #cbd5e1;
-    --sidebar-active-text: #60a5fa;
+    --sidebar-active-text: #f6a832;
     --card-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
     --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
     --success: #22c55e;
@@ -100,8 +100,8 @@ body {
 .login-page {
   display: flex; align-items: center; justify-content: center;
   min-height: 100vh; background: #0f172a;
-  background-image: radial-gradient(ellipse at top left, rgba(59,130,246,0.15), transparent 50%),
-                    radial-gradient(ellipse at bottom right, rgba(99,102,241,0.1), transparent 50%);
+  background-image: radial-gradient(ellipse at top left, rgba(243,146,0,0.12), transparent 50%),
+                    radial-gradient(ellipse at bottom right, rgba(243,146,0,0.06), transparent 50%);
 }
 .login-container { width: 100%; max-width: 400px; padding: 1.5rem; }
 .login-card {
@@ -118,7 +118,7 @@ body {
   width: 100%; padding: 0.75rem 1rem; background: #0f172a; border: 1px solid #334155;
   border-radius: var(--radius); color: #f8fafc; font-size: 0.95rem; outline: none; transition: border-color 0.15s;
 }
-.login-form .form-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.login-form .form-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(243,146,0,0.2); }
 .login-btn { width: 100%; padding: 0.75rem; margin-top: 0.5rem; font-size: 1rem; }
 .login-page .flash-message { margin-bottom: 1rem; }
 
@@ -185,7 +185,8 @@ body {
   transition: color 0.15s;
 }
 .sidebar-toggle:hover { color: var(--navbar-text); }
-.brand-icon { color: var(--primary-light); display: flex; }
+.brand-icon { display: flex; align-items: center; }
+.brand-logo { display: block; width: 28px; height: 28px; object-fit: contain; }
 .brand-text { display: flex; flex-direction: column; }
 .brand-name { font-weight: 700; font-size: 1rem; color: var(--navbar-text); }
 .brand-sub { font-size: 0.65rem; color: var(--navbar-muted); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -312,7 +313,7 @@ body {
   cursor: pointer; text-decoration: none; transition: all 0.15s; line-height: 1.4;
 }
 .btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: #1e3a8a; }
+.btn-primary:hover { background: #d97f00; }
 .btn-secondary { background: var(--primary-bg); color: var(--primary); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--primary-bg) 80%, var(--primary)); }
 .btn-danger { background: var(--error-bg); color: var(--error); }
@@ -516,7 +517,7 @@ table.table tbody tr { border-bottom: 1px solid var(--border-light); }
   border-radius: var(--radius-sm); color: var(--text); font-size: 0.9rem; outline: none;
   transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit;
 }
-.form-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.form-input:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(243,146,0,0.15); }
 .form-textarea { resize: vertical; min-height: 70px; }
 select.form-input { appearance: auto; }
 .form-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block; }
