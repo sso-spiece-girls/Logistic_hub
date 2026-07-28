@@ -322,7 +322,6 @@ class SlotOrario(db.Model):
     ora_inizio = db.Column(db.Time, nullable=False)
     ora_fine = db.Column(db.Time, nullable=False)
     durata_minuti = db.Column(db.Integer, nullable=False, default=60)
-    capienza = db.Column(db.Integer, nullable=False, default=1)
     attivo = db.Column(db.Boolean, default=True)
     creato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

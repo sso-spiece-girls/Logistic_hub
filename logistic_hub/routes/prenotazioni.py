@@ -31,14 +31,6 @@ def _giorno_bloccato_dopo_14():
     return oggi + timedelta(days=1)
 
 
-def _capienza_magazzini():
-    """Restituisce capienza totale sommando tutti i magazzini configurati, o 999 se nessuno."""
-    righe = MagazzinoCapienza.query.all()
-    if not righe:
-        return 999
-    return sum(r.capienza_contemporanea for r in righe)
-
-
 def _slot_disponibili(regola, giorno):
     """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno.
 
@@ -968,7 +960,6 @@ def admin_slot_nuovo():
             ora_inizio=oi,
             ora_fine=of,
             durata_minuti=form.durata_minuti.data,
-            capienza=form.capienza.data,
             attivo=form.attivo.data,
             creato_da_id=current_user.id,
         )
@@ -1008,7 +999,6 @@ def admin_slot_modifica(id):
         regola.ora_inizio = oi
         regola.ora_fine = of
         regola.durata_minuti = form.durata_minuti.data
-        regola.capienza = form.capienza.data
         regola.attivo = form.attivo.data
         db.session.commit()
         log_activity(

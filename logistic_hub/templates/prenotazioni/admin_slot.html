@@ -28,7 +28,6 @@
                 <th>Giorno</th>
                 <th>Orario</th>
                 <th>Durata slot</th>
-                <th>Capienza</th>
                 <th>Attivo</th>
                 <th>Azioni</th>
             </tr>
@@ -39,7 +38,6 @@
                 <td><strong>{{ giorni[r.giorno_settimana] }}</strong></td>
                 <td>{{ r.ora_inizio|roma_time('%H:%M') }} - {{ r.ora_fine|roma_time('%H:%M') }}</td>
                 <td>{{ r.durata_minuti }} min</td>
-                <td>{{ r.capienza }}</td>
                 <td>
                     <span class="status-badge status-{{ 'completata' if r.attivo else 'bozza' }}">
                         {{ 'Attivo' if r.attivo else 'Inattivo' }}

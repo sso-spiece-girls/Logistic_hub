@@ -142,7 +142,6 @@ class SlotOrarioForm(FlaskForm):
     ora_inizio = StringField("Ora inizio (HH:MM)", validators=[DataRequired()])
     ora_fine = StringField("Ora fine (HH:MM)", validators=[DataRequired()])
     durata_minuti = IntegerField("Durata slot (minuti)", validators=[DataRequired()], default=60)
-    capienza = IntegerField("Capienza massima", validators=[DataRequired()], default=1)
     attivo = BooleanField("Attivo", default=True)
 
 

@@ -82,7 +82,6 @@ def _setup_prenotazione_base(auth_client, db):
             ora_inizio=time(8, 0),
             ora_fine=time(13, 0),
             durata_minuti=60,
-            capienza=10,
             attivo=True,
             creato_da_id=1,
         )
@@ -670,7 +669,6 @@ def _crea_setup_cliente(app, db, cliente_username="cliente-b3", con_tipologia=Tr
             ora_inizio=time(8, 0),
             ora_fine=time(13, 0),
             durata_minuti=60,
-            capienza=10,
             attivo=True,
             creato_da_id=1,
         )

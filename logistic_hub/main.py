@@ -127,6 +127,13 @@ def _migrate_prenotazioni():
     except Exception:
         db.session.rollback()
 
+    # Rimuove la colonna capienza da slot_orari (capacità ora solo per-magazzino)
+    try:
+        db.session.execute(text("ALTER TABLE slot_orari DROP COLUMN IF EXISTS capienza"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 def _seed_slot_orari():
     """Crea gli slot orari default (8-17, Lun-Ven) se non ne esiste nessuno."""
@@ -140,7 +147,7 @@ def _seed_slot_orari():
     for g in giorni:
         db.session.add(SlotOrario(
             giorno_settimana=g, ora_inizio=dt_time(8, 0), ora_fine=dt_time(17, 0),
-            durata_minuti=60, capienza=1, attivo=True, creato_da_id=admin_id,
+            durata_minuti=60, attivo=True, creato_da_id=admin_id,
         ))
     db.session.commit()
 
@@ -310,7 +317,6 @@ def seed_slot_orari(app):
                 ora_inizio=time(9, 0),
                 ora_fine=time(18, 0),
                 durata_minuti=60,
-                capienza=1,
                 attivo=True,
                 creato_da_id=admin.id,
             )
