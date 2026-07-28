@@ -320,19 +320,20 @@ def prenota():
     if stesso_orario:
         flash("Orario non disponibile: slot già occupato.", "error")
         return redirect(url_for("prenotazioni.calendario"))
-    occupate = Prenotazione.query.filter(
-        Prenotazione.slot_orario_id == regola.id,
-        Prenotazione.data == data_prenot,
-        Prenotazione.stato.in_(["in_attesa", "confermata"]),
-        Prenotazione.ora_inizio < ora_fine,
-        Prenotazione.ora_fine > ora_inizio,
-    ).count()
     # Controllo capienza per il magazzino scelto dal cliente
     magazzino_scelto = form.magazzino.data
     capienza_mag = 999
     if magazzino_scelto:
         mag = MagazzinoCapienza.query.filter_by(magazzino=magazzino_scelto).first()
         capienza_mag = mag.capienza_contemporanea if mag else 999
+    occupate = Prenotazione.query.filter(
+        Prenotazione.slot_orario_id == regola.id,
+        Prenotazione.data == data_prenot,
+        Prenotazione.magazzino == magazzino_scelto,
+        Prenotazione.stato.in_(["in_attesa", "confermata"]),
+        Prenotazione.ora_inizio < ora_fine,
+        Prenotazione.ora_fine > ora_inizio,
+    ).count()
     if occupate >= capienza_mag:
         flash("Slot non più disponibile.", "error")
         return redirect(url_for("prenotazioni.calendario"))
@@ -682,6 +683,7 @@ def admin_nuova_prenotazione():
         occupate = Prenotazione.query.filter(
             Prenotazione.slot_orario_id == regola.id,
             Prenotazione.data == data_prenot,
+            Prenotazione.magazzino == magazzino_scelto,
             Prenotazione.stato.in_(["in_attesa", "confermata", "ingresso_registrato"]),
             Prenotazione.ora_inizio < ora_fine,
             Prenotazione.ora_fine > ora_inizio,
@@ -826,6 +828,7 @@ def approva(id):
     occupate = Prenotazione.query.filter(
         Prenotazione.slot_orario_id == regola.id,
         Prenotazione.data == p.data,
+        Prenotazione.magazzino == p.magazzino,
         Prenotazione.stato.in_(["in_attesa", "confermata"]),
         Prenotazione.ora_inizio < p.ora_fine,
         Prenotazione.ora_fine > p.ora_inizio,
