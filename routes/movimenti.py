@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required
+from core.auth_decorators import operativo_required
 from sqlalchemy.orm import load_only, joinedload
 from models import Movimento, User, db
 
@@ -9,6 +10,7 @@ movimenti = Blueprint("movimenti", __name__, url_prefix="/movimenti")
 
 @movimenti.route("/")
 @login_required
+@operativo_required
 def lista():
     tipo = request.args.get("tipo", "")
     articolo = request.args.get("articolo", "").strip()
@@ -42,6 +44,7 @@ def lista():
 
 @movimenti.route("/api/ultimi")
 @login_required
+@operativo_required
 def ultimi():
     mov = Movimento.query.order_by(Movimento.created_at.desc()).limit(20).all()
     return jsonify([{

@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from models import Giacenza, Movimento, db
 from forms import GiacenzaForm
 from routes.auth import log_activity, create_notification
-from core.auth_decorators import staff_required
+from core.auth_decorators import staff_required, operativo_required
 from core.normalize import normalizza_codice_articolo
 
 giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
@@ -11,6 +11,7 @@ giacenze = Blueprint("giacenze", __name__, url_prefix="/giacenze")
 
 @giacenze.route("/")
 @login_required
+@operativo_required
 def lista():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
@@ -39,6 +40,7 @@ def lista():
 
 @giacenze.route("/nuovo", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def nuovo():
     form = GiacenzaForm()
     if form.validate_on_submit():
@@ -73,6 +75,7 @@ def nuovo():
 
 @giacenze.route("/<int:id>")
 @login_required
+@operativo_required
 def dettaglio(id):
     giacenza = Giacenza.query.get_or_404(id)
     return render_template("giacenze_dettaglio.html", giacenza=giacenza)
@@ -80,6 +83,7 @@ def dettaglio(id):
 
 @giacenze.route("/<int:id>/modifica", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def modifica(id):
     giacenza = Giacenza.query.get_or_404(id)
     form = GiacenzaForm(obj=giacenza)
@@ -137,6 +141,7 @@ def elimina(id):
 
 @giacenze.route("/api/check-duplicato")
 @login_required
+@operativo_required
 def check_duplicato():
     """API AJAX: verifica se un codice articolo esiste gia'."""
     codice = request.args.get("codice", "").strip()

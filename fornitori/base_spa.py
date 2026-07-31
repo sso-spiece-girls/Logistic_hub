@@ -1,5 +1,6 @@
 import re
 from .base import FornitorePlugin
+from core.normalize import parse_italian_number
 
 
 class BaseSpaParser(FornitorePlugin):
@@ -28,7 +29,7 @@ class BaseSpaParser(FornitorePlugin):
             key = m.group(1)
             if key not in visti:
                 visti.add(key)
-                peso = float(m.group(4).replace(",", ".")) if m.group(4) else 0
+                peso = parse_italian_number(m.group(4)) if m.group(4) else 0
                 righe.append({
                     "descrizione": f"PICKING {m.group(1)}",
                     "quantita": int(m.group(3)),
@@ -51,7 +52,7 @@ class BaseSpaParser(FornitorePlugin):
                     "quantita": int(m.group(3)),
                     "pallet": int(m.group(2)),
                     "unita_misura": "colli",
-                    "peso_kg": float(m.group(4).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(4)),
                 })
 
         return righe

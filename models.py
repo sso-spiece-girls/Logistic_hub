@@ -9,7 +9,7 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=True)
+    email = db.Column(db.String(120), nullable=True, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="operatore")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -18,6 +18,7 @@ class User(UserMixin, db.Model):
 
     activities = db.relationship("Activity", backref="user", lazy="dynamic", foreign_keys="Activity.user_id")
     notifications = db.relationship("Notification", backref="user", lazy="dynamic")
+    vettore = db.relationship("Vettore", back_populates="user", uselist=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -30,7 +31,7 @@ class User(UserMixin, db.Model):
 
     @property
     def role_label(self):
-        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin", "cliente": "Cliente"}
+        labels = {"operatore": "Operatore", "ufficio": "Ufficio", "admin": "Admin", "cliente": "Cliente", "vettore": "Vettore"}
         return labels.get(self.role, self.role)
 
     def __repr__(self):
@@ -321,7 +322,6 @@ class SlotOrario(db.Model):
     ora_inizio = db.Column(db.Time, nullable=False)
     ora_fine = db.Column(db.Time, nullable=False)
     durata_minuti = db.Column(db.Integer, nullable=False, default=60)
-    capienza = db.Column(db.Integer, nullable=False, default=1)
     attivo = db.Column(db.Boolean, default=True)
     creato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -338,6 +338,7 @@ class MagazzinoCapienza(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     magazzino = db.Column(db.String(50), nullable=False, unique=True)
     capienza_contemporanea = db.Column(db.Integer, nullable=False, default=1)
+    durata_slot_minuti = db.Column(db.Integer, nullable=True, default=None)
     creato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -363,6 +364,60 @@ class TipologiaMateriale(db.Model):
         return f"<TipologiaMateriale {self.nome} cliente={self.cliente_id}>"
 
 
+class ClienteMagazzino(db.Model):
+    __tablename__ = "cliente_magazzini"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    magazzino = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    cliente = db.relationship("User", foreign_keys=[cliente_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("cliente_id", "magazzino", name="uq_cliente_magazzino"),
+    )
+
+    def __repr__(self):
+        return f"<ClienteMagazzino cliente={self.cliente_id} magazzino={self.magazzino}>"
+
+
+class Vettore(db.Model):
+    __tablename__ = "vettori"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False, unique=True)
+    partita_iva = db.Column(db.String(20), nullable=True)
+    telefono = db.Column(db.String(30), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    attivo = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True)
+    user = db.relationship("User", foreign_keys=[user_id], back_populates="vettore")
+
+    def __repr__(self):
+        return f"<Vettore {self.nome}>"
+
+
+class ClienteVettore(db.Model):
+    __tablename__ = "cliente_vettori"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    vettore_id = db.Column(db.Integer, db.ForeignKey("vettori.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    cliente = db.relationship("User", foreign_keys=[cliente_id])
+    vettore = db.relationship("Vettore", foreign_keys=[vettore_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("cliente_id", "vettore_id", name="uq_cliente_vettore"),
+    )
+
+    def __repr__(self):
+        return f"<ClienteVettore cliente={self.cliente_id} vettore={self.vettore_id}>"
+
+
 class Prenotazione(db.Model):
     __tablename__ = "prenotazioni"
 
@@ -375,6 +430,9 @@ class Prenotazione(db.Model):
     tipo = db.Column(db.String(10), nullable=False, default="scarico")  # carico / scarico
     magazzino = db.Column(db.String(50), nullable=True)
     tipologia_materiale_id = db.Column(db.Integer, db.ForeignKey("tipologie_materiale.id"), nullable=True)
+    targa = db.Column(db.String(20), nullable=True)
+    ddt_cmr = db.Column(db.String(200), nullable=True)
+    vettore_id = db.Column(db.Integer, db.ForeignKey("vettori.id"), nullable=True)
     stato = db.Column(db.String(20), nullable=False, default="in_attesa", index=True)
     token_qr = db.Column(db.String(64), unique=True, nullable=True, index=True)
     note_operatore = db.Column(db.Text, nullable=True)
@@ -382,6 +440,9 @@ class Prenotazione(db.Model):
     approvato_at = db.Column(db.DateTime, nullable=True)
     ingresso_verificato_da_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     ingresso_verificato_at = db.Column(db.DateTime, nullable=True)
+    inserita_da_staff = db.Column(db.Boolean, default=False, nullable=False)
+    staff_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    motivo_rifiuto = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     cliente = db.relationship("User", foreign_keys=[cliente_id], backref="prenotazioni")
@@ -389,6 +450,8 @@ class Prenotazione(db.Model):
     tipologia_materiale = db.relationship("TipologiaMateriale", foreign_keys=[tipologia_materiale_id])
     approvato_da = db.relationship("User", foreign_keys=[approvato_da_id])
     ingresso_verificato_da = db.relationship("User", foreign_keys=[ingresso_verificato_da_id])
+    staff_user = db.relationship("User", foreign_keys=[staff_user_id])
+    vettore = db.relationship("Vettore", foreign_keys=[vettore_id])
 
     STATI_ATTIVI = ("in_attesa", "confermata")
 
@@ -406,12 +469,6 @@ class Prenotazione(db.Model):
         return labels.get(self.stato, self.stato)
 
     __table_args__ = (
-        db.Index(
-            "uq_slot_booking_attivo",
-            "slot_orario_id", "data", "ora_inizio",
-            unique=True,
-            postgresql_where=db.text("stato IN ('in_attesa', 'confermata')"),
-        ),
         db.Index("ix_prenotazioni_data_ora", "data", "ora_inizio"),
         db.Index("ix_prenotazioni_data_stato", "data", "stato"),
         db.Index("ix_prenotazioni_cliente_data", "cliente_id", "data"),

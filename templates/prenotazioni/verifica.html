@@ -23,11 +23,11 @@
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Data</span>
-            <span class="verifica-value">{{ p.data.strftime('%d/%m/%Y') }}</span>
+            <span class="verifica-value">{{ p.data|roma_time('%d/%m/%Y') }}</span>
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Orario</span>
-            <span class="verifica-value">{{ p.ora_inizio.strftime('%H:%M') }} - {{ p.ora_fine.strftime('%H:%M') }}</span>
+            <span class="verifica-value">{{ p.ora_inizio|roma_time('%H:%M') }} - {{ p.ora_fine|roma_time('%H:%M') }}</span>
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Tipo</span>
@@ -40,6 +40,14 @@
         <div class="verifica-row">
             <span class="verifica-label">Magazzino</span>
             <span class="verifica-value">{{ p.magazzino or '-' }}</span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">Targa</span>
+            <span class="verifica-value"><code>{{ p.targa or '-' }}</code></span>
+        </div>
+        <div class="verifica-row">
+            <span class="verifica-label">DDT / CMR</span>
+            <span class="verifica-value">{{ p.ddt_cmr or '-' }}</span>
         </div>
         <div class="verifica-row">
             <span class="verifica-label">Stato</span>
@@ -56,7 +64,7 @@
         {% if p.ingresso_verificato_da %}
         <div class="verifica-row">
             <span class="verifica-label">Verificato da</span>
-            <span class="verifica-value">{{ p.ingresso_verificato_da.username }} il {{ p.ingresso_verificato_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            <span class="verifica-value">{{ p.ingresso_verificato_da.username }} il {{ p.ingresso_verificato_at|roma_time }}</span>
         </div>
         {% endif %}
     </div>
@@ -64,6 +72,7 @@
     {% if p.stato == 'confermata' %}
     <div class="verifica-azioni">
         <form method="POST" action="/prenotazioni/verifica/{{ p.token_qr }}/conferma-ingresso" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary" style="font-size:1.1rem;padding:12px 32px">
                 Conferma Ingresso
             </button>
@@ -97,7 +106,7 @@
 .scanner-section h3 { font-size:1rem; color:var(--text); margin-bottom:16px }
 </style>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var reader = document.getElementById('qr-reader');

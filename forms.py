@@ -33,7 +33,9 @@ class UserForm(FlaskForm):
         ("ufficio", "Ufficio"),
         ("admin", "Admin"),
         ("cliente", "Cliente"),
+        ("vettore", "Vettore"),
     ], validators=[DataRequired()])
+    # clienti associati gestiti via template checkboxes + request.form.getlist()
 
 
 class BollaForm(FlaskForm):
@@ -120,8 +122,13 @@ class PrenotazioneForm(FlaskForm):
     tipo = SelectField("Tipo operazione", choices=[
         ("scarico", "Scarico"),
         ("carico", "Carico"),
+        ("trasferimento", "Trasferimento (stesso giorno, stessa targa consentita)"),
     ], validators=[DataRequired()])
     tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
+    magazzino = SelectField("Magazzino", validators=[DataRequired()])
+    targa = StringField("Targa", validators=[DataRequired()])
+    ddt_cmr = StringField("DDT / CMR", validators=[DataRequired()])
+    vettore_id = SelectField("Vettore (opzionale)", coerce=int, validators=[Optional()])
 
 
 class SlotOrarioForm(FlaskForm):
@@ -131,13 +138,10 @@ class SlotOrarioForm(FlaskForm):
         ("2", "Mercoledì"),
         ("3", "Giovedì"),
         ("4", "Venerdì"),
-        ("5", "Sabato"),
-        ("6", "Domenica"),
     ], validators=[DataRequired()])
     ora_inizio = StringField("Ora inizio (HH:MM)", validators=[DataRequired()])
     ora_fine = StringField("Ora fine (HH:MM)", validators=[DataRequired()])
     durata_minuti = IntegerField("Durata slot (minuti)", validators=[DataRequired()], default=60)
-    capienza = IntegerField("Capienza massima", validators=[DataRequired()], default=1)
     attivo = BooleanField("Attivo", default=True)
 
 
@@ -149,8 +153,36 @@ class PrenotazioneAdminForm(FlaskForm):
 class MagazzinoCapienzaForm(FlaskForm):
     magazzino = SelectField("Magazzino", choices=MAGAZZINI, validators=[DataRequired()])
     capienza_contemporanea = IntegerField("Capienza contemporanea", validators=[DataRequired()], default=1)
+    durata_slot_minuti = IntegerField("Durata slot fallback (minuti, opzionale)", validators=[Optional()])
 
 
 class TipologiaMaterialeForm(FlaskForm):
     nome = StringField("Nome tipologia", validators=[DataRequired(), Length(max=100)])
     durata_minuti = IntegerField("Durata (minuti)", validators=[DataRequired()], default=60)
+
+
+class PrenotazioneStaffForm(FlaskForm):
+    cliente_id = SelectField("Cliente", coerce=int, validators=[DataRequired()])
+    data_prenotazione = DateField("Data", validators=[DataRequired()])
+    slot_orario_id = SelectField("Fascia oraria", coerce=int, validators=[DataRequired()])
+    ora_inizio = StringField("Ora inizio", validators=[DataRequired()])
+    tipo = SelectField("Tipo operazione", choices=[
+        ("scarico", "Scarico"),
+        ("carico", "Carico"),
+        ("trasferimento", "Trasferimento (stesso giorno, stessa targa consentita)"),
+    ], validators=[DataRequired()])
+    tipologia_materiale_id = SelectField("Tipologia materiale", coerce=int, validators=[DataRequired()])
+    magazzino = SelectField("Magazzino", validators=[DataRequired()])
+    targa = StringField("Targa", validators=[DataRequired()])
+    ddt_cmr = StringField("DDT / CMR", validators=[DataRequired()])
+    vettore_id = SelectField("Vettore (opzionale)", coerce=int, validators=[Optional()])
+    ingresso_diretto = BooleanField("Ingresso già avvenuto, registra direttamente", default=False)
+    inserimento_retroattivo = BooleanField("Inserimento retroattivo (consenti date passate)", default=False)
+
+
+class VettoreForm(FlaskForm):
+    nome = StringField("Nome vettore", validators=[DataRequired(), Length(max=200)])
+    partita_iva = StringField("Partita IVA", validators=[Optional(), Length(max=20)])
+    telefono = StringField("Telefono", validators=[Optional(), Length(max=30)])
+    email = StringField("Email", validators=[Optional(), Email(), Length(max=120)])
+    attivo = BooleanField("Attivo", default=True)

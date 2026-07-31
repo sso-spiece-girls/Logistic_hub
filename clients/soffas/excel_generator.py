@@ -1,118 +1,71 @@
-from datetime import datetime
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from core.excel_writer import CENTER_ALIGN
-
-BBLUE = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-WHITE_F = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
-NORM_F = Font(name="Calibri", size=10)
-BOLD_F = Font(name="Calibri", size=10, bold=True)
-THIN_B = Border(left=Side(style="thin"), right=Side(style="thin"),
-                top=Side(style="thin"), bottom=Side(style="thin"))
-
-
-def _hdr(ws, row, cols):
-    for c in range(1, cols + 1):
-        cell = ws.cell(row=row, column=c)
-        cell.fill = BBLUE
-        cell.font = WHITE_F
-        cell.alignment = CENTER_ALIGN
-        cell.border = THIN_B
-
-
-MESI = ["AGOSTO", "SETTEMBRE", "OTTOBRE", "NOVEMBRE", "DICEMBRE",
-        "GENNAIO", "FEBBRAIO", "MARZO", "APRILE 2026", "MAGGIO 2026",
-        " GIUGNO 2026", "LUGLIO"]
+from core.excel_writer import apri_o_crea_excel, stile_intestazione, stile_cella, CENTER_ALIGN, crea_backup
+from openpyxl.styles import Font, PatternFill, Alignment
+from copy import copy
 
 
 class SoffasExcelWriter:
+    """Scrive DDT nel file Soffas — inserisce righe prima delle formule SUM."""
+
+    DATA_START_ROW = 18  # Prima riga dati
+    SUM_ROW_OFFSET = 37  # Riga con le formule SUM (prima di inserire)
+
     def __init__(self, config):
         self.cfg = config
 
     def genera_excel(self, ddt_data_list, excel_path):
-        wb = Workbook()
-        self._crea_foglio1(wb, ddt_data_list)
-        for mese in MESI:
-            self._crea_mese(wb, mese)
+        crea_backup(excel_path)
+        wb, esistente = apri_o_crea_excel(excel_path)
+
+        if not esistente:
+            self._crea_struttura_base(wb)
+
+        ws = wb["DDT SOFFAS"] if "DDT SOFFAS" in wb.sheetnames else wb.active
+
+        # Determina dove inserire: appena prima della riga SUM (dopo i dati esistenti)
+        sum_row = self._trova_riga_somma(ws)
+
+        for ddt in ddt_data_list:
+            for art in ddt.get("articoli", []):
+                # Inserisci una riga prima del SUM
+                ws.insert_rows(sum_row, 1)
+                # Copia lo stile della riga precedente
+                self._copia_stile_riga(ws, sum_row - 1, sum_row)
+                # Scrivi i dati
+                stile_cella(ws, sum_row, 3, ddt.get("data", ""), align=CENTER_ALIGN)
+                stile_cella(ws, sum_row, 5, art.get("qta", 0), align=CENTER_ALIGN)
+                sum_row += 1  # La riga SUM si è spostata in giù
+
         wb.save(excel_path)
         return excel_path
 
-    def _crea_foglio1(self, wb, ddt_data_list):
+    def _trova_riga_somma(self, ws):
+        """Trova la prima riga che contiene una formula SUM nella colonna C."""
+        for row in range(self.SUM_ROW_OFFSET, ws.max_row + 1):
+            cell_val = ws.cell(row=row, column=3).value
+            if cell_val and isinstance(cell_val, str) and cell_val.startswith("=SUM"):
+                return row
+        return self.SUM_ROW_OFFSET
+
+    def _copia_stile_riga(self, ws, da_riga, a_riga):
+        """Copia lo stile da una riga all'altra."""
+        for col in range(1, ws.max_column + 1):
+            src = ws.cell(row=da_riga, column=col)
+            dst = ws.cell(row=a_riga, column=col)
+            if src.has_style:
+                dst.font = copy(src.font)
+                dst.border = copy(src.border)
+                dst.fill = copy(src.fill)
+                dst.alignment = copy(src.alignment)
+                dst.number_format = src.number_format
+
+    def _crea_struttura_base(self, wb):
+        """Crea la struttura base se il file non esiste."""
         ws = wb.active
-        ws.title = "Foglio1"
-        headers = ["", "CODICE ARTICOLO", "NUMERO PACKING LIST",
-                    "PARTITA", "LOTTO", "DATA ENTRATA", "DATA USCITA",
-                    "", "TOT. BOBINE", ""]
+        ws.title = "DDT SOFFAS"
+        # Headers
+        headers = ["Data", "DDT", "Qualita", "Bobina", "Peso (Kg)", "Pallet", "Note"]
         for i, h in enumerate(headers, 1):
             ws.cell(row=1, column=i, value=h)
-        _hdr(ws, 1, 10)
-        for col, w in zip("ABCDEFGHIJ", [6, 22, 18, 16, 10, 16, 16, 6, 12, 6]):
-            ws.column_dimensions[col].width = w
-
-        r = 2
-        for ddt in ddt_data_list:
-            extra = ddt.get("extra", {})
-            partita = extra.get("partita", "")
-            lotto = extra.get("lotto", "")
-            packing = extra.get("packing_list", "")
-            codice = ddt.get("ddt", "")
-            data_entrata = ddt.get("data", "")
-            bobine = extra.get("bobine", extra.get("totale_bobine", 6))
-            for b_idx in range(int(bobine or 1)):
-                ws.cell(row=r, column=1, value=r - 1).alignment = CENTER_ALIGN
-                ws.cell(row=r, column=2, value=ddt.get("ddt", "")).alignment = CENTER_ALIGN
-                ws.cell(row=r, column=3, value=packing).alignment = CENTER_ALIGN
-                ws.cell(row=r, column=4, value=partita).alignment = CENTER_ALIGN
-                ws.cell(row=r, column=5, value=lotto).alignment = CENTER_ALIGN
-                ws.cell(row=r, column=6, value=data_entrata).alignment = CENTER_ALIGN
-                r += 1
-            ws.cell(row=r - 1, column=8, value="TOT. BOBINE")
-            ws.cell(row=r - 1, column=9, value=bobine).alignment = CENTER_ALIGN
-
-        ws.cell(row=r + 2, column=8, value="TOT AL 14/08").font = BOLD_F
-
-    def _crea_mese(self, wb, nome_mese):
-        ws = wb.create_sheet(nome_mese)
-        ws.cell(row=1, column=1, value="Pallet Entrati")
-        ws.cell(row=1, column=2, value="Pallet Usciti")
-        ws.cell(row=1, column=4, value="Pallet In deposito")
-        ws.cell(row=1, column=6, value="Prezzo")
-        ws.cell(row=1, column=7, value="Deposito €")
-        ws.cell(row=1, column=8, value="Ingresso a plt")
-        ws.cell(row=1, column=9, value="Uscita a plt")
-        _hdr(ws, 1, 9)
-
-        ws.cell(row=3, column=4, value=0).alignment = CENTER_ALIGN
-        ws.cell(row=3, column=6, value=6750).alignment = CENTER_ALIGN
-        ws.cell(row=3, column=7, value=6.5).alignment = CENTER_ALIGN
-        ws.cell(row=3, column=8, value=6).alignment = CENTER_ALIGN
-        ws.cell(row=3, column=9, value=6).alignment = CENTER_ALIGN
-        ws.cell(row=3, column=10, value="TARIFFE DA CONTRATTO")
-
-        rate = 6
-        ws.cell(row=4, column=1, value="=C33")
-        ws.cell(row=4, column=2, value="=E33")
-        ws.cell(row=4, column=4, value="=D3+A4-B4")
-        ws.cell(row=4, column=6, value=rate).alignment = CENTER_ALIGN
-        ws.cell(row=4, column=7, value=f"=F3*F4")
-        ws.cell(row=4, column=8, value=6).alignment = CENTER_ALIGN
-        ws.cell(row=4, column=9, value=6).alignment = CENTER_ALIGN
-
-        ws.cell(row=7, column=2, value="Entrati plt n.")
-        ws.cell(row=7, column=4, value="=C33")
-        ws.cell(row=7, column=7, value=f"=D7*{rate}")
-        ws.cell(row=8, column=2, value="Usciti plt n.")
-        ws.cell(row=8, column=4, value="=E33")
-        ws.cell(row=8, column=7, value=f"=D8*{rate}")
-        ws.cell(row=9, column=2, value="EXTRA")
-        ws.cell(row=9, column=7, value="=D9*22.5")
-        ws.cell(row=10, column=7, value="=G4+G7+G8+G9")
-
-        ws.cell(row=18, column=2, value="ENTRATI")
-        ws.cell(row=18, column=4, value="USCITI")
-
-        ws.cell(row=33, column=3, value="=SUM(C19:C32)")
-        ws.cell(row=33, column=5, value="=SUM(E19:E32)")
-
-        for col, w in zip("ABCDEFGHIJ", [10, 12, 12, 12, 12, 8, 12, 12, 12, 20]):
+        stile_intestazione(ws, 1, len(headers))
+        for col, w in zip("ABCDEFG", [14, 16, 20, 20, 14, 10, 30]):
             ws.column_dimensions[col].width = w

@@ -1,13 +1,15 @@
+import os
 import threading
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
-from extensions import db
+from flask_wtf.csrf import validate_csrf, CSRFError
+from extensions import db, limiter
 from models import Bolla, DettaglioBolla, Giacenza, Movimento
 from forms import BollaForm
 from routes.auth import log_activity, create_notification, notifica_operatori
-from core.auth_decorators import staff_required
+from core.auth_decorators import staff_required, operativo_required
 from services.bolla_service import (
     calcola_hash_pdf, bolla_esistente_per_hash, crea_bolla, modifica_bolla,
     parse_righe_json, importa_bolla_da_pdf
@@ -18,6 +20,7 @@ entrate = Blueprint("entrate", __name__, url_prefix="/entrate")
 
 @entrate.route("/")
 @login_required
+@operativo_required
 def lista():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
@@ -40,6 +43,7 @@ def lista():
 
 @entrate.route("/nuova", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def nuova():
     form = BollaForm()
     if form.validate_on_submit():
@@ -68,6 +72,7 @@ def nuova():
 
 @entrate.route("/bolla/<int:id>")
 @login_required
+@operativo_required
 def dettaglio(id):
     bolla = Bolla.query.get_or_404(id)
     return render_template("entrate_dettaglio.html", bolla=bolla)
@@ -75,6 +80,7 @@ def dettaglio(id):
 
 @entrate.route("/bolla/<int:id>/modifica", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def modifica(id):
     bolla = Bolla.query.get_or_404(id)
     form = BollaForm(obj=bolla)
@@ -87,12 +93,13 @@ def modifica(id):
 
     import json
     righe_json = json.dumps([{
-        "descrizione": r.articolo_codice or r.descrizione or "",
+        "descrizione": r.descrizione or r.articolo_codice or "",
         "pallet": r.quantita_pallet or 0,
         "quantita": r.quantita_colli or 1,
         "unita_misura": "colli",
         "peso_kg": r.peso_kg or 0,
     } for r in bolla.righe])
+    righe_json = righe_json.replace("</", "<\\/")
     return render_template("entrate_form.html", form=form, titolo="Modifica Bolla",
                            bolla=bolla, righe_json=righe_json)
 
@@ -101,13 +108,13 @@ def modifica(id):
 @login_required
 @staff_required
 def elimina(id):
-    from models import DettaglioBolla, Movimento
+    from services.bolla_service import annulla_giacenza_movimento
     bolla = Bolla.query.get_or_404(id)
     try:
-        # Elimina righe bolla
-        DettaglioBolla.query.filter_by(bolla_id=bolla.id).delete()
-        # Elimina movimenti collegati
-        Movimento.query.filter_by(riferimento_id=bolla.id, riferimento_tipo="bolla").delete()
+        # Ripristina inventario per ogni riga, poi elimina righe e movimenti
+        for riga in list(bolla.righe):
+            annulla_giacenza_movimento(riga, bolla.id)
+            db.session.delete(riga)
         db.session.delete(bolla)
         db.session.commit()
     except Exception:
@@ -134,7 +141,27 @@ def _processa_un_pdf(percorso):
     from core.pdf_extractor import leggi_pdf as pdf_leggi_pdf
     testo = pdf_leggi_pdf(percorso)
 
-    # 1) Fornitore specifico (Base SPA, Saleri, Carrara)
+    # 1) Plugin cliente (La Leccia, Enegan, Elle Group, Soffas, Magis, DAS)
+    #    Deve andare PRIMA dei fornitori perché alcuni PDF cliente (es. La Leccia)
+    #    contengono testo che potrebbe matchare pattern generici fornitore.
+    from clients import riconosci_cliente
+    plugin_cliente = riconosci_cliente(testo)
+    if plugin_cliente:
+        dati = plugin_cliente.parse_ddt(testo)
+        righe = [{"descrizione": a.get("codice", "") + " " + a.get("descrizione", ""), "quantita": a.get("qta", 0), "pallet": 0, "unita_misura": a.get("unita", "PZ"), "peso_kg": 0} for a in dati.get("articoli", [])]
+        data_ddt = dati.get("data", "")
+        # Aggiorna automaticamente il file Excel mensile del cliente (fatturazione)
+        _aggiorna_excel_cliente(plugin_cliente, dati)
+        return {
+            "testo": testo[:2000],
+            "dati": [],
+            "fornitore": plugin_cliente.nome,
+            "numero_bolla": dati.get("ddt", ""),
+            "data_arrivo": _converti_data(data_ddt),
+            "righe": righe,
+        }
+
+    # 2) Fornitore specifico (Base SPA, Saleri, Carrara)
     from fornitori import riconosci_fornitore as riconosci_fornitore_plugin
     p = riconosci_fornitore_plugin(testo)
     if p and p.id != "gen":
@@ -147,22 +174,6 @@ def _processa_un_pdf(percorso):
             "numero_bolla": dati.get("numero_bolla", ""),
             "data_arrivo": _converti_data(dati.get("data_arrivo", "")),
             "righe": dati.get("righe", []),
-        }
-
-    # 2) Plugin cliente (Enegan, Elle Group, Soffas, Magis, DAS, La Leccia)
-    from clients import riconosci_cliente
-    plugin_cliente = riconosci_cliente(testo)
-    if plugin_cliente:
-        dati = plugin_cliente.parse_ddt(testo)
-        righe = [{"descrizione": a.get("codice", "") + " " + a.get("descrizione", ""), "quantita": a.get("qta", 0), "pallet": 0, "unita_misura": a.get("unita", "PZ"), "peso_kg": 0} for a in dati.get("articoli", [])]
-        data_ddt = dati.get("data", "")
-        return {
-            "testo": testo[:2000],
-            "dati": [],
-            "fornitore": plugin_cliente.nome,
-            "numero_bolla": dati.get("ddt", ""),
-            "data_arrivo": _converti_data(data_ddt),
-            "righe": righe,
         }
 
     # 3) Fallback generico
@@ -183,6 +194,26 @@ def _processa_un_pdf(percorso):
 _TEMP_PDF_DIR = None
 _ocr_tasks = {}
 _ocr_tasks_lock = threading.Lock()
+_ocr_semaforo = threading.Semaphore(2)  # max 2 OCR contemporanei
+_excel_locks = {}
+_excel_locks_lock = threading.Lock()
+
+
+def _aggiorna_excel_cliente(plugin, dati):
+    """Aggiorna il file Excel mensile del cliente con i dati del DDT appena parsato.
+    Thread-safe: usa un lock per file Excel per evitare race condition."""
+    try:
+        excel_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "docs", "excel_clienti")
+        os.makedirs(excel_dir, exist_ok=True)
+        excel_path = os.path.join(excel_dir, f"{plugin.id}.xlsx")
+        with _excel_locks_lock:
+            if plugin.id not in _excel_locks:
+                _excel_locks[plugin.id] = threading.Lock()
+            lock = _excel_locks[plugin.id]
+        with lock:
+            plugin.genera_excel([dati], excel_path)
+    except Exception:
+        pass  # Non bloccare l'OCR se la generazione Excel fallisce
 
 
 def _pulisci_ocr_task(task_id):
@@ -191,11 +222,47 @@ def _pulisci_ocr_task(task_id):
 
 
 def _pulisci_vecchie_task():
+    import os as _os
+    ora = datetime.now(timezone.utc).timestamp()
     with _ocr_tasks_lock:
-        ora = datetime.now(timezone.utc).timestamp()
         da_rimuovere = [tid for tid, t in _ocr_tasks.items() if t.get("status") in ("completed", "error") and ora - t.get("ts", 0) > 3600]
         for tid in da_rimuovere:
+            # Delete associated temp PDF
+            temp_id = _ocr_tasks[tid].get("result", {}).get("_temp_id", "")
+            if temp_id and _TEMP_PDF_DIR:
+                p = _os.path.join(_TEMP_PDF_DIR, temp_id + ".pdf")
+                try:
+                    if _os.path.exists(p):
+                        _os.unlink(p)
+                except OSError:
+                    pass
             del _ocr_tasks[tid]
+
+
+def _pulisci_temp_pdf_abbandonati():
+    """Pulisce file PDF temporanei orfani (più di 2 ore) che non hanno più una task associata."""
+    import os as _os
+    if not _TEMP_PDF_DIR or not _os.path.exists(_TEMP_PDF_DIR):
+        return
+    with _ocr_tasks_lock:
+        temp_ids_in_uso = set()
+        for t in _ocr_tasks.values():
+            tid = t.get("result", {}).get("_temp_id", "")
+            if tid:
+                temp_ids_in_uso.add(tid)
+    ora = datetime.now(timezone.utc).timestamp()
+    for fname in _os.listdir(_TEMP_PDF_DIR):
+        if not fname.endswith(".pdf"):
+            continue
+        saved_id = fname[:-4]
+        if saved_id in temp_ids_in_uso:
+            continue
+        fpath = _os.path.join(_TEMP_PDF_DIR, fname)
+        try:
+            if ora - _os.path.getmtime(fpath) > 7200:  # older than 2 hours
+                _os.unlink(fpath)
+        except OSError:
+            pass
 
 
 def _get_temp_pdf_dir():
@@ -209,6 +276,8 @@ def _get_temp_pdf_dir():
 def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
     import os as _os
     from models import Bolla
+    # Limita OCR concorrenti (max 2)
+    _ocr_semaforo.acquire()
     dest = _os.path.join(_get_temp_pdf_dir(), saved_id + ".pdf")
     try:
         res = _processa_un_pdf(dest)
@@ -232,14 +301,22 @@ def _processa_pdf_in_background(task_id, saved_id, filename, flask_app):
     except Exception as e:
         with _ocr_tasks_lock:
             _ocr_tasks[task_id] = {"status": "error", "error": str(e), "filename": filename, "ts": datetime.now(timezone.utc).timestamp()}
+    finally:
+        _ocr_semaforo.release()
 
 
 @entrate.route("/upload-ocr", methods=["POST"])
 @login_required
+@operativo_required
+@limiter.limit("20 per minute")
 def upload_ocr():
     import uuid
     import os as _os
     from flask import current_app
+
+    # Cleanup temp PDFs abbandonati prima di caricare nuovi file
+    _pulisci_temp_pdf_abbandonati()
+
     _app = current_app._get_current_object()
     files = request.files.getlist("file_pdf") or [request.files.get("file_pdf")]
     files = [f for f in files if f and f.filename]
@@ -250,6 +327,13 @@ def upload_ocr():
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
             risultati.append({"filename": file.filename, "error": "Solo PDF"})
+            continue
+        # MIME type validation: check magic bytes %PDF
+        file.stream.seek(0)
+        header = file.read(5)
+        file.stream.seek(0)
+        if header != b"%PDF-":
+            risultati.append({"filename": file.filename, "error": "Il file non è un PDF valido"})
             continue
         saved_id = str(uuid.uuid4())
         task_id = str(uuid.uuid4())
@@ -267,6 +351,7 @@ def upload_ocr():
 
 @entrate.route("/ocr-status/<task_id>")
 @login_required
+@operativo_required
 def ocr_status(task_id):
     _pulisci_vecchie_task()
     with _ocr_tasks_lock:
@@ -296,14 +381,21 @@ def ocr_status(task_id):
 
 @entrate.route("/importa")
 @login_required
+@operativo_required
 def importa():
-    from flask_wtf.csrf import generate_csrf
-    return render_template("entrate_importa.html", csrf_token=generate_csrf())
+    return render_template("entrate_importa.html")
 
 
 @entrate.route("/conferma-importa", methods=["POST"])
 @login_required
+@operativo_required
 def conferma_importa():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     numero_bolla = request.form.get("numero_bolla", "").strip()
     fornitore = request.form.get("fornitore", "").strip()
     if not numero_bolla or not fornitore:
@@ -330,7 +422,14 @@ def conferma_importa():
 
 @entrate.route("/conferma-importa-multi", methods=["POST"])
 @login_required
+@operativo_required
 def conferma_importa_multi():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     import json, os as _os, hashlib, base64
     raw = request.form.get("bolle_json", "")
     if not raw:

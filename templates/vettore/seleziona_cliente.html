@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Seleziona Cliente{% endblock %}
+{% block breadcrumb_title %}Seleziona Cliente{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Benvenuto, {{ current_user.username }}</h1>
+        <p class="page-subtitle">Seleziona per quale cliente vuoi prenotare</p>
+    </div>
+</div>
+
+<div class="cliente-grid" style="display:flex;flex-direction:column;gap:12px;max-width:480px">
+    {% for c in clienti %}
+    <form method="POST" action="{{ url_for('vettore_portale.seleziona_cliente') }}" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="cliente_id" value="{{ c.id }}">
+        <button type="submit" class="cliente-card" style="
+            display:flex;align-items:center;gap:16px;width:100%;padding:16px 20px;
+            border:1px solid var(--border);border-radius:10px;background:var(--surface);
+            cursor:pointer;font:inherit;text-align:left;transition:all .15s;
+        " onmouseover="this.style.borderColor='var(--primary)';this.style.background='var(--surface-hover)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+            <div class="user-avatar" style="width:44px;height:44px;font-size:1rem;flex-shrink:0">
+                {{ c.username[:2].upper() }}
+            </div>
+            <div>
+                <div style="font-weight:600;color:var(--text)">{{ c.username }}</div>
+                <div style="font-size:.8rem;color:var(--text-muted)">Cliente</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;color:var(--primary-light)">
+                <polyline points="9 18 15 12 9 6"/>
+            </svg>
+        </button>
+    </form>
+    {% endfor %}
+</div>
+
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
+    <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost" style="color:var(--text-muted);font-size:.85rem">
+        Esci e scegli un altro account
+    </a>
+</div>
+{% endblock %}

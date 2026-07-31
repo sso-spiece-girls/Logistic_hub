@@ -15,7 +15,7 @@
         <div class="timeline-content">
             <div class="timeline-user">{{ a.user.username }}</div>
             <div class="timeline-action">{{ a.description }}</div>
-            <div class="timeline-time">{{ a.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+            <div class="timeline-time">{{ a.created_at|roma_time }}</div>
         </div>
     </div>
     {% endfor %}

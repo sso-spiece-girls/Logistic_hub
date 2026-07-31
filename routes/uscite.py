@@ -3,10 +3,10 @@ import json
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
-from models import DDT, RigheDDT, Giacenza, db
+from models import DDT, RigheDDT, Giacenza, User, db
 from forms import DDTForm
 from routes.auth import log_activity, create_notification, notifica_operatori
-from core.auth_decorators import staff_required
+from core.auth_decorators import staff_required, operativo_required
 from services.ddt_service import (
     crea_ddt, modifica_ddt, parse_righe_json
 )
@@ -18,11 +18,14 @@ uscite = Blueprint("uscite", __name__, url_prefix="/uscite")
 
 @uscite.route("/")
 @login_required
+@operativo_required
 def lista():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
     stato = request.args.get("stato", "")
-    query = DDT.query.order_by(DDT.created_at.desc())
+    query = DDT.query.options(
+        db.joinedload(DDT.operatore).load_only(User.username),
+    ).order_by(DDT.created_at.desc())
     if stato:
         query = query.filter_by(stato=stato)
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -32,6 +35,7 @@ def lista():
 
 @uscite.route("/api/articoli")
 @login_required
+@operativo_required
 def api_articoli():
     q = request.args.get("q", "").strip()
     if not q or len(q) < 2:
@@ -55,6 +59,7 @@ def api_articoli():
 
 @uscite.route("/api/duplicato")
 @login_required
+@operativo_required
 def api_duplicato():
     from services.ddt_service import controlla_duplicato_giornaliero
     codice = request.args.get("codice", "").strip()
@@ -66,6 +71,7 @@ def api_duplicato():
 
 @uscite.route("/nuovo", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def nuovo():
     form = DDTForm()
     if form.validate_on_submit():
@@ -88,6 +94,7 @@ def nuovo():
 
 @uscite.route("/ddt/<int:id>")
 @login_required
+@operativo_required
 def dettaglio(id):
     ddt = DDT.query.get_or_404(id)
     righe = RigheDDT.query.filter_by(ddt_id=ddt.id).all()
@@ -96,6 +103,7 @@ def dettaglio(id):
 
 @uscite.route("/ddt/<int:id>/modifica", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def modifica(id):
     ddt = DDT.query.get_or_404(id)
     form = DDTForm(obj=ddt)
@@ -119,6 +127,7 @@ def modifica(id):
         "peso_kg": r.peso_kg or 0,
         "ubicazione": r.ubicazione or "",
     } for r in ddt.righe])
+    righe_json = righe_json.replace("</", "<\\/")
 
     return render_template("uscite_form.html", form=form, titolo="Modifica DDT", ddt=ddt,
         righe_json=righe_json)
@@ -141,6 +150,7 @@ def elimina(id):
 
 @uscite.route("/ddt/<int:id>/pdf")
 @login_required
+@operativo_required
 def scarica_pdf(id):
     ddt = DDT.query.get_or_404(id)
     righe = RigheDDT.query.filter_by(ddt_id=ddt.id).all()

@@ -1,16 +1,19 @@
 import os
 import sys
 import time
+from datetime import date, datetime, time as dt_time
+import zoneinfo
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask
+from flask import Flask, request
 from flask_compress import Compress
 from werkzeug.middleware.proxy_fix import ProxyFix
-from extensions import db, login_manager, limiter
+from extensions import db, login_manager, limiter, csrf
 from models import (
     User, Bolla, DDT, Giacenza, Picking, Documento, Activity, Notification, BackupLog,
     Fornitore, Articolo, DettaglioBolla, RigheDDT, Movimento, PickingRiga,
     SlotOrario, Prenotazione, MagazzinoCapienza, TipologiaMateriale,
+    ClienteMagazzino, Vettore, ClienteVettore,
 )
 from routes.auth import auth
 from routes.dashboard import dashboard
@@ -28,6 +31,8 @@ from routes.api import api
 from routes.clienti import clienti
 from routes.prenotazioni import bp as prenotazioni
 from routes.tipologie_materiale import tipologie
+from routes.vettori import vettori
+from routes.vettore_portale import vettore_portale
 from config import Config
 
 
@@ -51,6 +56,102 @@ def _get_cached_notifiche(user_id):
     return unread_count, notifications
 
 
+def _migrate_prenotazioni():
+    """Aggiunge colonne mancanti alla tabella prenotazioni (migrazione senza Alembic)."""
+    from sqlalchemy import text
+    for col, coltype in [("targa", "VARCHAR(20)"), ("ddt_cmr", "VARCHAR(200)"),
+                         ("inserita_da_staff", "BOOLEAN DEFAULT FALSE"),
+                         ("staff_user_id", "INTEGER REFERENCES users(id)"),
+                         ("motivo_rifiuto", "TEXT"),
+                         ("vettore_id", "INTEGER REFERENCES vettori(id)")]:
+        try:
+            db.session.execute(text(f"ALTER TABLE prenotazioni ADD COLUMN IF NOT EXISTS {col} {coltype}"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    # Migrazione per magazzini_capienza
+    try:
+        db.session.execute(text("ALTER TABLE magazzini_capienza ADD COLUMN IF NOT EXISTS durata_slot_minuti INTEGER"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Rimuove il vecchio vincolo UNIQUE (slot_orario_id, data, ora_inizio) sulle
+    # prenotazioni attive. Era un residuo precedente a MagazzinoCapienza.capienza_contemporanea
+    # e al vincolo di sovrapposizione Feature 8 (stesso cliente+magazzino+tipologia).
+    # Oggi nello stesso orario possono coesistere clienti diversi o stesso cliente
+    # con tipologia diversa, limitati solo dalla capienza del magazzino.
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS uq_slot_booking_attivo"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Migrazione per vettori.user_id (collegamento opzionale Vettore → User)
+    try:
+        db.session.execute(text("ALTER TABLE vettori ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_vettori_user_id ON vettori (user_id) WHERE user_id IS NOT NULL"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Rimuove il vincolo UNIQUE su users.email (permette email duplicate e multiple NULL)
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS ix_users_email"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        db.session.execute(text("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    # SQLite: l'auto-index per unique=True si chiama sqlite_autoindex_users_2
+    try:
+        db.session.execute(text("DROP INDEX IF EXISTS sqlite_autoindex_users_2"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Rimuove il prefisso "Autista " dai nomi dei Vettori esistenti (migrazione dati)
+    try:
+        db.session.execute(
+            text("UPDATE vettori SET nome = SUBSTR(nome, 9) WHERE nome LIKE 'Autista %'")
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Rimuove la colonna capienza da slot_orari (capacità ora solo per-magazzino)
+    try:
+        db.session.execute(text("ALTER TABLE slot_orari DROP COLUMN IF EXISTS capienza"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _seed_slot_orari():
+    """Crea gli slot orari default (8-17, Lun-Ven) se non ne esiste nessuno."""
+    from models import SlotOrario
+    from datetime import time as dt_time
+    if SlotOrario.query.first() is not None:
+        return
+    giorni = [0, 1, 2, 3, 4]  # Lun-Ven
+    admin = User.query.filter_by(role="admin").first()
+    admin_id = admin.id if admin else 1
+    for g in giorni:
+        db.session.add(SlotOrario(
+            giorno_settimana=g, ora_inizio=dt_time(8, 0), ora_fine=dt_time(17, 0),
+            durata_minuti=60, attivo=True, creato_da_id=admin_id,
+        ))
+    db.session.commit()
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -62,6 +163,26 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     limiter.init_app(app)
+    csrf.init_app(app)
+
+    # Abilita vincoli foreign key su SQLite (essenziale per ON DELETE SET NULL)
+    if "sqlite" in app.config.get("SQLALCHEMY_DATABASE_URI", ""):
+        from sqlalchemy import event
+        with app.app_context():
+            @event.listens_for(db.engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
+    # Seed: crea tabelle e SlotOrario default (8-13 e 14-17, Lun-Ven)
+    with app.app_context():
+        db.create_all()
+        _migrate_prenotazioni()
+        try:
+            _seed_slot_orari()
+        except Exception:
+            pass  # Non bloccare l'avvio se il seed fallisce
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
@@ -84,6 +205,8 @@ def create_app():
     app.register_blueprint(clienti)
     app.register_blueprint(prenotazioni)
     app.register_blueprint(tipologie)
+    app.register_blueprint(vettori)
+    app.register_blueprint(vettore_portale)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -102,9 +225,28 @@ def create_app():
             "css_mtime": css_mtime,
         }
 
+    @app.template_filter("roma_time")
+    def roma_time_filter(dt, fmt="%d/%m/%Y %H:%M"):
+        """Converte UTC → Europe/Rome e formatta. Gestisce date, time, None e datetime."""
+        if dt is None:
+            return "-"
+        if isinstance(dt, datetime):
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(zoneinfo.ZoneInfo("Europe/Rome"))
+            return dt.strftime(fmt)
+        if isinstance(dt, date):
+            return dt.strftime(fmt)
+        if isinstance(dt, dt_time):
+            return dt.strftime(fmt)
+        return str(dt)
+
     @app.route("/ping")
     def ping():
         return "pong", 200, {"Content-Type": "text/plain"}
+
+    @app.route("/health")
+    def health():
+        return {"status": "ok"}, 200
 
     @app.after_request
     def add_cache_headers(response):
@@ -113,6 +255,16 @@ def create_app():
         if response.content_type and ("text/css" in response.content_type or "application/javascript" in response.content_type or "image/" in response.content_type):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             response.headers["Expires"] = "Thu, 31 Dec 2037 23:55:55 GMT"
+
+        # Security headers (su tutte le risposte)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'",
+        )
+        if request.is_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     return app
@@ -165,7 +317,6 @@ def seed_slot_orari(app):
                 ora_inizio=time(9, 0),
                 ora_fine=time(18, 0),
                 durata_minuti=60,
-                capienza=1,
                 attivo=True,
                 creato_da_id=admin.id,
             )

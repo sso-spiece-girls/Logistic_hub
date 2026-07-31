@@ -33,7 +33,54 @@
                 {{ form.role(class="form-input" + (" is-invalid" if form.role.errors else "")) }}
                 {% if form.role.errors %}<div class="form-error">{% for e in form.role.errors %}{{ e }}{% endfor %}</div>{% endif %}
             </div>
+            <div class="form-group" id="clienti-vettore-field" style="display:none">
+                <label>Clienti associati</label>
+                {% if clienti_disponibili %}
+                <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+                    Seleziona i clienti per cui questo vettore potrà prenotare.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:12px">
+                    {% for c in clienti_disponibili %}
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+                        <input type="checkbox" name="clienti_associati" value="{{ c.id }}"
+                               {% if c.id in clienti_associati_ids %}checked{% endif %}>
+                        <span style="font-size:.9rem">{{ c.username }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="font-size:.85rem;color:var(--text-muted)">Nessun cliente disponibile. Crea prima degli utenti con ruolo Cliente.</p>
+                {% endif %}
+            </div>
         </div>
+        {% if not user or user.role == "cliente" %}
+        <div class="card" style="margin-top:16px;{{ 'display:none' if not user else '' }}" id="magazzini-section">
+            <div class="card-header">
+                <h3>Magazzini associati</h3>
+                <span class="card-link">Seleziona i magazzini a cui il cliente può prenotare</span>
+            </div>
+            <div class="card-body">
+                {% if tutti_magazzini %}
+                <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+                    Se non selezioni nessun magazzino, il cliente vedrà tutti i magazzini disponibili (comportamento attuale).
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:12px">
+                    {% for m in tutti_magazzini %}
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface)">
+                        <input type="checkbox" name="magazzini_associati" value="{{ m.magazzino }}"
+                               {% if m.magazzino in magazzini_associati %}checked{% endif %}>
+                        <span style="font-size:.9rem">{{ m.magazzino }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>Nessun magazzino configurato. Crea prima i magazzini nella sezione Capienza.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
         <div class="form-actions">
             <a href="/users" class="btn btn-ghost">Annulla</a>
             <button type="submit" class="btn btn-primary">Salva</button>
@@ -70,6 +117,7 @@
                     </td>
                     <td class="actions-cell">
                         <form method="POST" action="/users/{{ user.id }}/tipologie/{{ t.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questa tipologia?{% if t.attivo and tipologie|selectattr('id','equalto',t.id)|first %} Sarà disattivata se ci sono prenotazioni attive collegate.{% endif %}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">
                                 {{ 'Elimina' if t.attivo else 'Rimuovi' }}
                             </button>
@@ -101,19 +149,28 @@
 </div>
 {% endif %}
 
-{% if user and user.role == "cliente" %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var roleSelect = document.getElementById('role');
     if (roleSelect) {
-        roleSelect.addEventListener('change', function() {
-            var section = document.getElementById('tipologie-section');
-            if (section) {
-                section.style.display = this.value === 'cliente' ? '' : 'none';
+        function toggleFields() {
+            var val = roleSelect.value;
+            // Sezioni cliente
+            ['tipologie-section', 'magazzini-section'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) {
+                    el.style.display = val === 'cliente' ? '' : 'none';
+                }
+            });
+            // Sezione clienti associati per vettori
+            var clientiField = document.getElementById('clienti-vettore-field');
+            if (clientiField) {
+                clientiField.style.display = val === 'vettore' ? '' : 'none';
             }
-        });
+        }
+        roleSelect.addEventListener('change', toggleFields);
+        toggleFields();
     }
 });
 </script>
-{% endif %}
 {% endblock %}

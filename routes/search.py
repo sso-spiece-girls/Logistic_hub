@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 from models import Bolla, DDT, Giacenza, Picking, db
 
 search = Blueprint("search", __name__)
@@ -11,6 +11,10 @@ def global_search():
     q = request.args.get("q", "").strip()
     if not q:
         return render_template("search.html", results=None, query="")
+
+    # IDOR protection: clienti non possono cercare dati interni
+    if current_user.role == "cliente":
+        return render_template("search.html", results={"bolle": [], "ddt": [], "giacenze": [], "picking": []}, query=q)
 
     query = f"%{q}%"
 
@@ -59,6 +63,10 @@ def global_search():
 def api_search():
     q = request.args.get("q", "").strip()
     if not q or len(q) < 2:
+        return jsonify({"results": []})
+
+    # IDOR protection: clienti non possono cercare dati interni via API
+    if current_user.role == "cliente":
         return jsonify({"results": []})
 
     query = f"%{q}%"

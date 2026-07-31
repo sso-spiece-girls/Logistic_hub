@@ -15,6 +15,7 @@ BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dat
 
 @backup.route("/")
 @login_required
+@admin_required
 def lista():
     backups = BackupLog.query.order_by(BackupLog.created_at.desc()).all()
     ultimo_backup = BackupLog.query.order_by(BackupLog.created_at.desc()).first()

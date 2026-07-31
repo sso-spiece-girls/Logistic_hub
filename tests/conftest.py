@@ -5,6 +5,9 @@ from flask import Flask
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__))))
 
+# Config necessita SECRET_KEY al momento dell'import
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+
 
 @pytest.fixture
 def app():
@@ -24,8 +27,16 @@ def client(app):
 @pytest.fixture
 def db(app):
     from extensions import db as _db
+    from models import User
     with app.app_context():
         _db.create_all()
+        # Crea un utente di base (id=1) per soddisfare le FK su user_id/operatore_id
+        # nei test che usano direttamente app+db senza passare da auth_client.
+        if not User.query.first():
+            seed = User(username="seed", email="seed@test.local", role="admin")
+            seed.set_password("seed")
+            _db.session.add(seed)
+            _db.session.commit()
         yield _db
         _db.drop_all()
 

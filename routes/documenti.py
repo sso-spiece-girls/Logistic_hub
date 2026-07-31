@@ -1,10 +1,12 @@
 import os
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, abort
 from flask_login import login_required, current_user
+from flask_wtf.csrf import validate_csrf, CSRFError
 from werkzeug.utils import secure_filename
 from models import Documento, db
 from routes.auth import log_activity
+from core.auth_decorators import operativo_required
 
 documenti = Blueprint("documenti", __name__, url_prefix="/documenti")
 
@@ -18,6 +20,7 @@ def allowed_file(filename):
 
 @documenti.route("/")
 @login_required
+@operativo_required
 def lista():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
@@ -28,7 +31,14 @@ def lista():
 
 @documenti.route("/carica", methods=["POST"])
 @login_required
+@operativo_required
 def carica():
+    # CSRF validation
+    try:
+        validate_csrf(request.form.get("csrf_token"))
+    except CSRFError:
+        abort(403)
+
     if "file" not in request.files:
         flash("Nessun file selezionato.", "error")
         return redirect(url_for("documenti.lista"))
@@ -43,6 +53,14 @@ def carica():
     entity_id = request.form.get("entity_id", type=int)
 
     if file and allowed_file(file.filename):
+        # MIME type validation for PDF
+        if file.filename.lower().endswith(".pdf"):
+            file.stream.seek(0)
+            header = file.read(5)
+            file.stream.seek(0)
+            if header != b"%PDF-":
+                flash("Il file non è un PDF valido.", "error")
+                return redirect(url_for("documenti.lista"))
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         filename = secure_filename(file.filename)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_")
@@ -73,6 +91,7 @@ def carica():
 
 @documenti.route("/download/<int:id>")
 @login_required
+@operativo_required
 def download(id):
     doc = Documento.query.get_or_404(id)
     if os.path.exists(doc.file_path):

@@ -20,6 +20,7 @@
         </a>
         <a href="/uscite/ddt/{{ ddt.id }}/modifica" class="btn btn-secondary">Modifica</a>
         <form method="POST" action="/uscite/ddt/{{ ddt.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare questo DDT?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger">Elimina</button>
         </form>
     </div>
@@ -37,9 +38,9 @@
                 <dt>Destinatario</dt>
                 <dd>{{ ddt.destinatario or '-' }}</dd>
                 <dt>Data Creazione</dt>
-                <dd>{{ ddt.data_creazione.strftime('%d/%m/%Y %H:%M') }}</dd>
+                <dd>{{ ddt.data_creazione|roma_time }}</dd>
                 <dt>Data Spedizione</dt>
-                <dd>{{ ddt.data_spedizione.strftime('%d/%m/%Y') if ddt.data_spedizione else '-' }}</dd>
+                <dd>{{ ddt.data_spedizione|roma_time('%d/%m/%Y') if ddt.data_spedizione else '-' }}</dd>
                 <dt>Stato</dt>
                 <dd><span class="status-badge status-{{ ddt.stato }}">{{ ddt.stato_label }}</span></dd>
                 <dt>Operatore</dt>

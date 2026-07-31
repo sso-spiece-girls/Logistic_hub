@@ -51,7 +51,7 @@
         <tbody>
             {% for m in pagination.items %}
             <tr>
-                <td>{{ m.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                <td>{{ m.created_at|roma_time }}</td>
                 <td>
                     {% if m.tipo == 'ingresso' %}
                     <span class="status-badge status-completata">Ingresso</span>

@@ -74,6 +74,7 @@
                         <td class="actions-cell">
                             <a href="/giacenze/{{ g.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                             <form method="POST" action="/giacenze/{{ g.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
                             </form>
                         </td>
@@ -126,6 +127,7 @@
                         <td class="actions-cell">
                             <a href="/giacenze/{{ g.id }}/modifica" class="btn btn-sm btn-ghost">Modifica</a>
                             <form method="POST" action="/giacenze/{{ g.id }}/elimina" style="display:inline" onsubmit="return confirm('Eliminare?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button>
                             </form>
                         </td>
@@ -240,6 +242,7 @@ function doSearch() {
                         '<td class="actions-cell">' +
                         '<a href="/giacenze/' + g.id + '/modifica" class="btn btn-sm btn-ghost">Modifica</a> ' +
                         '<form method="POST" action="/giacenze/' + g.id + '/elimina" style="display:inline" onsubmit="return confirm(\'Eliminare?\')">' +
+                        '<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">' +
                         '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
                     tbody.appendChild(tr);
                 });
@@ -260,6 +263,7 @@ function doSearch() {
                     '<td class="actions-cell">' +
                     '<a href="/giacenze/' + g.id + '/modifica" class="btn btn-sm btn-ghost">Modifica</a> ' +
                     '<form method="POST" action="/giacenze/' + g.id + '/elimina" style="display:inline" onsubmit="return confirm(\'Eliminare?\')">' +
+                    '<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">' +
                     '<button type="submit" class="btn btn-sm btn-ghost" style="color:#ef4444">Elimina</button></form></td>';
                 tbody.appendChild(tr);
             });

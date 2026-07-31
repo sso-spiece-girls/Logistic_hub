@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb_title %}{{ titolo }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">{{ titolo }}</h1>
+</div>
+
+<div class="form-card" style="max-width:500px">
+    <form method="POST" class="form">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            <label>Nome vettore</label>
+            {{ form.nome(class="form-input") }}
+            {% if form.nome.errors %}<div class="form-error">{% for e in form.nome.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Partita IVA</label>
+                {{ form.partita_iva(class="form-input") }}
+            </div>
+            <div class="form-group">
+                <label>Telefono</label>
+                {{ form.telefono(class="form-input") }}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            {{ form.email(class="form-input") }}
+            {% if form.email.errors %}<div class="form-error">{% for e in form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-group">
+            <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                {{ form.attivo() }}
+                <span>{{ form.attivo.label.text }}</span>
+            </label>
+        </div>
+        <div class="form-actions">
+            <a href="/vettori" class="btn btn-ghost">Annulla</a>
+            <button type="submit" class="btn btn-primary">Salva</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

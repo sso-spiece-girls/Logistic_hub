@@ -1,3 +1,22 @@
+/* INTERCETTATORE GLOBALE CSRF — inietta X-CSRFToken su fetch same-origin POST/PUT/PATCH/DELETE */
+(function () {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) return;
+  var csrfValue = meta.getAttribute('content');
+  var originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    init = init || {};
+    var method = (init.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      init.headers = new Headers(init.headers || {});
+      if (!init.headers.has('X-CSRFToken')) {
+        init.headers.set('X-CSRFToken', csrfValue);
+      }
+    }
+    return originalFetch.call(this, input, init);
+  };
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
 
   /* SIDEBAR TOGGLE — overlay mode, content non si sposta */
@@ -222,6 +241,19 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   handleMobileSidebar();
   window.addEventListener('resize', handleMobileSidebar);
+
+  /* PASSWORD VISIBILITY TOGGLE */
+  document.querySelectorAll('.password-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = this.parentElement.querySelector('.form-input');
+      if (!input) return;
+      var isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      this.setAttribute('aria-label', isPassword ? 'Nascondi password' : 'Mostra password');
+      this.querySelector('.eye-icon').style.display = isPassword ? 'none' : '';
+      this.querySelector('.eye-off-icon').style.display = isPassword ? '' : 'none';
+    });
+  });
 
   /* INLINE STATUS CHANGE */
   var STATUS_OPTIONS = {

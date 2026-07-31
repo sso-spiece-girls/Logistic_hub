@@ -1,5 +1,6 @@
 import re
 from .base import FornitorePlugin
+from core.normalize import parse_italian_number
 
 
 class GenericoParser(FornitorePlugin):
@@ -55,7 +56,7 @@ class GenericoParser(FornitorePlugin):
             key = m.group(1)
             if key not in visti:
                 visti.add(key)
-                peso = float(m.group(4).replace(",", ".")) if m.group(4) else 0
+                peso = parse_italian_number(m.group(4)) if m.group(4) else 0
                 righe.append({
                     "descrizione": f"PICKING {m.group(1)}",
                     "quantita": int(m.group(3)),
@@ -78,7 +79,7 @@ class GenericoParser(FornitorePlugin):
                     "quantita": int(m.group(3)),
                     "pallet": int(m.group(2)),
                     "unita_misura": "colli",
-                    "peso_kg": float(m.group(4).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(4)),
                 })
 
         # 3) SPLO/code + pallet + kg
@@ -94,7 +95,7 @@ class GenericoParser(FornitorePlugin):
                     "quantita": int(m.group(2)),
                     "pallet": int(m.group(2)),
                     "unita_misura": "pallet",
-                    "peso_kg": float(m.group(3).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(3)),
                 })
 
         # 4) 6+ digit code + pallet + kg (only if no SPLO matched already)
@@ -111,7 +112,7 @@ class GenericoParser(FornitorePlugin):
                         "quantita": 0,
                         "pallet": 0,
                         "unita_misura": "pallet",
-                        "peso_kg": float(m.group(2).replace(",", ".")),
+"peso_kg": parse_italian_number(m.group(2)),
                     })
 
         # 5) code — N colli
@@ -143,7 +144,7 @@ class GenericoParser(FornitorePlugin):
                     "quantita": int(m.group(1)),
                     "pallet": 0,
                     "unita_misura": "colli",
-                    "peso_kg": float(m.group(2).replace(",", ".")),
+                    "peso_kg": parse_italian_number(m.group(2)),
                 })
 
         return righe

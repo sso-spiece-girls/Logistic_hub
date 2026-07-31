@@ -7,7 +7,7 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 import clients as client_loader
 from core.pdf_extractor import leggi_pdf
-from core.auth_decorators import staff_required
+from core.auth_decorators import staff_required, operativo_required
 
 clienti = Blueprint("clienti", __name__, url_prefix="/clienti")
 
@@ -18,6 +18,7 @@ def _get_excel_dir():
 
 @clienti.route("/")
 @login_required
+@operativo_required
 def elenco():
     plugins = client_loader.get_all_plugins()
     return render_template("clienti/elenco.html", plugins=plugins)
@@ -25,6 +26,7 @@ def elenco():
 
 @clienti.route("/<id_cliente>")
 @login_required
+@operativo_required
 def dettaglio(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:
@@ -55,6 +57,7 @@ def dettaglio(id_cliente):
 
 @clienti.route("/<id_cliente>/upload", methods=["GET", "POST"])
 @login_required
+@operativo_required
 def upload_ddt(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:
@@ -113,6 +116,7 @@ def upload_ddt(id_cliente):
 
 @clienti.route("/<id_cliente>/anteprima", methods=["POST"])
 @login_required
+@operativo_required
 def anteprima_parser(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:
@@ -140,6 +144,7 @@ def anteprima_parser(id_cliente):
 
 @clienti.route("/<id_cliente>/excel")
 @login_required
+@operativo_required
 def scarica_excel(id_cliente):
     import shutil
     from pathlib import Path
@@ -200,6 +205,7 @@ def _aggiungi_excel(excel_path, nuovi_valori):
 
 @clienti.route("/<id_cliente>/modifica-riga", methods=["POST"])
 @login_required
+@operativo_required
 def modifica_riga(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:
@@ -252,6 +258,7 @@ def elimina_riga(id_cliente):
 
 @clienti.route("/importa-excel")
 @login_required
+@operativo_required
 def import_excel():
     """Pagina per selezionare cliente e importare Excel."""
     plugins = client_loader.get_all_plugins()
@@ -260,6 +267,7 @@ def import_excel():
 
 @clienti.route("/<id_cliente>/importa-excel", methods=["POST"])
 @login_required
+@operativo_required
 def esegui_import_excel(id_cliente):
     """Importa un file Excel per il cliente, aggiornando le giacenze."""
     plugin = client_loader.get_plugin(id=id_cliente)
@@ -294,6 +302,7 @@ def esegui_import_excel(id_cliente):
 
 @clienti.route("/<id_cliente>/aggiungi-riga", methods=["POST"])
 @login_required
+@operativo_required
 def aggiungi_riga(id_cliente):
     plugin = client_loader.get_plugin(id=id_cliente)
     if not plugin:

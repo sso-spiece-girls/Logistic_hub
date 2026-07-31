@@ -128,6 +128,73 @@ function addRiga(riga) {
     syncRigheJson();
 }
 
+function pollSingleOcr(taskId, statusEl, resultEl) {
+    var startTime = Date.now();
+    var TIMEOUT = 60000;
+
+    (function poll() {
+        if (Date.now() - startTime > TIMEOUT) {
+            statusEl.style.display = 'none';
+            resultEl.style.display = 'block';
+            resultEl.className = 'notif-strip-item notif-error';
+            resultEl.textContent = 'Timeout OCR: l\'elaborazione ha impiegato troppo tempo. Riprova.';
+            return;
+        }
+
+        fetch('/entrate/ocr-status/' + taskId)
+            .then(function(r) { return r.json(); })
+            .then(function(status) {
+                if (status.status === 'completed') {
+                    statusEl.style.display = 'none';
+                    populateOcrResult(status, resultEl);
+                } else if (status.status === 'error') {
+                    statusEl.style.display = 'none';
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-error';
+                    resultEl.textContent = 'Errore OCR: ' + (status.error || 'errore sconosciuto');
+                } else {
+                    setTimeout(poll, 1500);
+                }
+            })
+            .catch(function() {
+                setTimeout(poll, 1500);
+            });
+    })();
+}
+
+function populateOcrResult(data, resultEl) {
+    var compilati = [];
+    if (data.fornitore) {
+        document.getElementById('campo-fornitore').value = data.fornitore;
+        compilati.push('Fornitore: ' + data.fornitore);
+    }
+    if (data.numero_bolla) {
+        document.getElementById('campo-numero-bolla').value = data.numero_bolla;
+        compilati.push('N. Bolla: ' + data.numero_bolla);
+    }
+    if (data.data_arrivo) {
+        document.getElementById('campo-data').value = data.data_arrivo;
+        compilati.push('Data: ' + data.data_arrivo);
+    }
+
+    var righe = data.righe || [];
+    if (righe.length > 0) {
+        document.getElementById('righe-body').innerHTML = '';
+        righe.forEach(function(r) { addRiga(r); });
+        compilati.push('Articoli: ' + righe.length + ' righe trovate');
+    }
+
+    if (compilati.length > 0) {
+        resultEl.style.display = 'block';
+        resultEl.className = 'notif-strip-item notif-success';
+        resultEl.innerHTML = '<strong>Campi compilati automaticamente:</strong><br>' + compilati.join('<br>');
+    } else {
+        resultEl.style.display = 'block';
+        resultEl.className = 'notif-strip-item notif-warning';
+        resultEl.textContent = 'Nessun campo estratto dal PDF. Compila manualmente.';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-add-riga').addEventListener('click', function() {
         addRiga({descrizione: '', pallet: 0, quantita: 1, unita_misura: 'colli', peso_kg: 0});
@@ -160,46 +227,36 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/entrate/upload-ocr', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                statusEl.style.display = 'none';
                 if (data.error) {
+                    statusEl.style.display = 'none';
                     resultEl.style.display = 'block';
                     resultEl.className = 'notif-strip-item notif-error';
                     resultEl.textContent = 'Errore OCR: ' + data.error;
                     return;
                 }
 
-                var compilati = [];
-                if (data.fornitore) {
-                    document.getElementById('campo-fornitore').value = data.fornitore;
-                    compilati.push('Fornitore: ' + data.fornitore);
-                }
-                if (data.numero_bolla) {
-                    document.getElementById('campo-numero-bolla').value = data.numero_bolla;
-                    compilati.push('N. Bolla: ' + data.numero_bolla);
-                }
-                if (data.data_arrivo) {
-                    document.getElementById('campo-data').value = data.data_arrivo;
-                    compilati.push('Data: ' + data.data_arrivo);
+                var risultati = data.risultati || [];
+                if (risultati.length === 0) {
+                    statusEl.style.display = 'none';
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-error';
+                    resultEl.textContent = 'Errore OCR: nessun risultato dal server.';
+                    return;
                 }
 
-                var righe = data.righe || [];
-                if (righe.length > 0) {
-                    document.getElementById('righe-body').innerHTML = '';
-                    righe.forEach(function(r) { addRiga(r); });
-                    compilati.push('Articoli: ' + righe.length + ' righe trovate');
+                var primo = risultati[0];
+                if (primo.error) {
+                    statusEl.style.display = 'none';
+                    resultEl.style.display = 'block';
+                    resultEl.className = 'notif-strip-item notif-error';
+                    resultEl.textContent = 'Errore OCR: ' + primo.error;
+                    return;
                 }
 
-                if (compilati.length > 0) {
-                    resultEl.style.display = 'block';
-                    resultEl.className = 'notif-strip-item notif-success';
-                    resultEl.innerHTML = '<strong>Campi compilati automaticamente:</strong><br>' + compilati.join('<br>');
-                } else {
-                    resultEl.style.display = 'block';
-                    resultEl.className = 'notif-strip-item notif-warning';
-                    resultEl.textContent = 'Nessun campo estratto dal PDF. Compila manualmente.';
-                }
+                // Polling asincrono sul task OCR
+                pollSingleOcr(primo.task_id, statusEl, resultEl);
             })
-            .catch(function(err) {
+            .catch(function() {
                 statusEl.style.display = 'none';
                 resultEl.style.display = 'block';
                 resultEl.className = 'notif-strip-item notif-error';

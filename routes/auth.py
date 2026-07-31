@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, after_this_request
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Activity, Notification, db
 from forms import LoginForm
@@ -14,6 +14,8 @@ def login():
     if current_user.is_authenticated:
         if current_user.role == "cliente":
             return redirect(url_for("prenotazioni.calendario"))
+        if current_user.role == "vettore":
+            return redirect(url_for("vettore_portale.seleziona_cliente"))
         return redirect(url_for("dashboard.index"))
 
     form = LoginForm()
@@ -28,15 +30,14 @@ def login():
             user.last_login = datetime.now(timezone.utc)
             db.session.commit()
 
-            @after_this_request
-            def _post_login(response):
-                log_activity(user.id, "login", f"{user.username} ha effettuato l'accesso")
-                notifica_operatori("Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
-                return response
+            log_activity(user.id, "login", f"{user.username} ha effettuato l'accesso")
+            notifica_operatori("Accesso effettuato", f"{user.username} ha effettuato l'accesso", "info")
 
             next_page = request.args.get("next")
             if user.role == "cliente":
                 return redirect(next_page or url_for("prenotazioni.calendario"))
+            if user.role == "vettore":
+                return redirect(next_page or url_for("vettore_portale.seleziona_cliente"))
             return redirect(next_page or url_for("dashboard.index"))
         else:
             flash("Credenziali non valide.", "error")
@@ -52,7 +53,7 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
-@auth.route("/notifiche/marca/<int:notifica_id>")
+@auth.route("/notifiche/marca/<int:notifica_id>", methods=["POST"])
 @login_required
 def mark_notification(notifica_id):
     notifica = Notification.query.get_or_404(notifica_id)
@@ -68,7 +69,7 @@ def mark_notification(notifica_id):
     return redirect(request.referrer or url_for("dashboard.index"))
 
 
-@auth.route("/notifiche/marca-tutte")
+@auth.route("/notifiche/marca-tutte", methods=["POST"])
 @login_required
 def mark_all_notifications():
     notifications = Notification.query.filter(

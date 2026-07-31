@@ -53,8 +53,8 @@ def controlla_duplicato_giornaliero(codice):
     return None
 
 
-def scarica_giacenza_atomico(art_codice, colli_da_scaricare, peso_da_scaricare, operatore_id):
-    if colli_da_scaricare == 0 and peso_da_scaricare == 0:
+def scarica_giacenza_atomico(art_codice, colli_da_scaricare, peso_da_scaricare, operatore_id, pallet_da_scaricare=0):
+    if colli_da_scaricare == 0 and peso_da_scaricare == 0 and pallet_da_scaricare == 0:
         return True
     stmt = sa_update(Giacenza)
     conditions = [Giacenza.codice_articolo == art_codice]
@@ -62,18 +62,24 @@ def scarica_giacenza_atomico(art_codice, colli_da_scaricare, peso_da_scaricare, 
     if colli_da_scaricare > 0:
         conditions.append(Giacenza.colli >= colli_da_scaricare)
         values["colli"] = Giacenza.colli - colli_da_scaricare
+        values["quantita"] = Giacenza.quantita - colli_da_scaricare
     if peso_da_scaricare > 0:
         conditions.append(Giacenza.peso_kg >= peso_da_scaricare)
         values["peso_kg"] = Giacenza.peso_kg - peso_da_scaricare
+    if pallet_da_scaricare > 0:
+        conditions.append(Giacenza.pallet >= pallet_da_scaricare)
+        values["pallet"] = Giacenza.pallet - pallet_da_scaricare
     risultato = db.session.execute(stmt.where(*conditions).values(**values))
     return risultato.rowcount > 0
 
 
-def ripristina_giacenza(art_codice, colli, peso):
+def ripristina_giacenza(art_codice, colli, peso, pallet=0):
     giac = Giacenza.query.filter_by(codice_articolo=art_codice).first()
     if giac:
         giac.colli = (giac.colli or 0) + colli
+        giac.pallet = (giac.pallet or 0) + pallet
         giac.peso_kg = (giac.peso_kg or 0) + peso
+        giac.quantita = (giac.quantita or 0) + colli
 
 
 def crea_ddt(form, request_form, operatore_id):
@@ -116,7 +122,8 @@ def crea_ddt(form, request_form, operatore_id):
 
         colli = int(r.get("quantita_colli", 0))
         peso = float(r.get("peso_kg", 0))
-        ok = scarica_giacenza_atomico(art_codice, colli, peso, operatore_id)
+        pallet = int(r.get("quantita_pallet", 0))
+        ok = scarica_giacenza_atomico(art_codice, colli, peso, operatore_id, pallet)
         if not ok:
             db.session.rollback()
             return None, [f"Stock insufficiente per {art_codice} durante la creazione"]
@@ -172,6 +179,7 @@ def modifica_ddt(ddt, form, request_form, operatore_id):
             vecchia.articolo_codice,
             vecchia.quantita_colli or 0,
             vecchia.peso_kg or 0,
+            vecchia.quantita_pallet or 0,
         )
         Movimento.query.filter_by(
             riferimento_id=ddt.id,
@@ -198,7 +206,8 @@ def modifica_ddt(ddt, form, request_form, operatore_id):
 
         colli = int(r.get("quantita_colli", 0))
         peso = float(r.get("peso_kg", 0))
-        ok = scarica_giacenza_atomico(art_codice, colli, peso, operatore_id)
+        pallet = int(r.get("quantita_pallet", 0))
+        ok = scarica_giacenza_atomico(art_codice, colli, peso, operatore_id, pallet)
         if not ok:
             db.session.rollback()
             return None, [f"Stock insufficiente per {art_codice} durante la modifica"]
