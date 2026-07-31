@@ -13,6 +13,8 @@ dashboard = Blueprint("dashboard", __name__)
 def index():
     if current_user.role == "cliente":
         return redirect(url_for("prenotazioni.calendario"))
+    if current_user.role == "vettore":
+        return redirect(url_for("vettore_portale.seleziona_cliente"))
     today = datetime.now(timezone.utc).date()
 
     row = db.session.execute(
