@@ -31,12 +31,18 @@ def _giorno_bloccato_dopo_14():
     return oggi + timedelta(days=1)
 
 
-def _slot_disponibili(regola, giorno):
+def _slot_disponibili(regola, giorno, magazzini_cliente=None, prenotazioni_lookup=None, capienze=None):
     """Restituisce lista di dict {ora_inizio, ora_fine, disponibile} per una regola in un dato giorno.
 
-    La capienza è per-magazzino, non globale: il controllo effettivo
-    avviene in `prenota()` che filtra per magazzino. Qui mostriamo
-    sempre tutti gli slot come prenotabili.
+    Quando chiamata con magazzini_cliente=None (admin_calendario o chiamate
+    senza contesto cliente), disponibile=True per tutti gli slot (la vista
+    admin gestisce la capienza separatamente con _consolida_admin).
+
+    Quando chiamata con magazzini_cliente (calendario cliente), calcola
+    disponibile in base alla capienza residua nei magazzini visibili al
+    cliente, usando lo stesso criterio di overlap orario di prenota().
+    Le strutture prenotazioni_lookup e capienze devono essere precalcolate
+    dal chiamante (una query unica, non N+1).
     """
     slots = []
     cur = datetime.combine(giorno, regola.ora_inizio)
@@ -46,11 +52,27 @@ def _slot_disponibili(regola, giorno):
     while cur + step <= fine:
         oi = cur.time()
         of = (cur + step).time()
+        if magazzini_cliente is None:
+            # admin_calendario() o chiamata senza contesto cliente
+            disponibile = True
+        else:
+            # calendario cliente: True se almeno un magazzino ha capienza
+            disponibile = False
+            for mag in magazzini_cliente:
+                capienza = (capienze or {}).get(mag, 999)
+                prenotazioni_giorno_mag = (prenotazioni_lookup or {}).get((giorno, mag), [])
+                occupate = sum(
+                    1 for p in prenotazioni_giorno_mag
+                    if p.ora_inizio < of and p.ora_fine > oi
+                )
+                if occupate < capienza:
+                    disponibile = True
+                    break
         slots.append({
             "slot_orario_id": regola.id,
             "ora_inizio": oi.strftime("%H:%M"),
             "ora_fine": of.strftime("%H:%M"),
-            "disponibile": True,
+            "disponibile": disponibile,
         })
         cur += step
     return slots
@@ -174,6 +196,26 @@ def calendario():
     regole = SlotOrario.query.filter_by(attivo=True).all()
     oggi = date.today()
     giorno_bloccato = _giorno_bloccato_dopo_14()
+    # Precalcola magazzini, capienze e prenotazioni PRIMA del ciclo giorni
+    # (una sola query, non N+1 per ogni slot generato)
+    magazzini_cliente = _magazzini_per_cliente(cliente_id)
+    capienze = {
+        m.magazzino: m.capienza_contemporanea
+        for m in MagazzinoCapienza.query.filter(
+            MagazzinoCapienza.magazzino.in_(magazzini_cliente)
+        ).all()
+    } if magazzini_cliente else {}
+    range_fine = oggi + timedelta(days=30)  # copre safety cap i < 30
+    prenotazioni_lookup = {}
+    if magazzini_cliente:
+        prenotazioni_range = Prenotazione.query.filter(
+            Prenotazione.magazzino.in_(magazzini_cliente),
+            Prenotazione.data >= oggi,
+            Prenotazione.data <= range_fine,
+            Prenotazione.stato.in_(["in_attesa", "confermata"]),
+        ).all()
+        for p in prenotazioni_range:
+            prenotazioni_lookup.setdefault((p.data, p.magazzino), []).append(p)
     slots_per_giorno = {}
     # Itera fino a 14 giorni VISIBILI, saltando completamente
     # il giorno bloccato (dopo le 14:00 non si vede più il giorno successivo).
@@ -189,7 +231,7 @@ def calendario():
         for r in regole:
             if g.weekday() != r.giorno_settimana:
                 continue
-            for s in _slot_disponibili(r, g):
+            for s in _slot_disponibili(r, g, magazzini_cliente, prenotazioni_lookup, capienze):
                 # Prenotabile solo se disponibile e nel futuro
                 prenotabile = s["disponibile"] and g > oggi
                 s["prenotabile"] = prenotabile
@@ -204,8 +246,7 @@ def calendario():
     tipologie_attive = TipologiaMateriale.query.filter_by(cliente_id=cliente_id, attivo=True).all()
     form = PrenotazioneForm()
     form.tipologia_materiale_id.choices = [(t.id, f"{t.nome} ({t.durata_minuti} min)") for t in tipologie_attive]
-    # Popola il dropdown magazzino — filtra per associazioni se presenti
-    magazzini_cliente = _magazzini_per_cliente(cliente_id)
+    # Popola il dropdown magazzino — riusa magazzini_cliente già calcolato sopra
     if magazzini_cliente:
         form.magazzino.choices = [(m, m) for m in magazzini_cliente]
     else:
