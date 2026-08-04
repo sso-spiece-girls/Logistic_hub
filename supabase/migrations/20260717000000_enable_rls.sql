@@ -32,8 +32,8 @@ BEGIN
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
         EXECUTE format('
-            DROP POLICY IF EXISTS ''allow_all_%s'' ON %I;
-            CREATE POLICY allow_all_%s ON %I
+            DROP POLICY IF EXISTS allow_all_%I ON %I;
+            CREATE POLICY allow_all_%I ON %I
                 FOR ALL
                 USING (true)
                 WITH CHECK (true);
