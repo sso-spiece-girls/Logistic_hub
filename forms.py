@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, TextAreaField, DateField, FloatField, IntegerField, FieldList, FormField, BooleanField, HiddenField
-from wtforms.validators import DataRequired, Length, Email, Optional, NumberRange
+from wtforms.validators import DataRequired, Length, Email, Optional, NumberRange, ValidationError
 
 MAGAZZINI = [
     ("", "--- Seleziona ---"),
@@ -24,10 +24,19 @@ class LoginForm(FlaskForm):
     password = PasswordField("Password", validators=[DataRequired()])
 
 
+def _password_varieta(form, field):
+    """Validatore: password deve contenere almeno una lettera e una cifra."""
+    val = field.data
+    if not any(c.isalpha() for c in val):
+        raise ValidationError("La password deve contenere almeno una lettera.")
+    if not any(c.isdigit() for c in val):
+        raise ValidationError("La password deve contenere almeno una cifra.")
+
+
 class UserForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired(), Length(min=3, max=64)])
     email = StringField("Email", validators=[Optional(), Email()])
-    password = PasswordField("Password", validators=[DataRequired(), Length(min=4)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=128), _password_varieta])
     role = SelectField("Ruolo", choices=[
         ("operatore", "Operatore"),
         ("ufficio", "Ufficio"),

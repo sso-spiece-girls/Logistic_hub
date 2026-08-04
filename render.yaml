@@ -13,6 +13,8 @@ services:
         value: admin@logistichub.local
       - key: PYTHON_VERSION
         value: 3.12.9
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
       - key: DATABASE_URL
         sync: false
     disk:
